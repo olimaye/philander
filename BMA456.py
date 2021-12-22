@@ -829,6 +829,24 @@ class BMA456( SerialDevice, Sensor ):
     # Overridden Sensor functions
     #
 
+    def _scanParameters( self, paramDict ):
+        if not ("SerialDevice.busType" in paramDict):
+            paramDict["SerialDevice.busType"] = SerialDevice.BUSTYPE_I2C
+        if not ("SerialDevice.busDesignator" in paramDict):
+            paramDict["SerialDevice.busDesignator"] = "/dev/i2c-1"
+        if not ("SerialDevice.deviceAddress" in paramDict):
+            paramDict["SerialDevice.deviceAddress"] = BMA456._ADRESSES_ALLOWED[0]
+        else:
+            da = paramDict["SerialDevice.deviceAddress"]
+            if not (da in BMA456._ADRESSES_ALLOWED):
+                da = BMA456._ADRESSES_ALLOWED[da!=0]   
+                paramDict["SerialDevice.deviceAddress"] = da
+        if not ("Sensor.dataRange" in paramDict):
+            paramDict["Sensor.dataRange"] = BMA456.ACC_RANGE_DEFAULT
+        if not ("Sensor.dataRate" in paramDict):
+            paramDict["Sensor.dataRate"] = BMA456.ACC_DATARATE_DEFAULT
+        Sensor._scanParameters( self, paramDict )
+
     #
     # Constructor
     # The only input parameter is a dictionary containing key-value pairs that
@@ -840,22 +858,6 @@ class BMA456( SerialDevice, Sensor ):
     # dataRate     : One of the BMA456.ACC_DATARATE_xxx values to set the frequency.
     def __init__( self, paramDict ):
         # Set defaults, where necessary
-        if not ("busType" in paramDict):
-            paramDict["busType"] = SerialDevice.BUSTYPE_I2C
-        if not ("busDesignator" in paramDict):
-            paramDict["busDesignator"] = "/dev/i2c-1"
-        if not ("deviceAddress" in paramDict):
-            paramDict["deviceAddress"] = BMA456._ADRESSES_ALLOWED[0]
-        else:
-            da = paramDict["deviceAddress"]
-            if not (da in BMA456._ADRESSES_ALLOWED):
-                da = BMA456._ADRESSES_ALLOWED[da!=0]   
-                paramDict["deviceAddress"] = da
-        if not ("dataRange" in paramDict):
-            paramDict["dataRange"] = BMA456.ACC_RANGE_DEFAULT
-        if not ("dataRate" in paramDict):
-            paramDict["dataRate"] = BMA456.ACC_DATARATE_DEFAULT
-                
         self.scale_mg = 1
         SerialDevice.__init__(self, paramDict)
         Sensor.__init__(self, paramDict)

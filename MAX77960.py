@@ -1,7 +1,8 @@
 from SerialDevice import SerialDevice
 from BatteryCharger import BatteryCharger
+from Watchdog import Watchdog
 
-class MAX77960( SerialDevice, BatteryCharger ):
+class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     #
     # Protectd / private attributes
     #
@@ -750,6 +751,27 @@ class MAX77960( SerialDevice, BatteryCharger ):
         return ret
             
     #
+    # Configurable API
+    #
+    
+    def _scanParameters( self, paramDict ):
+        # Base class parameter: serial device
+        if not ("SerialDevice.busType" in paramDict):
+            paramDict["SerialDevice.busType"] = SerialDevice.BUSTYPE_I2C
+        if not ("SerialDevice.busDesignator" in paramDict):
+            paramDict["SerialDevice.busDesignator"] = "/dev/i2c-1"
+        if not ("SerialDevice.deviceAddress" in paramDict):
+            paramDict["SerialDevice.deviceAddress"] = MAX77960._ADRESSES_ALLOWED[0]
+        SerialDevice._scanParameters( self, paramDict )
+        BatteryCharger._scanParameters( self, paramDict )
+        Watchdog._scanParameters( self, paramDict )
+
+    def _applyConfiguration( self ):
+        SerialDevice._applyConfiguration(self)
+        BatteryCharger._applyConfiguration(self)
+        Watchdog._applyConfiguration(self)
+
+    #
     # Constructor
     # The only input parameter is a dictionary containing key-value pairs that
     # configure the instance. Regarded key names and their meanings are:
@@ -757,20 +779,10 @@ class MAX77960( SerialDevice, BatteryCharger ):
     # busDesignator: The bus designator. May be a name or number, such as "/dev/i2c-3" or 1.
     # deviceAddress: The I2C address (0x69).
     def __init__( self, paramDict ):
-        # Set defaults, where necessary
-        # Base class parameter: serial device
-        if not ("busType" in paramDict):
-            paramDict["busType"] = SerialDevice.BUSTYPE_I2C
-        if not ("busDesignator" in paramDict):
-            paramDict["busDesignator"] = "/dev/i2c-1"
-        if not ("deviceAddress" in paramDict):
-            paramDict["deviceAddress"] = MAX77960._ADRESSES_ALLOWED[0]
-        # This class parameter
-
-        # initialize local attributes
-        
         # Call constructors of the super class
         SerialDevice.__init__(self, paramDict)
+        BatteryCharger.__init__(self, paramDict)
+        Watchdog.__init__(self, paramDict)
 
     #
     # Initializes the device. Is automatically called while instantiating
@@ -788,11 +800,24 @@ class MAX77960( SerialDevice, BatteryCharger ):
         except OSError:
             pass
         
+        BatteryCharger.init(self)
+        Watchdog.init(self)
+        
+    #
+    # Re-configures the instance according to the parameters provided.
+    # As with the constructor, the only parameter is the configuration dictionary.
+    #
+    def configure(self, paramDict):
+        BatteryCharger.configure( self, paramDict )
+        Watchdog.configure( self, paramDict )
+    
     #
     # Just closes the device. Should be called at the end of a program.
     #
     def close(self):
         SerialDevice.close(self)
+        BatteryCharger.close(self)
+        Watchdog.close(self)
 
     #
     # Soft resets the device. The device is in some default state, afterwards and
@@ -888,12 +913,16 @@ class MAX77960( SerialDevice, BatteryCharger ):
     # Raises RuntimeError in case the information cannot be determined.
     #
     def getPowerSrc(self):
-        data = self.getReg( MAX77960._REG_CHG_DETAILS_00 )
-        data = data & MAX77960._CHGIN_DTLS
-        if data == MAX77960._CHGIN_DTLS_GOOD:
-            ret = BatteryCharger.PWR_SRC_DC_BAT
-        else:
-            ret = BatteryCharger.PWR_SRC_BAT_ONLY
+        ret = BatteryCharger.PWR_SRC_NONE
+        dtls0 = self.getReg( MAX77960._REG_CHG_DETAILS_00 )
+        chgin = dtls0 & MAX77960._CHGIN_DTLS
+        qbat = dtls0 & MAX77960._QB_DTLS
+        if chgin == MAX77960._CHGIN_DTLS_GOOD:
+            # Valid CHGIN, so external power is the primary source
+            ret = ret | BatteryCharger.PWR_SRC_DC
+        if qbat:
+            ret = ret | BatteryCharger.PWR_SRC_BAT
+        return ret
 
     #
     # Retrieves the charger's temperature state.
@@ -901,8 +930,18 @@ class MAX77960( SerialDevice, BatteryCharger ):
     # Raises RuntimeError in case the information cannot be determined.
     #
     def getChargerTempState(self):
-        pass
-
+        ret = BatteryCharger.TEMP_OK
+        dtls1 = self.getReg( MAX77960._REG_CHG_DETAILS_01 )
+        chg = dtls1 & MAX77960._CHG_DTLS
+        if chg == MAX77960._CHG_DTLS_OFF_TEMP:
+            ret = BatteryCharger.TEMP_HOT
+        else:
+            treg = dtls1 & MAX77960._TREG
+            if treg:
+                ret = BatteryCharger.TEMP_WARM
+            else:
+                ret = BatteryCharger.TEMP_OK
+        return ret
 
     #
     # Retrieves the battery's temperature state.
@@ -910,7 +949,22 @@ class MAX77960( SerialDevice, BatteryCharger ):
     # Raises RuntimeError in case the information cannot be determined.
     #
     def getBatteryTempState(self):
-        pass
+        ret = BatteryCharger.TEMP_COLD
+        dtls2 = self.getReg( MAX77960._REG_CHG_DETAILS_02 )
+        thm = dtls2 & MAX77960._THM_DTLS
+        if thm == MAX77960._THM_DTLS_COLD:
+            ret = BatteryCharger.TEMP_COLD
+        elif thm == MAX77960._THM_DTLS_COOL:
+            ret = BatteryCharger.TEMP_COOL
+        elif thm == MAX77960._THM_DTLS_NORMAL:
+            ret = BatteryCharger.TEMP_OK
+        elif thm == MAX77960._THM_DTLS_WARM:
+            ret = BatteryCharger.TEMP_WARM
+        elif thm == MAX77960._THM_DTLS_HOT:
+            ret = BatteryCharger.TEMP_HOT
+        else:
+            raise RuntimeError('Thermistor disabled or battery removed.')
+        return ret
 
     #
     # Determines the error state, if one.
@@ -918,21 +972,50 @@ class MAX77960( SerialDevice, BatteryCharger ):
     # Raises RuntimeError in case the information cannot be determined.
     #
     def getError(self):
-        pass
+        ret = BatteryCharger.ERR_OK
+        dtls1 = self.getReg( MAX77960._REG_CHG_DETAILS_01 )
+        chg = dtls1 & MAX77960._CHG_DTLS
+        if chg == MAX77960._CHG_DTLS_OFF_RESIST:
+            ret = BatteryCharger.ERR_CONFIG
+        elif chg == MAX77960._CHG_DTLS_E_TIMER:
+            ret = BatteryCharger.ERR_TIMER
+        elif chg == MAX77960._CHG_DTLS_SUSP_QBAT:
+            ret = BatteryCharger.ERR_BAT_BROKEN
+        elif chg == MAX77960._CHG_DTLS_OFF_CHGIN:
+            dtls0 = self.getReg( MAX77960._REG_CHG_DETAILS_00 )
+            chgin = dtls0 & MAX77960._CHG_DTLS
+            if chgin == MAX77960._CHGIN_DTLS_TOO_HIGH:
+                ret = BatteryCharger.ERR_DC_HIGH
+            elif chgin == MAX77960._CHGIN_DTLS_TOO_LOW:
+                ret = BatteryCharger.ERR_DC_LOW
+            else:
+                ret = BatteryCharger.ERR_DC
+        elif chg == MAX77960._CHG_DTLS_OFF_TEMP:
+            ret = BatteryCharger.ERR_TEMP_CHG
+        elif chg == MAX77960._CHG_DTLS_OFF_WDOG:
+            ret = BatteryCharger.ERR_CONFIG
+        elif chg == MAX77960._CHG_DTLS_SUSP_JEITA:
+            ret = BatteryCharger.ERR_TEMP_BAT
+        elif chg == MAX77960._CHG_DTLS_SUSP_NOBAT:
+            ret = BatteryCharger.ERR_BAT_REMOVED
+        else:
+            ret = BatteryCharger.ERR_OK
+        return ret
 
     #
     # Tries to restart the charging phase, e.g. after recovering from a thermal shutdown
     # Raises RuntimeError in case the procedure is not available.
+    #
     def restartCharging(self):
-        pass
+        # To recover from timer fault, switch charger off...
+        self.setReg( MAX77960._REG_CHG_CNFG_0,
+                     MAX77960._COMM_MODE_I2C | MAX77960._DISIBS_FET_PPSM | MAX77960._STBY_EN_DCDC_PPSM |
+                     MAX77960._WDTEN_OFF | MAX77960._MODE_DCDC_ONLY )
+        # ... and on again.
+        self.setReg( MAX77960._REG_CHG_CNFG_0,
+                     MAX77960._COMM_MODE_I2C | MAX77960._DISIBS_FET_PPSM | MAX77960._STBY_EN_DCDC_PPSM |
+                     MAX77960._WDTEN_OFF | MAX77960._MODE_CHRG_DCDC )
 
-    #
-    # Re-configures the instance according to the parameters provided.
-    # As with the constructor, the only parameter is the configuration dictionary.
-    #
-    def configure(self, paramDict):
-        pass
-    
     # Interrupts
     
     # This class integer mask is a 16 bit word containing the TOP_INT in the high-byte
@@ -948,37 +1031,43 @@ class MAX77960( SerialDevice, BatteryCharger ):
             
         
     def _mapIntImpl2Api( self, topMask, chgMask ):
-        intMask = (top << 8) | (chgMask & 0xFF)
+        intMask = (topMask << 8) | (chgMask & 0xFF)
         intMask = intMask & MAX77960.INT_ALL
         return intMask
 
-    def getIntMask(self):
-        topMask = self.getReg( MAX77960._REG_TOP_INT_MASK )
-        chgMask = self.getReg( MAX77960._REG_CHG_INT_MASK )
-        apiMask = self._mapIntImpl2Api( topMask, chgMask )
-        return apiMask
-    
-    def setIntMask(self, intMask):
-        [topMask, chgMask] = self._mapIntApi2Impl( intMask )
-        self.setReg( MAX77960._REG_TOP_INT_MASK, topMask )
-        self.setReg( MAX77960._REG_CHG_INT_MASK, chgMask )
-        
-    def enableInt( self, intMask ):
-        [topMask, chgMask] = self._mapIntApi2Impl( intMask )
-        self.enableReg( MAX77960._REG_TOP_INT_MASK, topMask )
-        self.enableReg( MAX77960._REG_CHG_INT_MASK, chgMask )
-
-    def disableInt( self, intMask ):
-        [topMask, chgMask] = self._mapIntApi2Impl( intMask )
-        self.disableReg( MAX77960._REG_TOP_INT_MASK, topMask )
-        self.disableReg( MAX77960._REG_CHG_INT_MASK, chgMask )
-    
     def getIntStatus(self):
         topStatus = ~self.getReg( MAX77960._REG_TOP_INT_OK )
         chgStatus = ~self.getReg( MAX77960._REG_CHG_INT_OK )
         apiStatus = self._mapIntImpl2Api( topStatus, chgStatus )
         return apiStatus
         pass
+    
+    #
+    # The Watchdog API
+    #
+    
+    def enable(self):
+        self.enableReg( MAX77960._REG_CHG_CNFG_00, MAX77960._WDTEN )
+    
+    def disable(self):
+        self.disableReg( MAX77960._REG_CHG_CNFG_00, MAX77960._WDTEN )
+    
+    def isRunning(self):
+        data = self.getReg( MAX77960._REG_CHG_CNFG_00 )
+        ret = (data & MAX77960._WDTEN) == MAX77960._WDTEN_ON
+        return ret
+
+    def clear(self):
+        self.copyReg( MAX77960._REG_CHG_CNFG_06, MAX77960._WDTCLR, MAX77960._WDTCLR_DO_CLEAR )
+
+    def isElapsed(self):
+        dtls1 = self.getReg( MAX77960._REG_CHG_DETAILS_01 )
+        ret = (dtls1 & MAX77960._CHG_DTLS) == MAX77960._CHG_DTLS_OFF_WDOG
+        return ret
+
+    def clearElapsed(self):
+        self.clear()
+    
     
     #
     # Specific public functions

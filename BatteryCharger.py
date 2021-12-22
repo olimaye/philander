@@ -1,4 +1,7 @@
-class BatteryCharger:
+from EventPublisher import EventPublisher
+from Configurable import Configurable
+
+class BatteryCharger( EventPublisher, Configurable ):
 
 
     STATE_OFF        = 0  # Charger is off.
@@ -10,25 +13,73 @@ class BatteryCharger:
     STATE_TOP_OFF    = 6  # Top-off phase
     STATE_DONE       = 7  # Charging done
     
+    state2Str = {
+        STATE_OFF        : 'OFF',
+        STATE_PRECHARGE  : 'PRECHARGE',
+        STATE_TRICKLE    : 'TRICKLE',
+        STATE_FASTCHARGE : 'FASTCHARGE',
+        STATE_FAST_CC    : 'FAST_CC',
+        STATE_FAST_CV    : 'FAST_CV',
+        STATE_TOP_OFF    : 'TOP_OFF',
+        STATE_DONE       : 'DONE',
+    }
+    
     PWR_SRC_NONE     = 0  # unclear
-    PWR_SRC_DC_ONLY  = 1  # Only DC supply
-    PWR_SRC_DC_BAT   = 2  # Both, DC and Battery available
-    PWR_SRC_BAT_ONLY = 3  # Battery only, no DC
+    PWR_SRC_DC       = 1  # DC supply
+    PWR_SRC_BAT      = 2  # Battery
+    PWR_SRC_DC_BAT   = PWR_SRC_DC | PWR_SRC_BAT # Both, DC and Battery available
+
+    pwrsrc2Str = {
+        PWR_SRC_NONE     : 'NONE',
+        PWR_SRC_DC       : 'DC',
+        PWR_SRC_BAT      : 'BAT',
+        PWR_SRC_DC_BAT   : 'DC+BAT',
+    }
     
     TEMP_COLD        = 0  # Too cold
     TEMP_COOL        = 1  # Cool, but still operable
     TEMP_OK          = 2  # Just fine.
     TEMP_WARM        = 3  # Warm, but still within the limits
     TEMP_HOT         = 4  # Too hot.
+
+    temp2Str = {
+        TEMP_COLD        : 'COLD',
+        TEMP_COOL        : 'COOL',
+        TEMP_OK          : 'OK',
+        TEMP_WARM        : 'WARM',
+        TEMP_HOT         : 'HOT',
+    }
     
-    ERR_OK           = 0
-    ERR_TEMP_CHG     = 1
-    ERR_TEMP_BAT     = 2
-    ERR_DC_HIGH      = 3
-    ERR_DC_LOW       = 4
-    ERR_BAT_LOW      = 5
-    ERR_BAT_BROKEN   = 6
+    ERR_OK           = 0   # No error.
+    ERR_CONFIG       = 10  # General configuration error
+    ERR_TEMP         = 20  # General temperature error
+    ERR_TEMP_CHG     = 21  # Charger (die) temperature out of range
+    ERR_TEMP_BAT     = 22  # Battery temperature out of range
+    ERR_DC           = 30  # General voltage error
+    ERR_DC_HIGH      = 32  # Voltage too high error
+    ERR_DC_LOW       = 31  # Low or no voltage error
+    ERR_BAT          = 40  # General battery error
+    ERR_BAT_LOW      = 41  # Battery level is too low
+    ERR_BAT_BROKEN   = 42  # Battery is damaged.
+    ERR_BAT_REMOVED  = 43  # Battery is removed.
+    ERR_TIMER        = 50  # General timer error.
     
+    err2Str = {
+        ERR_OK           : 'OK',
+        ERR_CONFIG       : 'CONFIG',
+        ERR_TEMP         : 'TEMP',
+        ERR_TEMP_CHG     : 'TEMP_CHG',
+        ERR_TEMP_BAT     : 'TEMP_BAT',
+        ERR_DC           : 'DC',
+        ERR_DC_HIGH      : 'DC_HIGH',
+        ERR_DC_LOW       : 'DC_LOW',
+        ERR_BAT          : 'BAT',
+        ERR_BAT_LOW      : 'BAT_LOW',
+        ERR_BAT_BROKEN   : 'BAT_BROKEN',
+        ERR_BAT_REMOVED  : 'BAT_REMOVED',
+        ERR_TIMER        : 'TIMER',
+    }
+   
     # Interrupts
     INT_OTG_BUCK_BOOST      = 0x0001 # Internal fault, e.g. OTG fault or buck-boost fault.
     INT_CHARGER_ONOFF       = 0x0002 # Charger enable/disable state changed
@@ -41,39 +92,43 @@ class BatteryCharger:
     INT_SYSTEM_UNDERVOLTAGE = 0x0100 # System voltage too low
     INT_SYSTEM_OVERVOLTAGE  = 0x0200 # System voltage apllied to charger too high
     INT_THERMAL_SHUTDOWN    = 0x0400 # Charger temperature outside limits
-    INT_RSV_11              = 0x0800
-    INT_RSV_12              = 0x1000
-    INT_RSV_13              = 0x2000
-    INT_RSV_14              = 0x4000
-    INT_RSV_15              = 0x8000
-    INT_NONE                = 0x0000
     INT_ALL                 = 0x07FF
 
+    int2Str = {
+        INT_OTG_BUCK_BOOST      : 'BatteryCharger.OTG_BUCK_BOOST',
+        INT_CHARGER_ONOFF       : 'BatteryCharger.CHARGER_ONOFF',
+        INT_INPUT_CURRENT_LIMIT : 'BatteryCharger.INPUT_CURRENT_LIMIT',
+        INT_BATTERY_TEMPERATURE : 'BatteryCharger.BATTERY_TEMPERATURE',
+        INT_STATE_CHANGED       : 'BatteryCharger.STATE_CHANGED',
+        INT_BATTERY_OVERCURRENT : 'BatteryCharger.BATTERY_OVERCURRENT',
+        INT_CHARGER_INPUT       : 'BatteryCharger.CHARGER_INPUT',
+        INT_INCURR_LIM_BY_SRC   : 'BatteryCharger.INCURR_LIM_BY_SRC',
+        INT_SYSTEM_UNDERVOLTAGE : 'BatteryCharger.SYSTEM_UNDERVOLTAGE',
+        INT_SYSTEM_OVERVOLTAGE  : 'BatteryCharger.SYSTEM_OVERVOLTAGE',
+        INT_THERMAL_SHUTDOWN    : 'BatteryCharger.THERMAL_SHUTDOWN',
+        INT_ALL                 : 'BatteryCharger.*',
+    }
 
+    #
+    # Configurable API
+    #
+    
+    def _scanParameters( self, paramDict ):
+        # Scan parameters
+        #if "BatteryCharger.Limit" in paramDict:
+        #    self.limit = self._detectDriverModule( paramDict["BatteryCharger.Limit"] )
+        pass
+                                
     #
     # Initializes the object.
     # The only input parameter is a dictionary containing key-value pairs that
     # configure the instance. Key names and their meanings are:
     def __init__( self, paramDict ):
         # This class parameter
+        Configurable.__init__( self, paramDict )
 
         # initialize local attributes
-        self.intHandler = None
         
-
-    #
-    # Initializes the instance. Is automatically called while instantiating
-    # a new object. Can be used to re-initialize a sensor, e.g. after
-    # resetting.
-    #
-    def init(self):
-        pass
-
-    #
-    # Just closes the object. Should be called at the end of a program.
-    #
-    def close(self):
-        pass
 
     #
     # Soft resets the device. The device is in some default state, afterwards and
@@ -116,7 +171,7 @@ class BatteryCharger:
     
     #
     # Retrieves the number of battery cells configured.
-    # Raises RuntimeError in case the battery status cannot be determined.
+    # Raises RuntimeError in case this information cannot be determined.
     #
     def getNumCells(self):
         pass
@@ -168,53 +223,4 @@ class BatteryCharger:
     def restartCharging(self):
         pass
 
-    #
-    # Re-configures the instance according to the parameters provided.
-    # As with the constructor, the only parameter is the configuration dictionary.
-    #
-    def configure(self, paramDict):
-        pass
     
-    #
-    # Registers a notification Handler. The given handler routine will
-    # be called everytime an interrupt occurs. Note that just one handling routine
-    # may be registered. So consecutive calls of this function overwrite previous registrations.
-    # The intMask parameter is a bitmask combined from the INT_xxx values to indicate,
-    # which notifications are to be passed to the given handling routine. 
-    # The given function should expect a single integer argument indicating the reason
-    # for notification. This will be one of the INT_xxx values.
-    # <<  def chargerHandler( intID )  >>
-    #
-    def registerIntHandler(self, intMask, func):
-        self.intHandler = func
-    
-    #
-    # Retrieves the bitmask of interrupts registered for notification.
-    #
-    def getIntMask(self):
-        pass
-    
-    #
-    # Sets the mask of interrupt reasons to fire the notification handler.
-    #
-    def setIntMask(self, intMask):
-        pass
-        
-    #
-    # Just enables one or more interrupts while leaving the others untouched.
-    #
-    def enableInt( self, intMask ):
-        pass
-
-    #
-    # Disables one or more interrupts while leaving the others untouched.
-    #
-    def disableInt( self, intMask ):
-        pass
-    
-    #
-    # Gives the status of each interruptp condition, independently of whether
-    # the condition is registered as a source of notification, or not.
-    #
-    def getIntStatus(self):
-        pass

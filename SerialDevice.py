@@ -1,6 +1,7 @@
 from Device import Device
+from Configurable import Configurable
 
-class SerialDevice( Device ):
+class SerialDevice( Device, Configurable ):
     
     BUSTYPE_I2C = 10
     BUSTYPE_SPI = 20
@@ -132,29 +133,36 @@ class SerialDevice( Device ):
         self.i2c.transfer( self.deviceAddress, msgs)
     
     #
+    # Configurable API
+    #
+    
+    def _scanParameters( self, paramDict ):
+        # Scan parameters
+        if "SerialDevice.busType" in paramDict:
+            self.drvMod = self._detectDriverModule( paramDict["SerialDevice.busType"] )
+
+        if "SerialDevice.busDesignator" in paramDict:
+            self.busDesignator = paramDict["SerialDevice.busDesignator"]
+        
+        if "SerialDevice.deviceAddress" in paramDict:
+            self.deviceAddress = paramDict["SerialDevice.deviceAddress"]
+                                
+    # Nothing to do do:
+    # def _applyConfiguration( self ):
+    
+    #
     # Constructor
     # The only input parameter is a dictionary containing key-value pairs that
     # configure the instance. Regarded key names and their meanings are:
-    # busType      : One of the SerialDevice.BUSTYPE_xxx values.
-    # busDesignator: The bus designator. May be a name or number, such as "/dev/i2c-3" or 1.
-    # deviceAddress: either the I2C address (0x18/0x19) or the state of the SDO line (0/1).
+    # SerialDevice.busType      : One of the SerialDevice.BUSTYPE_xxx values.
+    # SerialDevice.busDesignator: The bus designator. May be a name or number, such as "/dev/i2c-3" or 1.
+    # SerialDevice.deviceAddress: either the I2C address (0x18/0x19) or the state of the SDO line (0/1).
     def __init__( self, paramDict ):
-        
         # Set defaults, where necessary
-        if "busType" in paramDict:
-            self.drvMod = self._detectDriverModule( paramDict["busType"] )
-        else:
-            self.drvMod = self._detectDriverModule( SerialDevice.BUSTYPE_I2C )
-
-        if "busDesignator" in paramDict:
-            self.busDesignator = paramDict["busDesignator"]
-        else:
-            self.busDesignator = "/dev/i2c-1"
-        
-        if "deviceAddress" in paramDict:
-            self.deviceAddress = paramDict["deviceAddress"]
-        else:
-            self.devcieAddress = 0x42
+        self.drvMod = self._detectDriverModule( SerialDevice.BUSTYPE_I2C )
+        self.busDesignator = "/dev/i2c-1"
+        self.deviceAddress = 0x42
+        Configurable.__init__( self, paramDict )
                         
         # Multiplex the different implementations depending on the driver module
         if (self.drvMod==SerialDevice._MOD_SMBUS) or (self.drvMod==SerialDevice._MOD_SMBUS2):
@@ -184,6 +192,7 @@ class SerialDevice( Device ):
 
     def init( self ):
         self._serDevPtr_init()
+        Configurable.init(self)
     
     def close(self):
         self._serDevPtr_close()

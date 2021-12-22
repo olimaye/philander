@@ -51,6 +51,20 @@ class Device:
                 self.setReg( register, newCnt )
     
     #
+    # Copies the given bits to a byte register. Bits cleared
+    # in the content parameter are reset in the register. And
+    # bits set in the content, are also set in the regiser.
+    # mask Marks the bits to copy
+    # content The content to copy.
+    #
+    def copyReg( self, register, mask, content ):
+        if mask != 0 :
+            cnt = self.getReg( register )
+            newCnt = (cnt & ~mask) | (content & mask)
+            if newCnt != cnt:
+                self.setReg( register, newCnt )
+    
+    #
     # Retrieves a wide register content (word, 16 bit)
     #
     def getWReg( self, register ):
@@ -100,3 +114,17 @@ class Device:
             if newCnt != cnt:
                 self.setWReg( register, newCnt )
 
+    #
+    # Copies the given bits to a word register. Bits cleared
+    # in the content parameter are reset in the register. And
+    # bits set in the content, are also set in the regiser.
+    # mask Marks the bits to copy
+    # content The content to copy.
+    #
+    def copyWReg( self, register, mask, content ):
+        if mask != 0 :
+            cnt = self.getWReg( register )
+            newCnt = (cnt & ~mask) | (content & mask)
+            if newCnt != cnt:
+                self.setWReg( register, newCnt )
+    
