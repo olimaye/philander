@@ -16,8 +16,13 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     _REG_CID          = 0x00
     _CID_REVISION     = 0xE0 # Silicon Revision
     _CID_VERSION      = 0x1F # OTP Recipe Version
-    _CID_DEFAULT      = 0xA0
-
+    _CID_REV_5        = 0xA0 # silicon revision = 5
+    _CID_REV_6        = 0xC0 # silicon revision = 6
+    _CID_REV_MIN      = _CID_REV_5 # Minimum known silicon revision that this driver is made for.
+    _CID_REV_MAX      = _CID_REV_6 # Maximum known silicon revision that this driver is made for.
+    _CID_MAX7796x     = _CID_REV_5 # MAX77960
+    _CID_MAX7796xB    = _CID_REV_6 # MAX77960B
+    
     _REG_SWRST        = 0x01
     _SWRST_TYPE_O     = 0xA5 # Reset Type O registers
     _SWRST_NONE       = 0x00 # No reset
@@ -32,7 +37,7 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     _TSHDN_M          = 0x04 # Thermal shutdown interrupt masked
     _SYSOVLO_M        = 0x02 # SYSOVLO interrupt masked
     _SYSUVLO_M        = 0x01 # SYSUVLO interrupt masked
-    _TOP_INT_MASK_ALL = 0xFF
+    _TOP_INT_MASK_ALL = 0x07
     _TOP_INT_MASK_NONE= 0x00
     _TOP_INT_MASK_DEFAULT = 0xFF
     
@@ -86,10 +91,14 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     _OTG_DTLS_OTG_GOOD  = 0x08 # OTG output within limit OTG_ILIM
     _OTG_DTLS_OVERVOLT= 0x10 # OTG output in overvoltage; V_CHGIN > V_OTG_OVLO
     _OTG_DTLS_ILIM    = 0x18 # OTG disabled or output is valid but not in current limit.
-    _QB_DTLS          = 0x01 # QBAT is on.
+    _QB_DTLS          = 0x01 # QBAT details
+    _QB_DTLS_ON       = 0x01 # QBAT is on.
+    _QB_DTLS_OFF      = 0x00 # QBAT is off.
     
     _REG_CHG_DETAILS_01 = 0x14
-    _TREG             = 0x80 # Junction temperature higher than REGTEMP; folding back charge current 
+    _TREG             = 0x80 # Temperature regulation status 
+    _TREG_HIGH        = 0x80 # Junction temperature higher than REGTEMP; folding back charge current 
+    _TREG_GOOD        = 0x00 # Junction temperature less than REGTEMP
     _BAT_DTLS         = 0x70 # Battery details as follows:
     _BAT_DTLS_REMOVAL = 0x00 # Battery removal detected on THM pin.
     _BAT_DTLS_BELOW_PREQ= 0x10 # V_BATT < V_PRECHG; below prequal.
@@ -132,7 +141,7 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     _APP_MODE_DTLS_CHRG = 0x08 # Operate as a charger.
     _FSW_DTLS         = 0x06 # Programmed switching frequency details as follows:
     _FSW_DTLS_600K    = 0x00 # 600 kHz
-    #_FSW_DTLS_RSV_1   = 0x02 # Reserved.
+    _FSW_DTLS_1200K   = 0x02 # 1.2 MHz; only from silicon rev. 6 on (MAX7796xB)
     #_FSW_DTLS_RSV_2   = 0x04 # Reserved.
     #_FSW_DTLS_RSV_3   = 0x06 # Reserved.
     _NUM_CELL_DTLS    = 0x01 # Number of serially connected battery cells as follows:
@@ -317,73 +326,115 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     
     _REG_CHG_CNFG_04    = 0x1A
     _CHG_CV_PRM         = 0x3F # Charge Termination Voltage Setting (mV).
-    _CHG_CV_PRM_8000_12000 = 0x00 # 8000 mV (2 cells) / 12000 mV (3 cells) 
-    _CHG_CV_PRM_8020_12030 = 0x01 # 8000 mV (2 cells) / 12030 mV (3 cells) 
-    _CHG_CV_PRM_8040_12060 = 0x02 # 8000 mV (2 cells) / 12060 mV (3 cells) 
-    _CHG_CV_PRM_8060_12090 = 0x03 # 8000 mV (2 cells) / 12090 mV (3 cells) 
-    _CHG_CV_PRM_8080_12120 = 0x04 # 8000 mV (2 cells) / 12120 mV (3 cells) 
-    _CHG_CV_PRM_8100_12150 = 0x05 # 8000 mV (2 cells) / 12150 mV (3 cells) 
-    _CHG_CV_PRM_8120_12180 = 0x06 # 8000 mV (2 cells) / 12180 mV (3 cells) 
-    _CHG_CV_PRM_8140_12210 = 0x07 # 8000 mV (2 cells) / 12210 mV (3 cells) 
-    _CHG_CV_PRM_8160_12240 = 0x08 # 8000 mV (2 cells) / 12240 mV (3 cells) 
-    _CHG_CV_PRM_8180_12270 = 0x09 # 8000 mV (2 cells) / 12270 mV (3 cells) 
-    _CHG_CV_PRM_8200_12300 = 0x0A # 8000 mV (2 cells) / 12300 mV (3 cells) 
-    _CHG_CV_PRM_8220_12330 = 0x0B # 8000 mV (2 cells) / 12330 mV (3 cells) 
-    _CHG_CV_PRM_8240_12360 = 0x0C # 8000 mV (2 cells) / 12360 mV (3 cells) 
-    _CHG_CV_PRM_8260_12390 = 0x0D # 8000 mV (2 cells) / 12390 mV (3 cells) 
-    _CHG_CV_PRM_8280_12420 = 0x0E # 8000 mV (2 cells) / 12420 mV (3 cells) 
-    _CHG_CV_PRM_8300_12450 = 0x0F # 8000 mV (2 cells) / 12450 mV (3 cells) 
-    _CHG_CV_PRM_8320_12480 = 0x10 # 8000 mV (2 cells) / 12480 mV (3 cells) 
-    _CHG_CV_PRM_8340_12510 = 0x11 # 8000 mV (2 cells) / 12510 mV (3 cells) 
-    _CHG_CV_PRM_8360_12540 = 0x12 # 8000 mV (2 cells) / 12540 mV (3 cells) 
-    _CHG_CV_PRM_8380_12570 = 0x13 # 8000 mV (2 cells) / 12570 mV (3 cells) 
-    _CHG_CV_PRM_8400_12600 = 0x14 # 8000 mV (2 cells) / 12600 mV (3 cells) 
-    _CHG_CV_PRM_8420_12630 = 0x15 # 8000 mV (2 cells) / 12630 mV (3 cells) 
-    _CHG_CV_PRM_8440_12660 = 0x16 # 8000 mV (2 cells) / 12660 mV (3 cells) 
-    _CHG_CV_PRM_8460_12690 = 0x17 # 8000 mV (2 cells) / 12690 mV (3 cells) 
-    _CHG_CV_PRM_8480_12720 = 0x18 # 8000 mV (2 cells) / 12720 mV (3 cells) 
-    _CHG_CV_PRM_8500_12750 = 0x19 # 8000 mV (2 cells) / 12750 mV (3 cells) 
-    _CHG_CV_PRM_8520_12780 = 0x1A # 8000 mV (2 cells) / 12780 mV (3 cells) 
-    _CHG_CV_PRM_8540_12810 = 0x1B # 8000 mV (2 cells) / 12810 mV (3 cells) 
-    _CHG_CV_PRM_8560_12840 = 0x1C # 8000 mV (2 cells) / 12840 mV (3 cells) 
-    _CHG_CV_PRM_8580_12870 = 0x1D # 8000 mV (2 cells) / 12870 mV (3 cells) 
-    _CHG_CV_PRM_8600_12900 = 0x1E # 8000 mV (2 cells) / 12900 mV (3 cells) 
-    _CHG_CV_PRM_8620_12930 = 0x1F # 8000 mV (2 cells) / 12930 mV (3 cells) 
-    _CHG_CV_PRM_8640_12960 = 0x20 # 8000 mV (2 cells) / 12960 mV (3 cells) 
-    _CHG_CV_PRM_8660_12990 = 0x21 # 8000 mV (2 cells) / 12990 mV (3 cells) 
-    _CHG_CV_PRM_8680_13020 = 0x22 # 8000 mV (2 cells) / 13020 mV (3 cells) 
-    _CHG_CV_PRM_8700_13050 = 0x23 # 8000 mV (2 cells) / 13050 mV (3 cells) 
-    _CHG_CV_PRM_8720       = 0x24 # 8000 mV (2 cells)
-    _CHG_CV_PRM_8740       = 0x25 # 8000 mV (2 cells)
-    _CHG_CV_PRM_8760       = 0x26 # 8000 mV (2 cells)
-    _CHG_CV_PRM_8780       = 0x27 # 8000 mV (2 cells)
-    _CHG_CV_PRM_8800       = 0x28 # 8000 mV (2 cells)
-    _CHG_CV_PRM_8820       = 0x29 # 8000 mV (2 cells)
-    _CHG_CV_PRM_8840       = 0x2A # 8000 mV (2 cells)
-    _CHG_CV_PRM_8860       = 0x2B # 8000 mV (2 cells)
-    _CHG_CV_PRM_8880       = 0x2C # 8000 mV (2 cells)
-    _CHG_CV_PRM_8900       = 0x2D # 8000 mV (2 cells)
-    _CHG_CV_PRM_8920       = 0x2E # 8000 mV (2 cells)
-    _CHG_CV_PRM_8940       = 0x2F # 8000 mV (2 cells)
-    _CHG_CV_PRM_8960       = 0x30 # 8000 mV (2 cells)
-    _CHG_CV_PRM_8980       = 0x31 # 8000 mV (2 cells)
-    _CHG_CV_PRM_9000       = 0x32 # 8000 mV (2 cells)
-    _CHG_CV_PRM_9020       = 0x33 # 8000 mV (2 cells)
-    _CHG_CV_PRM_9040       = 0x34 # 8000 mV (2 cells)
-    _CHG_CV_PRM_9060       = 0x35 # 8000 mV (2 cells)
-    _CHG_CV_PRM_9080       = 0x36 # 8000 mV (2 cells)
-    _CHG_CV_PRM_9100       = 0x37 # 8000 mV (2 cells)
-    _CHG_CV_PRM_9120       = 0x38 # 8000 mV (2 cells)
-    _CHG_CV_PRM_9140       = 0x39 # 8000 mV (2 cells)
-    _CHG_CV_PRM_9160       = 0x3A # 8000 mV (2 cells)
-    _CHG_CV_PRM_9180       = 0x3B # 8000 mV (2 cells)
-    _CHG_CV_PRM_9200       = 0x3C # 8000 mV (2 cells)
-    _CHG_CV_PRM_9220       = 0x3D # 8000 mV (2 cells)
-    _CHG_CV_PRM_9240       = 0x3E # 8000 mV (2 cells)
-    _CHG_CV_PRM_9260       = 0x3F # 8000 mV (2 cells)
-    _CHG_CV_PRM_MIN        = _CHG_CV_PRM_8000_12000
-    _CHG_CV_PRM_MAX        = _CHG_CV_PRM_9260
-    _CHG_CV_PRM_DEFAULT    = _CHG_CV_PRM_8000_12000
+    # 2 cells:
+    _CHG_CV_PRM_2C_8000 = 0x00 # 8000 mV
+    _CHG_CV_PRM_2C_8020 = 0x01 # 8020 mV
+    _CHG_CV_PRM_2C_8040 = 0x02 # 8040 mV
+    _CHG_CV_PRM_2C_8060 = 0x03 # 8060 mV
+    _CHG_CV_PRM_2C_8080 = 0x04 # 8080 mV
+    _CHG_CV_PRM_2C_8100 = 0x05 # 8100 mV
+    _CHG_CV_PRM_2C_8120 = 0x06 # 8120 mV
+    _CHG_CV_PRM_2C_8140 = 0x07 # 8140 mV 
+    _CHG_CV_PRM_2C_8160 = 0x08 # 8160 mV
+    _CHG_CV_PRM_2C_8180 = 0x09 # 8180 mV
+    _CHG_CV_PRM_2C_8200 = 0x0A # 8200 mV
+    _CHG_CV_PRM_2C_8220 = 0x0B # 8220 mV
+    _CHG_CV_PRM_2C_8240 = 0x0C # 8240 mV
+    _CHG_CV_PRM_2C_8260 = 0x0D # 8260 mV
+    _CHG_CV_PRM_2C_8280 = 0x0E # 8280 mV
+    _CHG_CV_PRM_2C_8300 = 0x0F # 8300 mV
+    _CHG_CV_PRM_2C_8320 = 0x10 # 8320 mV
+    _CHG_CV_PRM_2C_8340 = 0x11 # 8340 mV
+    _CHG_CV_PRM_2C_8360 = 0x12 # 8360 mV
+    _CHG_CV_PRM_2C_8380 = 0x13 # 8380 mV
+    _CHG_CV_PRM_2C_8400 = 0x14 # 8400 mV
+    _CHG_CV_PRM_2C_8420 = 0x15 # 8420 mV
+    _CHG_CV_PRM_2C_8440 = 0x16 # 8440 mV
+    _CHG_CV_PRM_2C_8460 = 0x17 # 8460 mV
+    _CHG_CV_PRM_2C_8480 = 0x18 # 8480 mV
+    _CHG_CV_PRM_2C_8500 = 0x19 # 8500 mV
+    _CHG_CV_PRM_2C_8520 = 0x1A # 8520 mV
+    _CHG_CV_PRM_2C_8540 = 0x1B # 8540 mV
+    _CHG_CV_PRM_2C_8560 = 0x1C # 8560 mV
+    _CHG_CV_PRM_2C_8580 = 0x1D # 8680 mV
+    _CHG_CV_PRM_2C_8600 = 0x1E # 8600 mV
+    _CHG_CV_PRM_2C_8620 = 0x1F # 8620 mV
+    _CHG_CV_PRM_2C_8640 = 0x20 # 8640 mV
+    _CHG_CV_PRM_2C_8660 = 0x21 # 8660 mV
+    _CHG_CV_PRM_2C_8680 = 0x22 # 8680 mV
+    _CHG_CV_PRM_2C_8700 = 0x23 # 8700 mV
+    _CHG_CV_PRM_2C_8720 = 0x24 # 8720 mV
+    _CHG_CV_PRM_2C_8740 = 0x25 # 8740 mV
+    _CHG_CV_PRM_2C_8760 = 0x26 # 8760 mV
+    _CHG_CV_PRM_2C_8780 = 0x27 # 8780 mV
+    _CHG_CV_PRM_2C_8800 = 0x28 # 8800 mV
+    _CHG_CV_PRM_2C_8820 = 0x29 # 8820 mV
+    _CHG_CV_PRM_2C_8840 = 0x2A # 8840 mV
+    _CHG_CV_PRM_2C_8860 = 0x2B # 8860 mV
+    _CHG_CV_PRM_2C_8880 = 0x2C # 8880 mV
+    _CHG_CV_PRM_2C_8900 = 0x2D # 8900 mV
+    _CHG_CV_PRM_2C_8920 = 0x2E # 8920 mV
+    _CHG_CV_PRM_2C_8940 = 0x2F # 8940 mV
+    _CHG_CV_PRM_2C_8960 = 0x30 # 8960 mV
+    _CHG_CV_PRM_2C_8980 = 0x31 # 8980 mV
+    _CHG_CV_PRM_2C_9000 = 0x32 # 9000 mV
+    _CHG_CV_PRM_2C_9020 = 0x33 # 9020 mV
+    _CHG_CV_PRM_2C_9040 = 0x34 # 9040 mV
+    _CHG_CV_PRM_2C_9060 = 0x35 # 9060 mV
+    _CHG_CV_PRM_2C_9080 = 0x36 # 9080 mV
+    _CHG_CV_PRM_2C_9100 = 0x37 # 9100 mV
+    _CHG_CV_PRM_2C_9120 = 0x38 # 9120 mV
+    _CHG_CV_PRM_2C_9140 = 0x39 # 9140 mV
+    _CHG_CV_PRM_2C_9160 = 0x3A # 9160 mV
+    _CHG_CV_PRM_2C_9180 = 0x3B # 9180 mV
+    _CHG_CV_PRM_2C_9200 = 0x3C # 9200 mV
+    _CHG_CV_PRM_2C_9220 = 0x3D # 9220 mV
+    _CHG_CV_PRM_2C_9240 = 0x3E # 9240 mV
+    _CHG_CV_PRM_2C_9260 = 0x3F # 9260 mV
+    _CHG_CV_PRM_2C_MIN  = _CHG_CV_PRM_2C_8000
+    _CHG_CV_PRM_2C_MAX  = _CHG_CV_PRM_2C_9260
+    _CHG_CV_PRM_2C_DEFAULT = _CHG_CV_PRM_2C_8000
+    # 3 cells:
+    _CHG_CV_PRM_3C_12000= 0x00 # 12000 mV
+    _CHG_CV_PRM_3C_12030= 0x01 # 12030 mV
+    _CHG_CV_PRM_3C_12060= 0x02 # 12060 mV
+    _CHG_CV_PRM_3C_12090= 0x03 # 12090 mV
+    _CHG_CV_PRM_3C_12120= 0x04 # 12120 mV
+    _CHG_CV_PRM_3C_12150= 0x05 # 12150 mV
+    _CHG_CV_PRM_3C_12180= 0x06 # 12180 mV
+    _CHG_CV_PRM_3C_12210= 0x07 # 12210 mV
+    _CHG_CV_PRM_3C_12240= 0x08 # 12240 mV
+    _CHG_CV_PRM_3C_12270= 0x09 # 12270 mV
+    _CHG_CV_PRM_3C_12300= 0x0A # 12300 mV
+    _CHG_CV_PRM_3C_12330= 0x0B # 12330 mV
+    _CHG_CV_PRM_3C_12360= 0x0C # 12360 mV
+    _CHG_CV_PRM_3C_12390= 0x0D # 12390 mV
+    _CHG_CV_PRM_3C_12420= 0x0E # 12420 mV
+    _CHG_CV_PRM_3C_12450= 0x0F # 12450 mV
+    _CHG_CV_PRM_3C_12480= 0x10 # 12480 mV
+    _CHG_CV_PRM_3C_12510= 0x11 # 12510 mV
+    _CHG_CV_PRM_3C_12540= 0x12 # 12540 mV
+    _CHG_CV_PRM_3C_12570= 0x13 # 12570 mV
+    _CHG_CV_PRM_3C_12600= 0x14 # 12600 mV
+    _CHG_CV_PRM_3C_12630= 0x15 # 12630 mV
+    _CHG_CV_PRM_3C_12660= 0x16 # 12660 mV
+    _CHG_CV_PRM_3C_12690= 0x17 # 12690 mV
+    _CHG_CV_PRM_3C_12720= 0x18 # 12720 mV
+    _CHG_CV_PRM_3C_12750= 0x19 # 12750 mV
+    _CHG_CV_PRM_3C_12780= 0x1A # 12780 mV
+    _CHG_CV_PRM_3C_12810= 0x1B # 12810 mV
+    _CHG_CV_PRM_3C_12840= 0x1C # 12840 mV
+    _CHG_CV_PRM_3C_12870= 0x1D # 12870 mV
+    _CHG_CV_PRM_3C_12900= 0x1E # 12900 mV
+    _CHG_CV_PRM_3C_12930= 0x1F # 12930 mV
+    _CHG_CV_PRM_3C_12960= 0x20 # 12960 mV
+    _CHG_CV_PRM_3C_12990= 0x21 # 12990 mV
+    _CHG_CV_PRM_3C_13020= 0x22 # 13020 mV
+    _CHG_CV_PRM_3C_13050= 0x23 # 13050 mV
+    _CHG_CV_PRM_3C_MIN  = _CHG_CV_PRM_3C_12000
+    _CHG_CV_PRM_3C_MAX  = _CHG_CV_PRM_3C_13050
+    _CHG_CV_PRM_3C_DEFAULT = _CHG_CV_PRM_3C_12000
+    _CHG_CV_PRM_DEFAULT = _CHG_CV_PRM_2C_DEFAULT
     
     _REG_CHG_CNFG_05    = 0x1B
     _ITRICKLE           = 0x30 # Trickle Charge Current Selection (mA)
@@ -434,7 +485,7 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     _JEITA_EN_OFF       = 0x00 # JEITA disabled. Fast-charge current and charge termination voltage do not change based on thermistor temperature.
     _JEITA_EN_ON        = 0x80 # JEITA enabled. Fast-charge current and charge termination voltage change based on thermistor temperature.
     _JEITA_EN_DEFAULT   = _JEITA_EN_OFF
-    _REGTEMP            = 0x38 # Junction Temperature Thermal Regulation (deg. C).
+    _REGTEMP            = 0x78 # Junction Temperature Thermal Regulation (deg. C).
     _REGTEMP_85         = 0x00 # 85 deg. Celsius
     _REGTEMP_90         = 0x08 # 90 deg. Celsius
     _REGTEMP_95         = 0x10 # 95 deg. Celsius
@@ -617,17 +668,31 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     _OTG_ILIM_MAX       = _OTG_ILIM_3000
     _OTG_ILIM_DEFAULT   = _OTG_ILIM_1500
     _MINVSYS            = 0x07 # Minimum System Regulation Voltage (mV)
-    _MINVSYS_5535_8303  = 0x00 # 5535 mV (2 cells) / 8303 mV (3 cells)
-    _MINVSYS_5740_8610  = 0x01 # 5740 mV (2 cells) / 8610 mV (3 cells)
-    _MINVSYS_5945_8918  = 0x02 # 5945 mV (2 cells) / 8918 mV (3 cells)
-    _MINVSYS_6150_9225  = 0x03 # 6150 mV (2 cells) / 9225 mV (3 cells)
-    _MINVSYS_6355_9533  = 0x04 # 6355 mV (2 cells) / 9533 mV (3 cells)
-    _MINVSYS_6560_9840  = 0x05 # 6560 mV (2 cells) / 9840 mV (3 cells)
-    _MINVSYS_6765_10148 = 0x06 # 6765 mV (2 cells) / 10148 mV (3 cells)
-    _MINVSYS_6970_10455 = 0x07 # 6970 mV (2 cells) / 10455 mV (3 cells)
-    _MINVSYS_MIN        = _MINVSYS_5535_8303
-    _MINVSYS_MAX        = _MINVSYS_6970_10455
-    _MINVSYS_DEFAULT    = _MINVSYS_6150_9225
+    # 2 cells:
+    _MINVSYS_2C_5535    = 0x00 # 5535 mV
+    _MINVSYS_2C_5740    = 0x01 # 5740 mV
+    _MINVSYS_2C_5945    = 0x02 # 5945 mV
+    _MINVSYS_2C_6150    = 0x03 # 6150 mV
+    _MINVSYS_2C_6355    = 0x04 # 6355 mV
+    _MINVSYS_2C_6560    = 0x05 # 6560 mV
+    _MINVSYS_2C_6765    = 0x06 # 6765 mV
+    _MINVSYS_2C_6970    = 0x07 # 6970 mV
+    _MINVSYS_2C_MIN     = _MINVSYS_2C_5535
+    _MINVSYS_2C_MAX     = _MINVSYS_2C_6970
+    _MINVSYS_2C_DEFAULT = _MINVSYS_2C_6150
+    # 3 cells:
+    _MINVSYS_3C_8303    = 0x00 # 8303 mV
+    _MINVSYS_3C_8610    = 0x01 # 8610 mV
+    _MINVSYS_3C_8918    = 0x02 # 8918 mV
+    _MINVSYS_3C_9225    = 0x03 # 9225 mV
+    _MINVSYS_3C_9533    = 0x04 # 9533 mV
+    _MINVSYS_3C_9840    = 0x05 # 9840 mV
+    _MINVSYS_3C_10148   = 0x06 # 10148 mV
+    _MINVSYS_3C_10455   = 0x07 # 10455 mV
+    _MINVSYS_3C_MIN     = _MINVSYS_3C_8303
+    _MINVSYS_3C_MAX     = _MINVSYS_3C_10455
+    _MINVSYS_3C_DEFAULT = _MINVSYS_3C_9225
+    _MINVSYS_DEFAULT    = _MINVSYS_2C_DEFAULT
     
     _REG_CHG_CNFG_10    = 0x20
     _VCHGIN_REG         = 0x3E # CHGIN Voltage Regulation Threshold (mV)
@@ -676,7 +741,6 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     # Public attributes
     #
     
-    EXPECTED_ID         = _CID_DEFAULT
     
     #
     # Register / Content descriptions
@@ -810,6 +874,14 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     def configure(self, paramDict):
         BatteryCharger.configure( self, paramDict )
         Watchdog.configure( self, paramDict )
+        # self.unlockRegisters()
+        # self.setReg( MAX77960._REG_CHG_CNFG_00,
+        #              MAX77960._COMM_MODE_I2C |
+        #              MAX77960._DISIBS_DEFAULT |
+        #              MAX77960._STBY_EN_DCDC_DEFAULT |
+        #              MAX77960._WDTEN_OFF |
+        #              MAX77960._MODE_CHRG_DCDC )
+        # self.lockRegisters()
     
     #
     # Just closes the device. Should be called at the end of a program.
@@ -835,15 +907,23 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
         return chipID
 
     #
+    # Retrieves the silicon revision part of the chip ID.
+    # 
+    def _getSiliconRevision(self):
+        chipID = self.getID()
+        siliconRevision = chipID & MAX77960._CID_REVISION
+        return siliconRevision
+        
+    #
     # Reads the chip ID and verifies it against the
     # expected value.
     # Raises OSError, in case of problems with the connection.
     #        ValueError, if chip ID is not as expected
     #
     def checkID(self):
-        chipID = self.getID()
-        if ( chipID != MAX77960.EXPECTED_ID ):
-            raise ValueError('Chip ID (' + str(chipID) + ') does not match the expected value (' + str(MAX77960.EXPECTED_ID) + ')!')
+        sr = self._getSiliconRevision()
+        if (sr < MAX77960._CID_REV_MIN) or (sr > MAX77960._CID_REV_MAX):
+            raise ValueError('Unsupported silicon revision (' + str(sr) + ')!')
 
     #
     # Tests the communication with the sensor device.
@@ -880,6 +960,34 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
         return ret
     
     #
+    # Get the battery status.
+    # Returns one of the BAT_STATE_xxx values to indicate battery voltage level or 
+    # presence or health state.
+    # Raises RuntimeError in case this information cannot be determined.
+    #
+    def getBatStatus(self):
+        data = self.getReg( MAX77960._REG_CHG_DETAILS_01 )
+        ds = data & MAX77960._BAT_DTLS
+        ret = BatteryCharger.BAT_STATE_UNKNOWN
+        if ds == MAX77960._BAT_DTLS_REMOVAL:
+            ret = BatteryCharger.BAT_STATE_REMOVED
+        elif ds == MAX77960._BAT_DTLS_BELOW_PREQ:
+            ret = BatteryCharger.BAT_STATE_EMPTY
+        elif ds == MAX77960._BAT_DTLS_TIME_OUT:
+            ret = BatteryCharger.BAT_STATE_TIME
+        elif ds == MAX77960._BAT_DTLS_OK:
+            ret = BatteryCharger.BAT_STATE_NORMAL
+        elif ds == MAX77960._BAT_DTLS_LOW_VOLT:
+            ret = BatteryCharger.BAT_STATE_LOW
+        elif ds == MAX77960._BAT_DTLS_OVR_VOLT:
+            ret = BatteryCharger.BAT_STATE_OVERVOLTAGE
+        elif ds == MAX77960._BAT_DTLS_OVR_CURR:
+            ret = BatteryCharger.BAT_STATE_OVERCURRENT
+        else:
+            ret = BatteryCharger.BAT_STATE_UNKNOWN
+        return ret
+    
+    #
     # Retrieves the charge phase or status.
     # Returns one of the STATE_xxx values to indicate the current charge status.
     # Raises RuntimeError in case the charge status cannot be determined.
@@ -887,26 +995,43 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     def getChgStatus(self):
         data = self.getReg( MAX77960._REG_CHG_DETAILS_01 )
         cd = data & MAX77960._CHG_DTLS
-        ret = BatteryCharger.STATE_OFF
+        ret = BatteryCharger.CHG_STATE_OFF
         if cd == MAX77960._CHG_DTLS_PRECHRG:
             bd = data & MAX77960._BAT_DTLS
             if bd == MAX77960._BAT_DTLS_BELOW_PREQ:
-                ret = BatteryCharger.STATE_PRECHARGE
+                ret = BatteryCharger.CHG_STATE_PRECHARGE
             else:
-                ret = BatteryCharger.STATE_TRICKLE
+                ret = BatteryCharger.CHG_STATE_TRICKLE
         elif cd == MAX77960._CHG_DTLS_FAST_CURR:
-            ret = BatteryCharger.STATE_FAST_CC
+            ret = BatteryCharger.CHG_STATE_FAST_CC
         elif cd == MAX77960._CHG_DTLS_FAST_VOLT:
-            ret = BatteryCharger.STATE_FAST_CV
+            ret = BatteryCharger.CHG_STATE_FAST_CV
         elif cd == MAX77960._CHG_DTLS_TOP_OFF:
-            ret = BatteryCharger.STATE_TOP_OFF
+            ret = BatteryCharger.CHG_STATE_TOP_OFF
         elif cd == MAX77960._CHG_DTLS_DONE:
-            ret = BatteryCharger.STATE_DONE
+            ret = BatteryCharger.CHG_STATE_DONE
         else:
-            ret = BatteryCharger.STATE_OFF
+            ret = BatteryCharger.CHG_STATE_OFF
         return ret
     
-  
+    #
+    # Retrieves the DC supply status.
+    # Returns one of the DC_STATE_xxx values to indicate the DC supply status.
+    # Raises RuntimeError in case the information cannot be determined.
+    def getDCStatus(self):
+        data = self.getReg( MAX77960._REG_CHG_DETAILS_00 )
+        ds = data & MAX77960._CHGIN_DTLS
+        ret = BatteryCharger.DC_STATE_OFF
+        if ds == MAX77960._CHGIN_DTLS_GOOD:
+            ret = BatteryCharger.DC_STATE_VALID
+        elif ds == MAX77960._CHGIN_DTLS_TOO_LOW:
+            ret = BatteryCharger.DC_STATE_UNDERVOLTAGE
+        elif ds == MAX77960._CHGIN_DTLS_TOO_HIGH:
+            ret = BatteryCharger.DC_STATE_OVERVOLTAGE
+        else:
+            ret = BatteryCharger.CHG_STATE_OFF
+        return ret
+      
     #
     # Retrieves the current power source.
     # Returns one of the PWRSRC_xxx values to indicate the current power source.
@@ -1008,31 +1133,29 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     #
     def restartCharging(self):
         # To recover from timer fault, switch charger off...
-        self.setReg( MAX77960._REG_CHG_CNFG_0,
+        self.setReg( MAX77960._REG_CHG_CNFG_00,
                      MAX77960._COMM_MODE_I2C | MAX77960._DISIBS_FET_PPSM | MAX77960._STBY_EN_DCDC_PPSM |
                      MAX77960._WDTEN_OFF | MAX77960._MODE_DCDC_ONLY )
         # ... and on again.
-        self.setReg( MAX77960._REG_CHG_CNFG_0,
+        self.setReg( MAX77960._REG_CHG_CNFG_00,
                      MAX77960._COMM_MODE_I2C | MAX77960._DISIBS_FET_PPSM | MAX77960._STBY_EN_DCDC_PPSM |
                      MAX77960._WDTEN_OFF | MAX77960._MODE_CHRG_DCDC )
 
-    # Interrupts
+    #
+    # Event Publisher API (Interrupts)
+    #
     
     # This class integer mask is a 16 bit word containing the TOP_INT in the high-byte
     # and the CHG_INT as low-byte.
     def _mapIntApi2Impl( self, apiMask ):
-        topMask = MAX77960._TOP_INT_MASK_NONE
-        chgMask = MAX77960._CHG_INT_MASK_NONE
-        
-        if apiMask & BatteryCharger.INT_REASON_1:
-            topMask |= MAX77960._CHG_INT_MASK_ALL
-        
+        chgMask = apiMask & MAX77960._CHG_INT_MASK_ALL
+        topMask = (apiMask >> 8) & MAX77960._TOP_INT_MASK_ALL
         return [topMask, chgMask]
             
         
     def _mapIntImpl2Api( self, topMask, chgMask ):
-        intMask = (topMask << 8) | (chgMask & 0xFF)
-        intMask = intMask & MAX77960.INT_ALL
+        intMask = (topMask & MAX77960._TOP_INT_MASK_ALL) << 8
+        intMask = intMask | (chgMask & MAX77960._CHG_INT_MASK_ALL)
         return intMask
 
     def getIntStatus(self):
@@ -1040,7 +1163,6 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
         chgStatus = ~self.getReg( MAX77960._REG_CHG_INT_OK )
         apiStatus = self._mapIntImpl2Api( topStatus, chgStatus )
         return apiStatus
-        pass
     
     #
     # The Watchdog API

@@ -1,29 +1,60 @@
-from EventPublisher import EventPublisher
+from InterruptSource import InterruptSource
 from Configurable import Configurable
 
-class BatteryCharger( EventPublisher, Configurable ):
+class BatteryCharger( InterruptSource, Configurable ):
 
+    BAT_STATE_UNKNOWN       = 0 # Battery state is unavailable
+    BAT_STATE_REMOVED       = 1 # Battery removed
+    BAT_STATE_EMPTY         = 2 # Battery empty, deep discharge
+    BAT_STATE_LOW           = 3 # Battery voltage low
+    BAT_STATE_NORMAL        = 4 # Battery voltage ok
+    BAT_STATE_OVERVOLTAGE   = 5 # Battery voltage greater than threshold
+    BAT_STATE_OVERCURRENT   = 6 # Battery current to high
+    BAT_STATE_TIME          = 7 # Charging takes (too) long; old/damaged battery
 
-    STATE_OFF        = 0  # Charger is off.
-    STATE_PRECHARGE  = 1  # Precharge
-    STATE_TRICKLE    = 2  # Trickle charge
-    STATE_FASTCHARGE = 3  # Fast charge in general
-    STATE_FAST_CC    = 4  # Fast charge, constant current phase
-    STATE_FAST_CV    = 5  # Fast charge, constant voltage phase
-    STATE_TOP_OFF    = 6  # Top-off phase
-    STATE_DONE       = 7  # Charging done
-    
-    state2Str = {
-        STATE_OFF        : 'OFF',
-        STATE_PRECHARGE  : 'PRECHARGE',
-        STATE_TRICKLE    : 'TRICKLE',
-        STATE_FASTCHARGE : 'FASTCHARGE',
-        STATE_FAST_CC    : 'FAST_CC',
-        STATE_FAST_CV    : 'FAST_CV',
-        STATE_TOP_OFF    : 'TOP_OFF',
-        STATE_DONE       : 'DONE',
+    chgState2Str = {
+        BAT_STATE_UNKNOWN       : 'UNKNOWN',
+        BAT_STATE_REMOVED       : 'REMOVED',
+        BAT_STATE_EMPTY         : 'EMPTY',
+        BAT_STATE_LOW           : 'LOW',
+        BAT_STATE_NORMAL        : 'NORMAL',
+        BAT_STATE_OVERVOLTAGE   : 'OVERVOLTAGE',
+        BAT_STATE_OVERCURRENT   : 'OVERCURRENT',
+        BAT_STATE_TIME          : 'TIME',
     }
     
+    CHG_STATE_OFF        = 0  # Charger is off.
+    CHG_STATE_PRECHARGE  = 1  # Precharge
+    CHG_STATE_TRICKLE    = 2  # Trickle charge
+    CHG_STATE_FASTCHARGE = 3  # Fast charge in general
+    CHG_STATE_FAST_CC    = 4  # Fast charge, constant current phase
+    CHG_STATE_FAST_CV    = 5  # Fast charge, constant voltage phase
+    CHG_STATE_TOP_OFF    = 6  # Top-off phase
+    CHG_STATE_DONE       = 7  # Charging done
+    
+    chgState2Str = {
+        CHG_STATE_OFF        : 'OFF',
+        CHG_STATE_PRECHARGE  : 'PRECHARGE',
+        CHG_STATE_TRICKLE    : 'TRICKLE',
+        CHG_STATE_FASTCHARGE : 'FASTCHARGE',
+        CHG_STATE_FAST_CC    : 'FAST_CC',
+        CHG_STATE_FAST_CV    : 'FAST_CV',
+        CHG_STATE_TOP_OFF    : 'TOP_OFF',
+        CHG_STATE_DONE       : 'DONE',
+    }
+    
+    DC_STATE_OFF            = 0
+    DC_STATE_UNDERVOLTAGE   = 1
+    DC_STATE_VALID          = 2
+    DC_STATE_OVERVOLTAGE    = 3
+
+    dcState2Str = {
+        DC_STATE_OFF            : 'OFF',
+        DC_STATE_UNDERVOLTAGE   : 'UNDER',
+        DC_STATE_VALID          : 'VALID',
+        DC_STATE_OVERVOLTAGE    : 'OVER',
+    }
+        
     PWR_SRC_NONE     = 0  # unclear
     PWR_SRC_DC       = 1  # DC supply
     PWR_SRC_BAT      = 2  # Battery
@@ -177,11 +208,27 @@ class BatteryCharger( EventPublisher, Configurable ):
         pass
     
     #
+    # Get the battery status.
+    # Returns one of the BAT_STATE_xxx values to indicate battery voltage level or 
+    # presence or health state.
+    # Raises RuntimeError in case this information cannot be determined.
+    #
+    def getBatStatus(self):
+        pass
+    
+    #
     # Retrieves the charge phase or status.
-    # Returns one of the STATE_xxx values to indicate the current charge status.
+    # Returns one of the CHG_STATE_xxx values to indicate the current charge status.
     # Raises RuntimeError in case the charge status cannot be determined.
     #
     def getChgStatus(self):
+        pass
+    
+    #
+    # Retrieves the DC supply status.
+    # Returns one of the DC_STATE_xxx values to indicate the DC supply status.
+    # Raises RuntimeError in case the information cannot be determined.
+    def getDCStatus(self):
         pass
     
     #

@@ -1,6 +1,6 @@
 from pymitter import EventEmitter
 
-class EventPublisher:
+class InterruptSource:
 
     eventEmitter = None
     
@@ -19,7 +19,7 @@ class EventPublisher:
 
     #    
     #
-    # Gives the status of each interruptp condition, independently of whether
+    # Gives the status of each interrupt condition, independently of whether
     # the condition is registered as a source of notification, or not.
     #
     def getIntStatus(self):
