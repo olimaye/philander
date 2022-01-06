@@ -829,7 +829,18 @@ class BMA456( SerialDevice, Sensor ):
     # Overridden Sensor functions
     #
 
-    def _scanParameters( self, paramDict ):
+    #
+    # Constructor
+    # The only input parameter is a dictionary containing key-value pairs that
+    # configure the instance. Regarded key names and their meanings are:
+    # busType      : One of the SerialDevice.BUSTYPE_xxx values.
+    # busDesignator: The bus designator. May be a name or number, such as "/dev/i2c-3" or 1.
+    # deviceAddress: either the I2C address (0x18/0x19) or the state of the SDO line (0/1).
+    # dataRange    : One of the BMA456.ACC_RANGE_xxx values to describe the range.
+    # dataRate     : One of the BMA456.ACC_DATARATE_xxx values to set the frequency.
+    def __init__( self, paramDict ):
+        # Set defaults, where necessary
+        self.scale_mg = 1
         if not ("SerialDevice.busType" in paramDict):
             paramDict["SerialDevice.busType"] = SerialDevice.BUSTYPE_I2C
         if not ("SerialDevice.busDesignator" in paramDict):
@@ -845,20 +856,6 @@ class BMA456( SerialDevice, Sensor ):
             paramDict["Sensor.dataRange"] = BMA456.ACC_RANGE_DEFAULT
         if not ("Sensor.dataRate" in paramDict):
             paramDict["Sensor.dataRate"] = BMA456.ACC_DATARATE_DEFAULT
-        Sensor._scanParameters( self, paramDict )
-
-    #
-    # Constructor
-    # The only input parameter is a dictionary containing key-value pairs that
-    # configure the instance. Regarded key names and their meanings are:
-    # busType      : One of the SerialDevice.BUSTYPE_xxx values.
-    # busDesignator: The bus designator. May be a name or number, such as "/dev/i2c-3" or 1.
-    # deviceAddress: either the I2C address (0x18/0x19) or the state of the SDO line (0/1).
-    # dataRange    : One of the BMA456.ACC_RANGE_xxx values to describe the range.
-    # dataRate     : One of the BMA456.ACC_DATARATE_xxx values to set the frequency.
-    def __init__( self, paramDict ):
-        # Set defaults, where necessary
-        self.scale_mg = 1
         SerialDevice.__init__(self, paramDict)
         Sensor.__init__(self, paramDict)
 
