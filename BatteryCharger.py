@@ -12,7 +12,7 @@ class BatteryCharger( InterruptSource, Configurable ):
     BAT_STATE_OVERCURRENT   = 6 # Battery current to high
     BAT_STATE_TIME          = 7 # Charging takes (too) long; old/damaged battery
 
-    chgState2Str = {
+    batState2Str = {
         BAT_STATE_UNKNOWN       : 'UNKNOWN',
         BAT_STATE_REMOVED       : 'REMOVED',
         BAT_STATE_EMPTY         : 'EMPTY',

@@ -203,7 +203,7 @@ class ActorUnit( Configurable, EventHandler ):
     # Issues a start command to the actuator unit.
     #    
     def startCueing(self):
-        print('Vibration START:', self.cmdStart)
+        print('Vibration START:', self.cmdStart.hex() )
     
     #
     # Issues a stop command to the actuator unit.

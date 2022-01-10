@@ -1,29 +1,12 @@
-from Configurable import Configurable
-
-class Sensor( Configurable ):
-
-    def _scanParameters( self, paramDict ):
-        if "Sensor.dataRange" in paramDict:
-            self.dataRange = paramDict["Sensor.dataRange"]
-        if "Sensor.dataRate" in paramDict:
-            self.dataRate  = paramDict["Sensor.dataRate"]
-    
-    def _applyConfiguration( self ):
-        self.setRange( self.dataRange )
-        self.setDataRate( self.dataRate )
+class Sensor():
 
     #
     # Initializes the sensor.
-    # The only input parameter is a dictionary containing key-value pairs that
-    # configure the instance. Key names and their meanings are:
-    # Sensor.dataRange    : A value to describe the range.
-    # Sensor.dataRate     : A value to set the frequency.
-    def __init__( self, paramDict ):
-        # Set defaults
+    #
+    def __init__( self ):
+        # Create instance attributes
         self.dataRange = 1
         self.dataRate = 0
-        Configurable.__init__( self, paramDict )
-
  
     #
     # Soft resets the sensor. The device is in some default state, afterwards and

@@ -131,72 +131,11 @@ class SerialDevice( Device, Configurable ):
         bdata.insert( 0, aReg )
         msgs = [self.i2c.Message( bdata )]
         self.i2c.transfer( self.deviceAddress, msgs)
-    
-    #
-    # Configurable API
-    #
-    
-    def _scanParameters( self, paramDict ):
-        # Scan parameters
-        if "SerialDevice.busType" in paramDict:
-            self.drvMod = self._detectDriverModule( paramDict["SerialDevice.busType"] )
 
-        if "SerialDevice.busDesignator" in paramDict:
-            self.busDesignator = paramDict["SerialDevice.busDesignator"]
-        
-        if "SerialDevice.deviceAddress" in paramDict:
-            self.deviceAddress = paramDict["SerialDevice.deviceAddress"]
-                                
-    # Nothing to do do:
-    # def _applyConfiguration( self ):
-    
     #
-    # Constructor
-    # The only input parameter is a dictionary containing key-value pairs that
-    # configure the instance. Regarded key names and their meanings are:
-    # SerialDevice.busType      : One of the SerialDevice.BUSTYPE_xxx values.
-    # SerialDevice.busDesignator: The bus designator. May be a name or number, such as "/dev/i2c-3" or 1.
-    # SerialDevice.deviceAddress: either the I2C address (0x18/0x19) or the state of the SDO line (0/1).
-    def __init__( self, paramDict ):
-        # Set defaults, where necessary
-        self.drvMod = self._detectDriverModule( SerialDevice.BUSTYPE_I2C )
-        self.busDesignator = "/dev/i2c-1"
-        self.deviceAddress = 0x42
-        Configurable.__init__( self, paramDict )
-                        
-        # Multiplex the different implementations depending on the driver module
-        if (self.drvMod==SerialDevice._MOD_SMBUS) or (self.drvMod==SerialDevice._MOD_SMBUS2):
-            self._serDevPtr_init = self._smbus_init
-            self._serDevPtr_close = self._smbus_close
-            self._serDevPtr_readByte = self._smbus_readByte
-            self._serDevPtr_readWord = self._smbus_readWord
-            self._serDevPtr_readDWord = self._smbus_readDWord
-            self._serDevPtr_readBlock = self._smbus_readBlock
-            self._serDevPtr_writeByte = self._smbus_writeByte
-            self._serDevPtr_writeWord = self._smbus_writeWord
-            self._serDevPtr_writeDWord = self._smbus_writeDWord
-            self._serDevPtr_writeBlock = self._smbus_writeBlock
-        elif (self.drvMod==SerialDevice._MOD_PERIPHERY):
-            self._serDevPtr_init = self._periphery_init
-            self._serDevPtr_close = self._periphery_close
-            self._serDevPtr_readByte = self._periphery_readByte
-            self._serDevPtr_readWord = self._periphery_readWord
-            self._serDevPtr_readDWord = self._periphery_readDWord
-            self._serDevPtr_readBlock = self._periphery_readBlock
-            self._serDevPtr_writeByte = self._periphery_writeByte
-            self._serDevPtr_writeWord = self._periphery_writeWord
-            self._serDevPtr_writeDWord = self._periphery_writeDWord
-            self._serDevPtr_writeBlock = self._periphery_writeBlock
-        else:
-            raise NotImplementedError('Driver module ' + str(self.drvMod) + ' is not supported.')
-
-    def init( self ):
-        self._serDevPtr_init()
-        Configurable.init(self)
+    #
+    #
     
-    def close(self):
-        self._serDevPtr_close()
-        
     def readByte( self, aReg ):
         return self._serDevPtr_readByte(aReg )
 
@@ -237,3 +176,89 @@ class SerialDevice( Device, Configurable ):
     def setWReg( self, register, data ):
         self.writeWord( register, data )
 
+    #
+    # Configurable API
+    #
+    
+    def _scanParameters( self, paramDict ):
+        # Scan parameters
+        if "SerialDevice.busType" in paramDict:
+            self.drvMod = self._detectDriverModule( paramDict["SerialDevice.busType"] )
+
+        if "SerialDevice.busDesignator" in paramDict:
+            self.busDesignator = paramDict["SerialDevice.busDesignator"]
+        
+        if "SerialDevice.deviceAddress" in paramDict:
+            self.deviceAddress = paramDict["SerialDevice.deviceAddress"]
+
+    # Nothing to do:
+    # def _applyConfiguration( self ):
+    
+    #
+    # Constructor
+    # The only input parameter is a dictionary containing key-value pairs that
+    # configure the instance. Regarded key names and their meanings are:
+    # SerialDevice.busType      : One of the SerialDevice.BUSTYPE_xxx values.
+    # SerialDevice.busDesignator: The bus designator. May be a name or number, such as "/dev/i2c-3" or 1.
+    # SerialDevice.deviceAddress: either the I2C address (0x18/0x19) or the state of the SDO line (0/1).
+    def __init__( self, paramDict ):
+        # Create instance attributes, initializes with some defaults
+        self.drvMod = self._detectDriverModule( SerialDevice.BUSTYPE_I2C )
+        self.busDesignator = "/dev/i2c-1"
+        self.deviceAddress = 0x42
+        # Fill paramDict with defaults
+        if not ("SerialDevice.busType" in paramDict):
+            paramDict["SerialDevice.busType"] = SerialDevice.BUSTYPE_I2C
+        if not ("SerialDevice.busDesignator" in paramDict):
+            paramDict["SerialDevice.busDesignator"] = "/dev/i2c-1"
+        if not ("SerialDevice.deviceAddress" in paramDict):
+            paramDict["SerialDevice.deviceAddress"] = 0x42
+        # Copy parameters to instance attributes
+        Configurable.__init__( self, paramDict )
+                        
+        # Multiplex the different implementations depending on the driver module
+        if (self.drvMod==SerialDevice._MOD_SMBUS) or (self.drvMod==SerialDevice._MOD_SMBUS2):
+            self._serDevPtr_init = self._smbus_init
+            self._serDevPtr_close = self._smbus_close
+            self._serDevPtr_readByte = self._smbus_readByte
+            self._serDevPtr_readWord = self._smbus_readWord
+            self._serDevPtr_readDWord = self._smbus_readDWord
+            self._serDevPtr_readBlock = self._smbus_readBlock
+            self._serDevPtr_writeByte = self._smbus_writeByte
+            self._serDevPtr_writeWord = self._smbus_writeWord
+            self._serDevPtr_writeDWord = self._smbus_writeDWord
+            self._serDevPtr_writeBlock = self._smbus_writeBlock
+        elif (self.drvMod==SerialDevice._MOD_PERIPHERY):
+            self._serDevPtr_init = self._periphery_init
+            self._serDevPtr_close = self._periphery_close
+            self._serDevPtr_readByte = self._periphery_readByte
+            self._serDevPtr_readWord = self._periphery_readWord
+            self._serDevPtr_readDWord = self._periphery_readDWord
+            self._serDevPtr_readBlock = self._periphery_readBlock
+            self._serDevPtr_writeByte = self._periphery_writeByte
+            self._serDevPtr_writeWord = self._periphery_writeWord
+            self._serDevPtr_writeDWord = self._periphery_writeDWord
+            self._serDevPtr_writeBlock = self._periphery_writeBlock
+        else:
+            raise NotImplementedError('Driver module ' + str(self.drvMod) + ' is not supported.')
+
+    #
+    # Preconfigures a device. After physical connection is established,
+    # this code is expected to achieve logical connection, too, e.g. by hard-resetting.
+    # This function is executed after physical resources have been allocated,
+    # but before the configuration is applied.
+    # 
+    def _preConfig(self):
+        pass
+    
+    def init( self ):
+        # Allocate resources
+        self._serDevPtr_init()
+        # Allow for some pre-configuration
+        self._preConfig()
+        # Apply configuration
+        Configurable.init(self)
+    
+    def close(self):
+        self._serDevPtr_close()
+        

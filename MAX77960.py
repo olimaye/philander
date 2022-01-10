@@ -819,21 +819,10 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     #
     
     def _scanParameters( self, paramDict ):
-        # Base class parameter: serial device
-        if not ("SerialDevice.busType" in paramDict):
-            paramDict["SerialDevice.busType"] = SerialDevice.BUSTYPE_I2C
-        if not ("SerialDevice.busDesignator" in paramDict):
-            paramDict["SerialDevice.busDesignator"] = "/dev/i2c-1"
-        if not ("SerialDevice.deviceAddress" in paramDict):
-            paramDict["SerialDevice.deviceAddress"] = MAX77960._ADRESSES_ALLOWED[0]
-        SerialDevice._scanParameters( self, paramDict )
-        BatteryCharger._scanParameters( self, paramDict )
-        Watchdog._scanParameters( self, paramDict )
+        super()._scanParameters( paramDict )
 
     def _applyConfiguration( self ):
-        SerialDevice._applyConfiguration(self)
-        BatteryCharger._applyConfiguration(self)
-        Watchdog._applyConfiguration(self)
+        super()._applyConfiguration()
 
     #
     # Constructor
@@ -843,10 +832,19 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     # busDesignator: The bus designator. May be a name or number, such as "/dev/i2c-3" or 1.
     # deviceAddress: The I2C address (0x69).
     def __init__( self, paramDict ):
+        # No specific instance attributes
+        # Override default base class parameter: serial device
+        if not ("SerialDevice.deviceAddress" in paramDict):
+            paramDict["SerialDevice.deviceAddress"] = MAX77960._ADRESSES_ALLOWED[0]
         # Call constructors of the super class
-        SerialDevice.__init__(self, paramDict)
-        BatteryCharger.__init__(self, paramDict)
-        Watchdog.__init__(self, paramDict)
+        super().__init__(paramDict)
+
+    def _preConfig(self):
+        # Test address
+        try:
+            self.testConnection()
+        except OSError:
+            pass
 
     #
     # Initializes the device. Is automatically called while instantiating
@@ -855,17 +853,7 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     # Raises OSError in case of problems with the connection.
     #
     def init(self):
-        # Call serial driver's init  method to finalize communication setup
-        SerialDevice.init(self)
-        
-        # Test address
-        try:
-            self.testConnection()
-        except OSError:
-            pass
-        
-        BatteryCharger.init(self)
-        Watchdog.init(self)
+        super().init()
         
     #
     # Re-configures the instance according to the parameters provided.
@@ -887,9 +875,7 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     # Just closes the device. Should be called at the end of a program.
     #
     def close(self):
-        SerialDevice.close(self)
-        BatteryCharger.close(self)
-        Watchdog.close(self)
+        super().close()
 
     #
     # Soft resets the device. The device is in some default state, afterwards and

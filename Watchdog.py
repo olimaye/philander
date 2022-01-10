@@ -1,7 +1,7 @@
-from EventPublisher import EventPublisher
+from InterruptSource import InterruptSource
 from Configurable import Configurable
 
-class Watchdog( EventPublisher, Configurable ):
+class Watchdog( InterruptSource, Configurable ):
 
     # Interrupts
     INT_WATCHDOG      = 0x0101 # Watchdog elapsed.
@@ -33,14 +33,14 @@ class Watchdog( EventPublisher, Configurable ):
     # this module can be used.
     #
     def init(self):
-        EventPublisher.init(self)
+        InterruptSource.init(self)
         Configurable.init(self)
 
     # 
     # Shuts down the WATCHDOG module safely.
     #
     def close(self):
-        EventPublisher.close(self)
+        InterruptSource.close(self)
         #Configurable.close(self)
 
     #

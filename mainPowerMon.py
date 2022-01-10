@@ -32,6 +32,7 @@ keyListener =  keyboard.Listener(on_press=on_press)
 def printMenu():
     print('========== Charger Monitor ==========')
     print(' C  - Charger view  R - register dump')
+    print('                    r - restart charging')
     print('Esc - quit')
     print('=====================================')
     
@@ -76,17 +77,20 @@ try:
     while not done:
         printMenu()
         key = getKey()
-        if key == keyboard.Key.esc:
+        if key == keyboard.Key.esc:  # Quit
             done = True
-        elif key == keyboard.KeyCode(char='C'):
+        elif key == keyboard.KeyCode(char='C'):  # Charger view
             val = pw.getID()
             print(f'Chip-ID  : {val:02x}')
             val = str( pw.isBatteryPresent() )
             val1= pw.getNumCells()
             print(f'Bat.found: {val:10}      #Cells: {val1}')
-            val = BatteryCharger.state2Str.get( pw.getChgStatus(), 'UNKNOWN' )
+            val = BatteryCharger.batState2Str.get( pw.getBatStatus(), 'UNKNOWN' )
+            val1= BatteryCharger.chgState2Str.get( pw.getChgStatus(), 'UNKNOWN' )
+            print(f'Bat.state: {val:10}   Chg.state: {val1}')
+            val = BatteryCharger.dcState2Str.get( pw.getDCStatus(), 'UNKNOWN' )
             val1= BatteryCharger.pwrsrc2Str.get( pw.getPowerSrc(), 'UNKNOWN' )
-            print(f'Chg.state: {val:10}    PowerSrc: {val1}')
+            print(f' DC.state: {val:10}    PowerSrc: {val1}')
             val = BatteryCharger.temp2Str.get( pw.getChargerTempState(), 'UNKNOWN' )
             try:
                 val1= BatteryCharger.temp2Str.get( pw.getBatteryTempState(), 'UNKNOWN' )
@@ -96,7 +100,7 @@ try:
             val = BatteryCharger.err2Str.get( pw.getError(), 'UNKNOWN' )
             val1= pw.getIntStatus()
             print(f'   Error : {val:10}   Int.state: {val1:04x}')
-        elif key == keyboard.KeyCode(char='R'):
+        elif key == keyboard.KeyCode(char='R'):  # Register dump
             rs = pw.getAllRegistersStr()
             print('Nr Register name |    Content')
             for line in rs:
@@ -105,6 +109,12 @@ try:
                 sContent= format( line[2], "02x" )
                 sMeaning= line[3]
                 print( f'{sRegNum} {sRegName:14}|{sContent}: {sMeaning}' )
+        elif key == keyboard.KeyCode(char='r'):  # Restart charging
+            try:
+                pw.restartCharging()
+                print ('Charger restarted.')
+            except RuntimeError as exc:
+                print(exc)
     keyListener.stop()
     print('Program stopped.')
                 

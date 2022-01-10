@@ -1,7 +1,6 @@
-from SerialDevice import SerialDevice
-from Sensor import Sensor
+from SerialSensor import SerialSensor
 
-class BMA456( SerialDevice, Sensor ):
+class BMA456( SerialSensor ):
     #
     # Protectd / private attributes
     #
@@ -826,25 +825,28 @@ class BMA456( SerialDevice, Sensor ):
                 tNow = self.getSensorTime()
 
     #
-    # Overridden Sensor functions
+    # Configurable API, derived from SerialDevice
     #
+
+    # No specific configuration parameters, yet
+    #def _scanParameters( self, paramDict ):
+    #    if "BMA456.xyz" in paramDict:
+    #        self.xyz = paramDict["BMA456.xyz"]
+
+    #def _applyConfiguration( self ):
+    #    pass
+
 
     #
     # Constructor
     # The only input parameter is a dictionary containing key-value pairs that
-    # configure the instance. Regarded key names and their meanings are:
-    # busType      : One of the SerialDevice.BUSTYPE_xxx values.
-    # busDesignator: The bus designator. May be a name or number, such as "/dev/i2c-3" or 1.
-    # deviceAddress: either the I2C address (0x18/0x19) or the state of the SDO line (0/1).
-    # dataRange    : One of the BMA456.ACC_RANGE_xxx values to describe the range.
-    # dataRate     : One of the BMA456.ACC_DATARATE_xxx values to set the frequency.
+    # configure the instance. Regarded key names and their meanings beyond those
+    # of the parent classes are: none (yet).
+    #
     def __init__( self, paramDict ):
-        # Set defaults, where necessary
+        # Create instance attributes
         self.scale_mg = 1
-        if not ("SerialDevice.busType" in paramDict):
-            paramDict["SerialDevice.busType"] = SerialDevice.BUSTYPE_I2C
-        if not ("SerialDevice.busDesignator" in paramDict):
-            paramDict["SerialDevice.busDesignator"] = "/dev/i2c-1"
+        # Set defaults, where necessary
         if not ("SerialDevice.deviceAddress" in paramDict):
             paramDict["SerialDevice.deviceAddress"] = BMA456._ADRESSES_ALLOWED[0]
         else:
@@ -856,18 +858,17 @@ class BMA456( SerialDevice, Sensor ):
             paramDict["Sensor.dataRange"] = BMA456.ACC_RANGE_DEFAULT
         if not ("Sensor.dataRate" in paramDict):
             paramDict["Sensor.dataRate"] = BMA456.ACC_DATARATE_DEFAULT
-        SerialDevice.__init__(self, paramDict)
-        Sensor.__init__(self, paramDict)
+        SerialSensor.__init__(self, paramDict)
 
     #
-    # Initializes the sensor
+    # Preconfigures a device. After physical connection is established,
+    # this code is expected to achieve logical connection, too, e.g. by hard-resetting.
+    # This function is executed after physical resources have been allocated,
+    # but before the configuration is applied.
     # Raises OSError in case of problems with the connection.
     #        OSError on failure when initializing the chip.
-    #
-    def init(self):
-        # Call serial driver's init  method to finalize communication setup
-        SerialDevice.init(self)
-        
+    # 
+    def _preConfig(self):
         # Test address
         self.testConnection()
         
@@ -900,14 +901,11 @@ class BMA456( SerialDevice, Sensor ):
        
         # Configure power save mode:
         self.setReg( BMA456._REG_PWR_CONF, BMA456._CNT_PWR_CONF_ADV_PWR_SAVE_DISABLE | BMA456._CNT_PWR_CONF_FIFO_WKUP_DISABLE )
-        
-        # Call Sensor's init  method to set range and data rate
-        Sensor.init(self)
 
 
-    def close(self):
-        SerialDevice.close(self)
-        Sensor.close(self)
+    #
+    # Sensor API, as derived from SerialSensor
+    #
 
     def reset(self):
         #write_data( _REG_CMD, _CNT_CMD_SOFTRESET )
@@ -949,7 +947,7 @@ class BMA456( SerialDevice, Sensor ):
         else:
             self.setReg( BMA456._REG_ACC_RANGE, newRange )
             self.scale_mg = BMA456._RANGE2SCALE.get( newRange, BMA456._FULL_SCALE_2G )
-            Sensor.setRange( self, newRange )
+            self.dataRange = newRange
 
     #
     # Configures the data update rate.
@@ -962,5 +960,5 @@ class BMA456( SerialDevice, Sensor ):
             raise ValueError('Parameter out of range: '+str(newRate)+'. Use BMA456.ACC_DATARATE_xxx mnemonics!')
         else:
             self.setReg( BMA456._REG_ACC_CONF, BMA456._CNT_ACC_CONF_PERF_MODE_AVG | BMA456._CNT_ACC_CONF_BWP_OSR2_AVG2 | newRate )
-            Sensor.setDataRate( self, newRate )
+            self.dataRate = newRate
 
