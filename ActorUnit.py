@@ -1,5 +1,10 @@
 from Configurable import Configurable
 from EventHandler import EventHandler
+
+from bleak import BleakClient, BleakScanner
+from threading import Thread
+import asyncio
+
 #
 # Implementation of the vibration belt driver, also called actor unit
 #
@@ -30,9 +35,9 @@ class ActorUnit( Configurable, EventHandler ):
     # Delay of the first pulse, given in milliseconds 0...65535 (0xFFFF). Zero (0) to startCueing immediately-
     DELAY_DEFAULT           = 0     # immediately
     # Pulse period in milliseconds 0...65535 (0xFFFF)
-    PULSE_PERIOD_DEFAULT    = 1000  # ms
+    PULSE_PERIOD_DEFAULT    = 200  # ms
     # Pulse ON duration in milliseconds 0...65535 (0xFFFF). Must be less than the period.
-    PULSE_ON_DEFAULT        = 600   # ms; 60% duty cycle
+    PULSE_ON_DEFAULT        = 120   # ms; 60% duty cycle
     # Total number of pulses 0...255. Zero (0) means infinitely.
     PULSE_COUNT_DEFAULT     = 3     #
     # Intensity of the ON phase vibration [0...100]
@@ -40,6 +45,22 @@ class ActorUnit( Configurable, EventHandler ):
     # Motor selection used for vibration [0...3]: Motors #1, or #2 or both.
     ACTUATORS_DEFAULT       = MOTORS_ALL # All motors
 
+    # BLE defaults
+    BLE_DEVICE_UUID         = '0000fa01-0000-1000-8000-00805f9b34fb'
+    BLE_CHARACTERISTIC_UUID = '0000fa61-0000-1000-8000-00805f9b34fb'
+    BLE_DISCOVERY_TIMEOUT   = 5.0
+    
+    # BLE Connection states
+    BLE_CONN_STATE_DISCONNECTED = 0
+    BLE_CONN_STATE_DISCOVERING  = 1
+    BLE_CONN_STATE_CONNECTED    = 2
+    
+    connState2Str = {
+        BLE_CONN_STATE_DISCONNECTED : 'Disconnected',
+        BLE_CONN_STATE_DISCOVERING  : 'Discovering',
+        BLE_CONN_STATE_CONNECTED    : 'Connected',
+    }
+    
     # Events
     EVT_CUE_STANDARD   = 1
     EVT_CUE_STOP       = 2
@@ -67,6 +88,8 @@ class ActorUnit( Configurable, EventHandler ):
     # ActorUnit.pulseCount    : Number of pulses [0...255]. Zero (0) means infinite pulses.
     # ActorUnit.pulseIntensity: Intensity of the pulses [0...100]%
     # ActorUnit.actuators     : Motors to be used for the pulses [0...3] meaning none, left, right, both motors
+    # ActorUnit.BLE.discovery.timeout: Timeout for the BLE discovery phase, given in seconds.
+    # ActorUnit.BLE.callback  : Callback routine to be executed on the change of the BLE connection status.
     #
     def __init__( self, paramDict ):
         # Create instance attributes
@@ -79,6 +102,12 @@ class ActorUnit( Configurable, EventHandler ):
         self.cmdStart = bytearray(11)
         self.cmdStart[0] = ActorUnit._CMD_START
         self.cmdStop = bytearray([ActorUnit._CMD_STOP])
+        self.bleDiscoveryTimeout = ActorUnit.BLE_DISCOVERY_TIMEOUT
+        self.bleCallback = None
+        self._bleClient = 0
+        self._bleChar = 0
+        self._bleConnectionState = ActorUnit.BLE_CONN_STATE_DISCONNECTED
+        self._evtLoop = asyncio.new_event_loop()
         # Set defaults
         if not "ActorUnit.delay" in paramDict:
             paramDict["ActorUnit.delay"] = ActorUnit.DELAY_DEFAULT
@@ -92,6 +121,9 @@ class ActorUnit( Configurable, EventHandler ):
             paramDict["ActorUnit.pulseIntensity"] = ActorUnit.PULSE_INTENSITY_DEFAULT
         if not "ActorUnit.actuators" in paramDict:
             paramDict["ActorUnit.actuators"] = ActorUnit.ACTUATORS_DEFAULT
+        if not "ActorUnit.BLE.discovery.timeout" in paramDict:
+            paramDict["ActorUnit.BLE.discovery.timeout"] = ActorUnit.BLE_DISCOVERY_TIMEOUT
+        # bleCallback is intentionally not added to the list.
         Configurable.__init__( self, paramDict )
     
     #
@@ -124,6 +156,12 @@ class ActorUnit( Configurable, EventHandler ):
             val = paramDict["ActorUnit.actuators"]
             if (val>=ActorUnit.MOTORS_NONE) and (val<=ActorUnit.MOTORS_ALL):
                 self.actuators = val
+        if "ActorUnit.BLE.discovery.timeout" in paramDict:
+            val = paramDict["ActorUnit.BLE.discovery.timeout"]
+            if val>=0:
+                self.bleDiscoveryTimeout = val
+        if "ActorUnit.BLE.callback" in paramDict:
+            self.bleCallback = paramDict["ActorUnit.BLE.callback"]
     
     #
     # Apply the new configuration.
@@ -147,13 +185,13 @@ class ActorUnit( Configurable, EventHandler ):
     #
     def init(self):
         Configurable.init(self)
-        self.unitCouple()
+        self.couple()
 
     # 
     # Shuts down the instance safely.
     #
     def close(self):
-        self.unitDecouple()
+        self.decouple()
     
     #
     # EventHandler API
@@ -177,38 +215,156 @@ class ActorUnit( Configurable, EventHandler ):
     #
     
     #
-    # Establishes a connection with the first available actuator unit,
-    # i.e. does the BlueTooth coupling
-    # Returns a boolean success-or-failure indicator.
+    # Sets the BLE callback handler
     #
-    def unitCouple(self):
-        pass
+    def setBLECallback( self, cb ):
+        self.bleCallback = cb
     
     #
-    # Decouples from the actuator unit.
-    # Returns nothing
+    # Sets the BLE discovery timout, given in seconds.
     #
-    def unitDecouple(self):
-        pass
+    def setBLEDiscoveryTimeout( self, to ):
+        self.bleDiscoveryTimeout = to
     
+    #
+    # Retrieves the current BLE connection state, which
+    # is one of ActorUnit.BLE_CONN_STATE_xxx values.
+    #
+    def getBLEConnectionState( self ):
+        return self._bleConnectionState
+
     #
     # Informs the caller on whether or not the connection with the
     # actuator unit has been established and is still intact.
     # Returns a boolean success-or-failure indicator.
     # 
-    def unitIsCoupled(self):
-        return False
+    def isCoupled(self):
+        ret = (self._bleConnectionState == ActorUnit.BLE_CONN_STATE_CONNECTED)
+        return ret
 
+    #
+    # Triggers the procedure to establish a BLE connection.
+    # Returns a success-or-failure indicator for this triggering,
+    # i.e. gives True, if the procedure launched, and False e.g.
+    # when it is already running.
+    # Notice on the result of the coupling is given via the bleCallback.
+    #
+    def couple(self):
+        ret = False
+        if self._bleConnectionState == ActorUnit.BLE_CONN_STATE_DISCONNECTED:
+            #self._evtLoop.run_until_complete( self._couplingRoutine() )
+            worker = Thread( target=self._bleWorker, name='AU coupling', args=(self._couplingRoutine(), ) )
+            worker.start()
+            ret = True
+        return ret
+    
+    
+    #
+    # Triggers the procedure to close a BLE connection.
+    # Returns a success-or-failure indicator for this triggering,
+    # i.e. gives True, if the procedure launched, and False e.g.
+    # when the AU is not coupled.
+    # Notice on the result of the decoupling is given via the bleCallback.
+    #
+    def decouple(self):
+        ret = False
+        if self._bleConnectionState == ActorUnit.BLE_CONN_STATE_CONNECTED:
+            self._evtLoop.run_until_complete( self._decouplingRoutine() )
+            ret = True
+        return ret
+    
     #
     # Issues a start command to the actuator unit.
     #    
     def startCueing(self):
-        print('Vibration START:', self.cmdStart.hex() )
+        if self._bleConnectionState == ActorUnit.BLE_CONN_STATE_CONNECTED:
+            try:
+                if self._evtLoop.is_running():
+                    self._evtLoop.create_task( self.bleClient.write_gatt_char( self.bleChar, self.cmdStart, response=True ) )
+                else:
+                    self._evtLoop.run_until_complete( self.bleClient.write_gatt_char( self.bleChar, self.cmdStart, response=True ) )
+            except EOFError:
+                print('AU.startCueing: EOF')
+                
     
     #
     # Issues a stop command to the actuator unit.
     #
     def stopCueing(self):
-        print('Vibration STOP.')
+        if self._bleConnectionState == ActorUnit.BLE_CONN_STATE_CONNECTED:
+            try:
+                if self._evtLoop.is_running():
+                    self._evtLoop.create_task( self.bleClient.write_gatt_char( self.bleChar, self.cmdStop, response=True ) )
+                else:
+                    self._evtLoop.run_until_complete( self.bleClient.write_gatt_char( self.bleChar, self.cmdStop, response=True ) )
+            except EOFError as exc:
+                print('AU.stopCueing:', exc)
     
+
+    #
+    # Internal helper functions
+    #
     
+
+    def _setBLEConnectionState( self, newState ):
+        self._bleConnectionState = newState
+        if self.bleCallback:
+            try:
+                self.bleCallback( self._bleConnectionState )
+            except Exception as exc:
+                print('AU._setBLEConnectionState:', exc)
+    
+    def _handleDisconnected( self, client ):
+        self._setBLEConnectionState( ActorUnit.BLE_CONN_STATE_DISCONNECTED )
+            
+    #
+    # Establishes a connection with the first available actuator unit,
+    # i.e. does the BlueTooth coupling
+    # Returns nothing, but executes the bleConnectionCallback, as a side-effect
+    #
+    async def _couplingRoutine(self):
+        # Discovering
+        self._setBLEConnectionState( ActorUnit.BLE_CONN_STATE_DISCOVERING )
+        try:
+            devices = await BleakScanner.discover( timeout=self.bleDiscoveryTimeout, filters={'UUIDs': [ActorUnit.BLE_DEVICE_UUID]} )
+            if devices:
+                # Try to connect
+                self.bleClient = BleakClient( devices[0] )
+                self.bleClient.set_disconnected_callback( self._handleDisconnected )
+                success = await self.bleClient.connect()
+                if success:
+                    svcColl = await self.bleClient.get_services()
+                    self.bleChar = svcColl.get_characteristic( ActorUnit.BLE_CHARACTERISTIC_UUID )
+                    self._setBLEConnectionState( ActorUnit.BLE_CONN_STATE_CONNECTED )
+                else:
+                    self._setBLEConnectionState( ActorUnit.BLE_CONN_STATE_DISCONNECTED )
+            else:
+                self._setBLEConnectionState( ActorUnit.BLE_CONN_STATE_DISCONNECTED )    
+        except RuntimeError as exc:
+            print('AU._couplingRoutine:', exc)
+            self._setBLEConnectionState( ActorUnit.BLE_CONN_STATE_DISCONNECTED )    
+
+    #
+    # Closes a BLE connection.
+    # Returns nothing, but executes the bleConnectionCallback, as a side-effect
+    #
+    async def _decouplingRoutine(self):
+        if self.bleClient:
+            try:
+                await self.bleClient.disconnect()
+            except RuntimeError as exc:
+                print('AU._decouplingRoutine:', exc)
+        self._setBLEConnectionState( ActorUnit.BLE_CONN_STATE_DISCONNECTED )    
+                
+
+    def _bleWorker( self, routine ):
+        try:
+            if self._evtLoop.is_closed():
+                pass
+            elif self._evtLoop.is_running():
+                self._evtLoop.create_task( routine )
+            else:
+                self._evtLoop.run_until_complete( routine )
+        except RuntimeError as exc:
+                print('AU._bleWorker:', exc)
+
