@@ -38,10 +38,15 @@ class FGSystemManagement( Configurable ):
     # The only input parameter is a dictionary containing key-value pairs that
     # configure the instance. Key names and their meanings are:
     # UI.LED.tmp.pin         : Pin of the temperature LED, such as 17 or 'GPIO17'
+    # UI.LED.tmp.activeHigh  : True, if high-state makes the LED shine, False otherwise
     # UI.LED.bat.pin         : Pin of the battery status LED
+    # UI.LED.bat.activeHigh  : True, if high-state makes the LED shine, False otherwise
     # UI.LED.ble.pin         : Pin of the BLE connection status LED
+    # UI.LED.ble.activeHigh  : True, if high-state makes the LED shine, False otherwise
     # UI.LED.dc.pin          : Pin of the DC supply status LED
+    # UI.LED.dc.activeHigh   : True, if high-state makes the LED shine, False otherwise
     # UI.LED.chg.pin         : Pin of the charger status LED
+    # UI.LED.chg.activeHigh  : True, if high-state makes the LED shine, False otherwise
     #
     def __init__(self, paramDict):
         # Create instance attributes
@@ -52,26 +57,42 @@ class FGSystemManagement( Configurable ):
         self.actorUnit = ActorUnit( paramDict )
         self.tmpLED = None
         self._tmpLEDpin = None
+        self._tmpLEDactHi = True
         self.batLED = None
         self._batLEDpin = None
+        self._batLEDactHi = True
         self.bleLED = None
         self._bleLEDpin = None
+        self._bleLEDactHi = True
         self.dcLED = None
         self._dcLEDpin = None
+        self._dcLEDactHi = True
         self.chgLED = None
         self._chgLEDpin = None
+        self._chgLEDactHi = True
         self.monitor = Thread( target=self.manageSystem, name='System Management' )
         # Set defaults
         if not "UI.LED.tmp.pin" in paramDict:
             paramDict["UI.LED.tmp.pin"] = None
+        if not "UI.LED.tmp.activeHigh" in paramDict:
+            paramDict["UI.LED.tmp.activeHigh"] = True
         if not "UI.LED.bat.pin" in paramDict:
             paramDict["UI.LED.bat.pin"] = None
+        if not "UI.LED.bat.activeHigh" in paramDict:
+            paramDict["UI.LED.bat.activeHigh"] = True
         if not "UI.LED.ble.pin" in paramDict:
             paramDict["UI.LED.ble.pin"] = None
+        if not "UI.LED.ble.activeHigh" in paramDict:
+            paramDict["UI.LED.ble.activeHigh"] = True
         if not "UI.LED.dc.pin" in paramDict:
             paramDict["UI.LED.dc.pin"] = None
+        if not "UI.LED.dc.activeHigh" in paramDict:
+            paramDict["UI.LED.dc.activeHigh"] = True
         if not "UI.LED.chg.pin" in paramDict:
             paramDict["UI.LED.chg.pin"] = None
+        if not "UI.LED.chg.activeHigh" in paramDict:
+            paramDict["UI.LED.chg.activeHigh"] = True
+        super().__init__( paramDict )
 
     #
     # Scans the parameters for known keys.
@@ -79,14 +100,24 @@ class FGSystemManagement( Configurable ):
     def _scanParameters( self, paramDict ):
         if "UI.LED.tmp.pin" in paramDict:
             self._tmpLEDpin = paramDict["UI.LED.tmp.pin"]
+        if "UI.LED.tmp.activeHigh" in paramDict:
+            self._tmpLEDactHi = paramDict["UI.LED.tmp.activeHigh"]
         if "UI.LED.bat.pin" in paramDict:
             self._batLEDpin = paramDict["UI.LED.bat.pin"]
+        if "UI.LED.bat.activeHigh" in paramDict:
+            self._batLEDactHi = paramDict["UI.LED.bat.activeHigh"]
         if "UI.LED.ble.pin" in paramDict:
             self._bleLEDpin = paramDict["UI.LED.ble.pin"]
+        if "UI.LED.ble.activeHigh" in paramDict:
+            self._bleLEDactHi = paramDict["UI.LED.ble.activeHigh"]
         if "UI.LED.dc.pin" in paramDict:
             self._dcLEDpin = paramDict["UI.LED.dc.pin"]
+        if "UI.LED.dc.activeHigh" in paramDict:
+            self._dcLEDactHi = paramDict["UI.LED.dc.activeHigh"]
         if "UI.LED.chg.pin" in paramDict:
             self._chgLEDpin = paramDict["UI.LED.chg.pin"]
+        if "UI.LED.chg.activeHigh" in paramDict:
+            self._chgLEDactHi = paramDict["UI.LED.chg.activeHigh"]
                 
     #
     # Apply the new configuration.
@@ -101,15 +132,15 @@ class FGSystemManagement( Configurable ):
         self.charger.init()
         super().init()
         if self._tmpLEDpin:
-            self.tmpLED = LED( self._tmpLEDpin )
+            self.tmpLED = LED( self._tmpLEDpin, active_high=self._tmpLEDactHi )
         if self._batLEDpin:
-            self.batLED = LED( self._batLEDpin )
+            self.batLED = LED( self._batLEDpin, active_high=self._batLEDactHi )
         if self._bleLEDpin:
-            self.bleLED = LED( self._bleLEDpin )
+            self.bleLED = LED( self._bleLEDpin, active_high=self._bleLEDactHi )
         if self._dcLEDpin:
-            self.dcLED = LED( self._dcLEDpin )
+            self.dcLED = LED( self._dcLEDpin, active_high=self._dcLEDactHi )
         if self._chgLEDpin:
-            self.chgLED = LED( self._chgLEDpin )
+            self.chgLED = LED( self._chgLEDpin, active_high=self._chgLEDactHi )
         self.monitor.start()
         self.actorUnit.setBLECallback( self.bleCallBack )
         self.actorUnit.init()
@@ -124,18 +155,23 @@ class FGSystemManagement( Configurable ):
         if self.tmpLED:
             self.tmpLED.off()
             self.tmpLED.close()
+            self.tmpLED = None
         if self.batLED:
             self.batLED.off()
             self.batLED.close()
+            self.batLED = None
         if self.bleLED:
             self.bleLED.off()
             self.bleLED.close()
+            self.bleLED = None
         if self.dcLED:
             self.dcLED.off()
             self.dcLED.close()
+            self.dcLED = None
         if self.chgLED:
             self.chgLED.off()
             self.chgLED.close()
+            self.chgLED = None
 
     #
     # Own, specific API
@@ -155,10 +191,12 @@ class FGSystemManagement( Configurable ):
 
         while not self.done:
             try:
-                val = self.charger.getBatStatus()
-                if val != batStatus:
-                    batStatus = val
-                    self._displayStatusChange( FGSystemManagement._INFOCAT_BAT_STATE, batStatus )
+                # Battery status is not available during battery-only mode.
+                # So this is not a useful battery level information.
+                #val = self.charger.getBatStatus()
+                #if val != batStatus:
+                #    batStatus = val
+                #    self._displayStatusChange( FGSystemManagement._INFOCAT_BAT_STATE, batStatus )
                 
                 val = self.charger.getChargerTempState()
                 if batStatus != BatteryCharger.BAT_STATE_REMOVED:

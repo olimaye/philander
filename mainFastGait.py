@@ -26,7 +26,7 @@ setupSensor = {
     #   SerialDevice.deviceAddress gives either SDO status (0/1) or I2C address right
     #   away (0x18/0x19). Depends on the underlying system board.
     #   Default is 0 (i.e. 0x18).
-    "SerialDevice.deviceAddress": 0,
+    "SerialDevice.deviceAddress": 1,
     #   Sensor.dataRange defines the measurement range. Set as needed.
     #   Defaults to sensor.ACC_RANGE_2G.
     #"Sensor.dataRange"    : sensor.ACC_RANGE_2G,
@@ -65,16 +65,26 @@ setupSystemManagement = {
     #"ActorUnit.BLE.discovery.timeout": 5.0,
     #    Timeout for the BLE discovery phase, given in seconds.
     ### User interface settings ###
-    #"UI.LED.tmp.pin"          : 'BOARD15', # LED_RED, pin 15.
+    "UI.LED.tmp.pin"          : 'BOARD15', # LED_RED, pin 15.
     #    Pin of the TMP LED.
-    #"UI.LED.bat.pin"          : 'BOARD36', # LED_ORANGE, pin 36.
+    "UI.LED.tmp.activeHigh"   : False,     # LED is between Vcc and GPIO. 
+    #    True, if a logical 1 switches LED on; False, if it makes LED off.
+    "UI.LED.bat.pin"          : 'BOARD36', # LED_ORANGE, pin 36.
     #    Pin of the BAT LED.
-    #"UI.LED.ble.pin"          : 'BOARD32', # LED_BLUE, pin 32.
+    "UI.LED.bat.activeHigh"   : False,     # LED is between Vcc and GPIO. 
+    #    True, if a logical 1 switches LED on; False, if it makes LED off.
+    "UI.LED.ble.pin"          : 'BOARD32', # LED_BLUE, pin 32.
     #    Pin of the BLE LED.
+    "UI.LED.ble.activeHigh"   : False,     # LED is between Vcc and GPIO. 
+    #    True, if a logical 1 switches LED on; False, if it makes LED off.
     #"UI.LED.dc.pin"           : 'BOARD33', # Actually hard-wired. Leave as comment!
     #    Pin of the DC LED.
+    #"UI.LED.dc.activeHigh"   : False, 
+    #    True, if a logical 1 switches LED on; False, if it makes LED off.
     #"UI.LED.chg.pin"          : 'BOARD33', # Actually hard-wired. Leave as comment!
     #    Pin of the CHG LED.
+    #"UI.LED.chg.activeHigh"   : False, 
+    #    True, if a logical 1 switches LED on; False, if it makes LED off.
     }
 
 #
