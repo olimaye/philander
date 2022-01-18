@@ -5,6 +5,24 @@ from FGSystemManagement import FGSystemManagement
 
 import time # Depending on the measurement strategy, this is not really necessary
 import math # To use sqrt()
+import logging
+import argparse
+
+
+#
+# Step 0: Configure logging
+#
+parser = argparse.ArgumentParser()
+parser.add_argument(
+    "-log", 
+    "--loglevel",
+    default="info",
+    help=( "Provide logging level. Example --log debug', default='info'"
+    ),
+)
+options = parser.parse_args()
+logging.basicConfig( level=options.loglevel.upper() )
+
 
 #
 # Main program
@@ -90,10 +108,10 @@ setupSystemManagement = {
 #
 # Step 1: Instantiate objects.
 #
-print( "Instantiating objects." )
+logging.info( "Instantiating objects." )
 sd = sensor( setupSensor )
 sy = FGSystemManagement( setupSystemManagement )
-print( "Object instantiation done." )
+logging.info( "Object instantiation done." )
 
 #
 # Step 2: Initialize objects.
@@ -105,17 +123,15 @@ sy.init()
 # This is not mandatory, but just illustrates the
 # capabilities of an initialized object.
 #
-sd.checkID()
-print("ID check OK.")
-    
 val = sd.getDieTemperature()
-print("Chip temperature:", val, " deg.C")
+logging.info("Chip temperature: %d deg.C", val)
 
 #
 # Step 3: Collect measurements by either nextData() or lastData().
 #
 try:
-    print("Measurement started. Press Ctrl+C to end.")
+    logging.info('Measurement started.')
+    print("Press Ctrl+C to end.")
     while True:
         tNow = time.time()
         data = sd.nextData()
@@ -141,4 +157,4 @@ except KeyboardInterrupt:
 #
 sd.close()
 sy.close()
-print( "OK." )
+logging.info( "Program ends." )

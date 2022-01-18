@@ -5,7 +5,7 @@ from BatteryCharger import BatteryCharger
 from ActorUnit import ActorUnit
 from gpiozero import LED, PWMLED
 
-import time
+import time, logging
 
 # The fastGait power management and user interface
 class FGSystemManagement( Configurable ):
@@ -142,7 +142,9 @@ class FGSystemManagement( Configurable ):
         if self._chgLEDpin:
             self.chgLED = LED( self._chgLEDpin, active_high=self._chgLEDactHi )
         self.monitor.start()
-        self.actorUnit.setBLECallback( self.bleCallBack )
+        self.actorUnit.on( ActorUnit.EVT_BLE_DISCOVERING, self.bleHandleDiscovering )
+        self.actorUnit.on( ActorUnit.EVT_BLE_CONNECTED, self.bleHandleConnected )
+        self.actorUnit.on( ActorUnit.EVT_BLE_DISCONNECTED, self.bleHandleDisconnected )
         self.actorUnit.init()
 
     # 
@@ -178,7 +180,7 @@ class FGSystemManagement( Configurable ):
     #
             
     def manageSystem( self ):
-        print('System management thread is running')
+        logging.info('System management thread is running')
         self._sysjobLock.acquire()
         self._systemJob = FGSystemManagement._SYSJOB_NONE
         self._sysjobLock.release()
@@ -217,9 +219,10 @@ class FGSystemManagement( Configurable ):
 
                 self._executeSystemJobs()
             except RuntimeError as exc:
-                print(exc)
+                logging.exception(exc)
             time.sleep(0.5)
-        print('System management thread stopped.')
+        logging.info('System management thread stopped.')
+    
     
     def _joinTempStatus( self, tempStatus1, tempStatus2 ):
         if tempStatus1 < tempStatus2:
@@ -250,7 +253,7 @@ class FGSystemManagement( Configurable ):
             
     def _displayStatusChange( self, infoCat, newStatus ):
         if infoCat == FGSystemManagement._INFOCAT_TEMP:
-            print('TMP state:', BatteryCharger.temp2Str.get( newStatus, 'UNKNOWN' ))
+            logging.info('TMP state: %s', BatteryCharger.temp2Str.get( newStatus, 'UNKNOWN' ))
             if self.tmpLED:
                 if newStatus == BatteryCharger.TEMP_OK:
                     self.tmpLED.off()
@@ -259,7 +262,7 @@ class FGSystemManagement( Configurable ):
                 else:
                     self.tmpLED.on()
         elif infoCat == FGSystemManagement._INFOCAT_BAT_STATE:
-            print('BAT state:', BatteryCharger.batState2Str.get( newStatus, 'UNKNOWN' ))
+            logging.info('BAT state: %s', BatteryCharger.batState2Str.get( newStatus, 'UNKNOWN' ))
             if self.batLED:
                 if newStatus == BatteryCharger.BAT_STATE_NORMAL:
                     self.batLED.on()
@@ -268,7 +271,7 @@ class FGSystemManagement( Configurable ):
                 else:
                     self.batLED.off()
         elif infoCat == FGSystemManagement._INFOCAT_BLE:
-            print('BLE state:', ActorUnit.connState2Str.get( newStatus, 'UNKNOWN'))
+            logging.info('BLE state: %s', ActorUnit.connState2Str.get( newStatus, 'UNKNOWN'))
             if self.bleLED:
                 if newStatus == ActorUnit.BLE_CONN_STATE_CONNECTED:
                     self.bleLED.on()
@@ -277,7 +280,7 @@ class FGSystemManagement( Configurable ):
                 else:
                     self.bleLED.off()
         elif infoCat == FGSystemManagement._INFOCAT_DC_SUPPLY:
-            print(' DC state:', BatteryCharger.dcState2Str.get( newStatus, 'UNKNOWN' ))
+            logging.info(' DC state: %s', BatteryCharger.dcState2Str.get( newStatus, 'UNKNOWN' ))
             if self.dcLED:
                 if newStatus == BatteryCharger.DC_STATE_VALID:
                     self.dcLED.on()
@@ -286,7 +289,7 @@ class FGSystemManagement( Configurable ):
                 else:
                     self.dcLED.blink( on_time=0.5, off_time=0.5 )
         elif infoCat == FGSystemManagement._INFOCAT_CHG_STATE:
-            print('CHG state:', BatteryCharger.chgState2Str.get( newStatus, 'UNKNOWN' ))
+            logging.info('CHG state: %s', BatteryCharger.chgState2Str.get( newStatus, 'UNKNOWN' ))
             if self.chgLED:
                 if newStatus in {BatteryCharger.CHG_STATE_DONE, BatteryCharger.CHG_STATE_TOP_OFF}:
                     self.chgLED.on()
@@ -300,12 +303,17 @@ class FGSystemManagement( Configurable ):
     #
     #
     #
-    def bleCallBack( self, newState ):
-        self._displayStatusChange( FGSystemManagement._INFOCAT_BLE, newState )
-        if newState == ActorUnit.BLE_CONN_STATE_DISCONNECTED:
-            # Start re-discovering
-            if not self.done:
-                self._sysjobLock.acquire()
-                self._systemJob = self._systemJob | FGSystemManagement._SYSJOB_AU_COUPLE
-                self._sysjobLock.release()
+    def bleHandleDiscovering( self ):
+        self._displayStatusChange( FGSystemManagement._INFOCAT_BLE, ActorUnit.BLE_CONN_STATE_DISCOVERING )
+        
+    def bleHandleConnected( self ):
+        self._displayStatusChange( FGSystemManagement._INFOCAT_BLE, ActorUnit.BLE_CONN_STATE_CONNECTED )
+        
+    def bleHandleDisconnected( self ):
+        self._displayStatusChange( FGSystemManagement._INFOCAT_BLE, ActorUnit.BLE_CONN_STATE_DISCONNECTED )
+        # Start re-discovering
+        if not self.done:
+            self._sysjobLock.acquire()
+            self._systemJob = self._systemJob | FGSystemManagement._SYSJOB_AU_COUPLE
+            self._sysjobLock.release()
             

@@ -1,14 +1,16 @@
 from Configurable import Configurable
 from EventHandler import EventHandler
+from pymitter import EventEmitter
 
 from bleak import BleakClient, BleakScanner
 from threading import Thread
 import asyncio
+import logging
 
 #
 # Implementation of the vibration belt driver, also called actor unit
 #
-class ActorUnit( Configurable, EventHandler ):
+class ActorUnit( Configurable, EventHandler, EventEmitter ):
 
     #
     # Public attributes
@@ -64,6 +66,9 @@ class ActorUnit( Configurable, EventHandler ):
     # Events
     EVT_CUE_STANDARD   = 1
     EVT_CUE_STOP       = 2
+    EVT_BLE_DISCOVERING = "ActorUnit.discovering"
+    EVT_BLE_CONNECTED   = "ActorUnit.connected"
+    EVT_BLE_DISCONNECTED= "ActorUnit.disconnected"
     
     #
     # Private attributes
@@ -103,7 +108,6 @@ class ActorUnit( Configurable, EventHandler ):
         self.cmdStart[0] = ActorUnit._CMD_START
         self.cmdStop = bytearray([ActorUnit._CMD_STOP])
         self.bleDiscoveryTimeout = ActorUnit.BLE_DISCOVERY_TIMEOUT
-        self.bleCallback = None
         self._bleClient = 0
         self._bleChar = 0
         self._bleConnectionState = ActorUnit.BLE_CONN_STATE_DISCONNECTED
@@ -123,8 +127,8 @@ class ActorUnit( Configurable, EventHandler ):
             paramDict["ActorUnit.actuators"] = ActorUnit.ACTUATORS_DEFAULT
         if not "ActorUnit.BLE.discovery.timeout" in paramDict:
             paramDict["ActorUnit.BLE.discovery.timeout"] = ActorUnit.BLE_DISCOVERY_TIMEOUT
-        # bleCallback is intentionally not added to the list.
         Configurable.__init__( self, paramDict )
+        EventEmitter.__init__( self, wildcard=True )
     
     #
     # Just scans the parameters for known keys and copies the values to
@@ -160,8 +164,6 @@ class ActorUnit( Configurable, EventHandler ):
             val = paramDict["ActorUnit.BLE.discovery.timeout"]
             if val>=0:
                 self.bleDiscoveryTimeout = val
-        if "ActorUnit.BLE.callback" in paramDict:
-            self.bleCallback = paramDict["ActorUnit.BLE.callback"]
     
     #
     # Apply the new configuration.
@@ -198,27 +200,22 @@ class ActorUnit( Configurable, EventHandler ):
     #
     
     #
-    # Event handling routine
+    # Event handling routine.
+    # Input: One of the EVT_CUE_xxx event identifiers.
     # Returns nothing.
     #
     def handleEvent(self, eventParam=None):
         if eventParam is None:
             self.startCueing()
+        elif eventParam == ActorUnit.EVT_CUE_STANDARD:
+            self.startCueing()
         elif eventParam == ActorUnit.EVT_CUE_STOP:
             self.stopCueing()
-        else:
-            self.startCueing()
             
     
     #
     # Specific private API
     #
-    
-    #
-    # Sets the BLE callback handler
-    #
-    def setBLECallback( self, cb ):
-        self.bleCallback = cb
     
     #
     # Sets the BLE discovery timout, given in seconds.
@@ -247,7 +244,8 @@ class ActorUnit( Configurable, EventHandler ):
     # Returns a success-or-failure indicator for this triggering,
     # i.e. gives True, if the procedure launched, and False e.g.
     # when it is already running.
-    # Notice on the result of the coupling is given via the bleCallback.
+    # Notice on the result of the coupling is given via subscription
+    # on the EVT_BLE_DISCOVERING and EVT_BLE_CONNECTED event.
     #
     def couple(self):
         ret = False
@@ -264,7 +262,8 @@ class ActorUnit( Configurable, EventHandler ):
     # Returns a success-or-failure indicator for this triggering,
     # i.e. gives True, if the procedure launched, and False e.g.
     # when the AU is not coupled.
-    # Notice on the result of the decoupling is given via the bleCallback.
+    # Notice on the result of the decoupling is given via
+    # subscription to the EVT_BLE_DISCONNECTED event.
     #
     def decouple(self):
         ret = False
@@ -283,8 +282,8 @@ class ActorUnit( Configurable, EventHandler ):
                     self._evtLoop.create_task( self.bleClient.write_gatt_char( self.bleChar, self.cmdStart, response=True ) )
                 else:
                     self._evtLoop.run_until_complete( self.bleClient.write_gatt_char( self.bleChar, self.cmdStart, response=True ) )
-            except EOFError:
-                print('AU.startCueing: EOF')
+            except EOFError as err:
+                logging.exception(err)
                 
     
     #
@@ -298,7 +297,7 @@ class ActorUnit( Configurable, EventHandler ):
                 else:
                     self._evtLoop.run_until_complete( self.bleClient.write_gatt_char( self.bleChar, self.cmdStop, response=True ) )
             except EOFError as exc:
-                print('AU.stopCueing:', exc)
+                logging.exception(exc)
     
 
     #
@@ -306,25 +305,20 @@ class ActorUnit( Configurable, EventHandler ):
     #
     
 
-    def _setBLEConnectionState( self, newState ):
-        self._bleConnectionState = newState
-        if self.bleCallback:
-            try:
-                self.bleCallback( self._bleConnectionState )
-            except Exception as exc:
-                print('AU._setBLEConnectionState:', exc)
-    
     def _handleDisconnected( self, client ):
-        self._setBLEConnectionState( ActorUnit.BLE_CONN_STATE_DISCONNECTED )
-            
+        self._bleConnectionState = ActorUnit.BLE_CONN_STATE_DISCONNECTED
+        self.emit( ActorUnit.EVT_BLE_DISCONNECTED )
+        
     #
     # Establishes a connection with the first available actuator unit,
     # i.e. does the BlueTooth coupling
-    # Returns nothing, but executes the bleConnectionCallback, as a side-effect
+    # Returns nothing, but executes the EVT_BLE_DISCOVERING,
+    # EVT_BLE_CONNECTED or EVT_BLE_DISCONNECTED events, as a side-effect.
     #
     async def _couplingRoutine(self):
         # Discovering
-        self._setBLEConnectionState( ActorUnit.BLE_CONN_STATE_DISCOVERING )
+        self._bleConnectionState = ActorUnit.BLE_CONN_STATE_DISCOVERING
+        self.emit( ActorUnit.EVT_BLE_DISCOVERING )
         try:
             devices = await BleakScanner.discover( timeout=self.bleDiscoveryTimeout, filters={'UUIDs': [ActorUnit.BLE_DEVICE_UUID]} )
             if devices:
@@ -335,26 +329,31 @@ class ActorUnit( Configurable, EventHandler ):
                 if success:
                     svcColl = await self.bleClient.get_services()
                     self.bleChar = svcColl.get_characteristic( ActorUnit.BLE_CHARACTERISTIC_UUID )
-                    self._setBLEConnectionState( ActorUnit.BLE_CONN_STATE_CONNECTED )
+                    self._bleConnectionState = ActorUnit.BLE_CONN_STATE_CONNECTED
+                    self.emit( ActorUnit.EVT_BLE_CONNECTED )
                 else:
-                    self._setBLEConnectionState( ActorUnit.BLE_CONN_STATE_DISCONNECTED )
+                    self._bleConnectionState = ActorUnit.BLE_CONN_STATE_DISCONNECTED
+                    self.emit( ActorUnit.EVT_BLE_DISCONNECTED )
             else:
-                self._setBLEConnectionState( ActorUnit.BLE_CONN_STATE_DISCONNECTED )    
+                self._bleConnectionState = ActorUnit.BLE_CONN_STATE_DISCONNECTED
+                self.emit( ActorUnit.EVT_BLE_DISCONNECTED )
         except RuntimeError as exc:
-            print('AU._couplingRoutine:', exc)
-            self._setBLEConnectionState( ActorUnit.BLE_CONN_STATE_DISCONNECTED )    
+            logging.exception(exc)
+            self._bleConnectionState = ActorUnit.BLE_CONN_STATE_DISCONNECTED
+            self.emit( ActorUnit.EVT_BLE_DISCONNECTED )
 
     #
     # Closes a BLE connection.
-    # Returns nothing, but executes the bleConnectionCallback, as a side-effect
+    # Returns nothing, but emits the EVT_BLE_DISCONNECTED event, as a side-effect.
     #
     async def _decouplingRoutine(self):
         if self.bleClient:
             try:
                 await self.bleClient.disconnect()
             except RuntimeError as exc:
-                print('AU._decouplingRoutine:', exc)
-        self._setBLEConnectionState( ActorUnit.BLE_CONN_STATE_DISCONNECTED )    
+                logging.exception(exc)
+        self._bleConnectionState = ActorUnit.BLE_CONN_STATE_DISCONNECTED
+        self.emit( ActorUnit.EVT_BLE_DISCONNECTED )
                 
 
     def _bleWorker( self, routine ):
@@ -366,5 +365,5 @@ class ActorUnit( Configurable, EventHandler ):
             else:
                 self._evtLoop.run_until_complete( routine )
         except RuntimeError as exc:
-                print('AU._bleWorker:', exc)
+                logging.exception(exc)
 
