@@ -67,6 +67,9 @@ setupSystemManagement = {
     #   away (0x69). Depends on the underlying system board.
     #   Default is 0x69.
     #"SerialDevice.deviceAddress": 0x69,
+    # Individual charger settings would follow here, starting with enabling I2C settings
+    #MAX77960.CFG_COMM_MODE: MAX77960.CFG_COMM_MODE_I2C,
+    #
     ### ActorUnit's settings ###
     #"ActorUnit.delay"          : 0,
     #    Initial delay [0...65535]ms

@@ -818,11 +818,430 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     # Configurable API
     #
     
+    CFG_COMM_MODE = 'BatteryCharger.Comm.Mode'
+    CFG_COMM_MODE_AUTO = _COMM_MODE_AUTO
+    CFG_COMM_MODE_I2C  = _COMM_MODE_I2C
+    CFG_DISIBS = 'BatteryCharger.DisIBS'
+    CFG_DISIBS_FET_PPSM = _DISIBS_FET_PPSM
+    CFG_DISIBS_FET_OFF  = _DISIBS_FET_OFF
+    CFG_MODE = 'BatteryCharger.Mode'
+    CFG_MODE_ALL_OFF   = _MODE_ALL_OFF
+    CFG_MODE_CHRG_DCDC = _MODE_CHRG_DCDC
+    CFG_MODE_DCDC_ONLY = _MODE_DCDC_ONLY
+    CFG_MODE_OTG_ONLY  = _MODE_OTG_ONLY
+    CFG_PQEN = 'BatteryCharger.Prequal'
+    CFG_PQEN_ON  = _PQEN_ON
+    CFG_PQEN_OFF = _PQEN_OFF
+    CFG_CHG_RSTRT = 'BatteryCharger.Restart'
+    CFG_CHG_RSTRT_100 = _CHG_RSTRT_100
+    CFG_CHG_RSTRT_150 = _CHG_RSTRT_150
+    CFG_CHG_RSTRT_200 = _CHG_RSTRT_200
+    CFG_CHG_RSTRT_DISABLED = _CHG_RSTRT_DISABLED
+    CFG_STAT_EN = 'BatteryCharger.Stat'
+    CFG_STAT_EN_ON  = _STAT_EN_ON
+    CFG_STAT_EN_OFF = _STAT_EN_OFF
+    CFG_FCHGTIME = 'BatteryCharger.Timer.FastCharge'
+    CFG_FCHGTIME_DISABLED = _FCHGTIME_DISABLED
+    CFG_FCHGTIME_3H = _FCHGTIME_3H
+    CFG_FCHGTIME_4H = _FCHGTIME_4H
+    CFG_FCHGTIME_5H = _FCHGTIME_5H
+    CFG_FCHGTIME_6H = _FCHGTIME_6H
+    CFG_FCHGTIME_7H = _FCHGTIME_7H
+    CFG_FCHGTIME_8H = _FCHGTIME_8H
+    CFG_FCHGTIME_10H= _FCHGTIME_10H
+    CFG_CHGCC = 'BatteryCharger.Current.FastCharge'
+    CFG_CHGCC_100  = _CHGCC_100
+    CFG_CHGCC_150  = _CHGCC_150
+    CFG_CHGCC_200  = _CHGCC_200
+    CFG_CHGCC_250  = _CHGCC_250
+    CFG_CHGCC_300  = _CHGCC_300
+    CFG_CHGCC_350  = _CHGCC_350
+    CFG_CHGCC_400  = _CHGCC_400
+    CFG_CHGCC_450  = _CHGCC_450
+    CFG_CHGCC_500  = _CHGCC_500
+    CFG_CHGCC_600  = _CHGCC_600
+    CFG_CHGCC_700  = _CHGCC_700
+    CFG_CHGCC_800  = _CHGCC_800
+    CFG_CHGCC_900  = _CHGCC_900
+    CFG_CHGCC_1000  = _CHGCC_1000
+    CFG_CHGCC_1100  = _CHGCC_1100
+    CFG_CHGCC_1200  = _CHGCC_1200
+    CFG_CHGCC_1300  = _CHGCC_1300
+    CFG_CHGCC_1400  = _CHGCC_1400
+    CFG_CHGCC_1500  = _CHGCC_1500
+    CFG_CHGCC_1600  = _CHGCC_1600
+    CFG_CHGCC_1700  = _CHGCC_1700
+    CFG_CHGCC_1800  = _CHGCC_1800
+    CFG_CHGCC_1900  = _CHGCC_1900
+    CFG_CHGCC_2000  = _CHGCC_2000
+    CFG_CHGCC_2100  = _CHGCC_2100
+    CFG_CHGCC_2200  = _CHGCC_2200
+    CFG_CHGCC_2300  = _CHGCC_2300
+    CFG_CHGCC_2400  = _CHGCC_2400
+    CFG_CHGCC_2500  = _CHGCC_2500
+    CFG_CHGCC_2600  = _CHGCC_2600
+    CFG_CHGCC_2700  = _CHGCC_2700
+    CFG_CHGCC_2800  = _CHGCC_2800
+    CFG_CHGCC_2900  = _CHGCC_2900
+    CFG_CHGCC_3000  = _CHGCC_3000
+    CFG_CHGCC_3100  = _CHGCC_3100
+    CFG_CHGCC_3200  = _CHGCC_3200
+    CFG_CHGCC_3300  = _CHGCC_3300
+    CFG_CHGCC_3400  = _CHGCC_3400
+    CFG_CHGCC_3500  = _CHGCC_3500
+    CFG_CHGCC_3600  = _CHGCC_3600
+    CFG_CHGCC_3700  = _CHGCC_3700
+    CFG_CHGCC_3800  = _CHGCC_3800
+    CFG_CHGCC_3900  = _CHGCC_3900
+    CFG_CHGCC_4000  = _CHGCC_4000
+    CFG_CHGCC_4100  = _CHGCC_4100
+    CFG_CHGCC_4200  = _CHGCC_4200
+    CFG_CHGCC_4300  = _CHGCC_4300
+    CFG_CHGCC_4400  = _CHGCC_4400
+    CFG_CHGCC_4500  = _CHGCC_4500
+    CFG_CHGCC_4600  = _CHGCC_4600
+    CFG_CHGCC_4700  = _CHGCC_4700
+    CFG_CHGCC_4800  = _CHGCC_4800
+    CFG_CHGCC_4900  = _CHGCC_4900
+    CFG_CHGCC_5000  = _CHGCC_5000
+    CFG_CHGCC_5100  = _CHGCC_5100
+    CFG_CHGCC_5200  = _CHGCC_5200
+    CFG_CHGCC_5300  = _CHGCC_5300
+    CFG_CHGCC_5400  = _CHGCC_5400
+    CFG_CHGCC_5500  = _CHGCC_5500
+    CFG_CHGCC_5600  = _CHGCC_5600
+    CFG_CHGCC_5700  = _CHGCC_5700
+    CFG_CHGCC_5800  = _CHGCC_5800
+    CFG_CHGCC_5900  = _CHGCC_5900
+    CFG_CHGCC_6000  = _CHGCC_6000
+    CFG_TO_TIME = 'BatteryCharger.Timer.Topoff'
+    CFG_TO_TIME_30_SEC = _TO_TIME_30_SEC
+    CFG_TO_TIME_10_MIN = _TO_TIME_10_MIN
+    CFG_TO_TIME_20_MIN = _TO_TIME_20_MIN
+    CFG_TO_TIME_30_MIN = _TO_TIME_30_MIN
+    CFG_TO_TIME_40_MIN = _TO_TIME_40_MIN
+    CFG_TO_TIME_50_MIN = _TO_TIME_50_MIN
+    CFG_TO_TIME_60_MIN = _TO_TIME_60_MIN
+    CFG_TO_TIME_70_MIN = _TO_TIME_70_MIN
+    CFG_TO_ITH = 'BatteryCharger.Current.Topoff'
+    CFG_TO_ITH_100 = _TO_ITH_100
+    CFG_TO_ITH_200 = _TO_ITH_200
+    CFG_TO_ITH_300 = _TO_ITH_300
+    CFG_TO_ITH_400 = _TO_ITH_400
+    CFG_TO_ITH_500 = _TO_ITH_500
+    CFG_TO_ITH_600 = _TO_ITH_600
+    CFG_CHG_CV_PRM = 'BatteryCharger.Voltage.ChargeTermination'
+    CFG_CHG_CV_PRM_2C_8000 = _CHG_CV_PRM_2C_8000
+    CFG_CHG_CV_PRM_2C_8020 = _CHG_CV_PRM_2C_8020
+    CFG_CHG_CV_PRM_2C_8040 = _CHG_CV_PRM_2C_8040
+    CFG_CHG_CV_PRM_2C_8060 = _CHG_CV_PRM_2C_8060
+    CFG_CHG_CV_PRM_2C_8080 = _CHG_CV_PRM_2C_8080
+    CFG_CHG_CV_PRM_2C_8100 = _CHG_CV_PRM_2C_8100
+    CFG_CHG_CV_PRM_2C_8120 = _CHG_CV_PRM_2C_8120
+    CFG_CHG_CV_PRM_2C_8130 = _CHG_CV_PRM_2C_8140
+    CFG_CHG_CV_PRM_2C_8140 = _CHG_CV_PRM_2C_8160
+    CFG_CHG_CV_PRM_2C_8150 = _CHG_CV_PRM_2C_8180
+    CFG_CHG_CV_PRM_2C_8200 = _CHG_CV_PRM_2C_8200
+    CFG_CHG_CV_PRM_2C_8220 = _CHG_CV_PRM_2C_8220
+    CFG_CHG_CV_PRM_2C_8240 = _CHG_CV_PRM_2C_8240
+    CFG_CHG_CV_PRM_2C_8260 = _CHG_CV_PRM_2C_8260
+    CFG_CHG_CV_PRM_2C_8280 = _CHG_CV_PRM_2C_8280
+    CFG_CHG_CV_PRM_2C_8300 = _CHG_CV_PRM_2C_8300
+    CFG_CHG_CV_PRM_2C_8320 = _CHG_CV_PRM_2C_8320
+    CFG_CHG_CV_PRM_2C_8340 = _CHG_CV_PRM_2C_8340
+    CFG_CHG_CV_PRM_2C_8360 = _CHG_CV_PRM_2C_8360
+    CFG_CHG_CV_PRM_2C_8380 = _CHG_CV_PRM_2C_8380
+    CFG_CHG_CV_PRM_2C_8400 = _CHG_CV_PRM_2C_8400
+    CFG_CHG_CV_PRM_2C_8420 = _CHG_CV_PRM_2C_8420
+    CFG_CHG_CV_PRM_2C_8440 = _CHG_CV_PRM_2C_8440
+    CFG_CHG_CV_PRM_2C_8460 = _CHG_CV_PRM_2C_8460
+    CFG_CHG_CV_PRM_2C_8480 = _CHG_CV_PRM_2C_8480
+    CFG_CHG_CV_PRM_2C_8500 = _CHG_CV_PRM_2C_8500
+    CFG_CHG_CV_PRM_2C_8520 = _CHG_CV_PRM_2C_8520
+    CFG_CHG_CV_PRM_2C_8540 = _CHG_CV_PRM_2C_8540
+    CFG_CHG_CV_PRM_2C_8560 = _CHG_CV_PRM_2C_8560
+    CFG_CHG_CV_PRM_2C_8580 = _CHG_CV_PRM_2C_8580
+    CFG_CHG_CV_PRM_2C_8600 = _CHG_CV_PRM_2C_8600
+    CFG_CHG_CV_PRM_2C_8620 = _CHG_CV_PRM_2C_8620
+    CFG_CHG_CV_PRM_2C_8640 = _CHG_CV_PRM_2C_8640
+    CFG_CHG_CV_PRM_2C_8660 = _CHG_CV_PRM_2C_8660
+    CFG_CHG_CV_PRM_2C_8680 = _CHG_CV_PRM_2C_8680
+    CFG_CHG_CV_PRM_2C_8700 = _CHG_CV_PRM_2C_8700
+    CFG_CHG_CV_PRM_2C_8720 = _CHG_CV_PRM_2C_8720
+    CFG_CHG_CV_PRM_2C_8740 = _CHG_CV_PRM_2C_8740
+    CFG_CHG_CV_PRM_2C_8760 = _CHG_CV_PRM_2C_8760
+    CFG_CHG_CV_PRM_2C_8780 = _CHG_CV_PRM_2C_8780
+    CFG_CHG_CV_PRM_2C_8800 = _CHG_CV_PRM_2C_8800
+    CFG_CHG_CV_PRM_2C_8820 = _CHG_CV_PRM_2C_8820
+    CFG_CHG_CV_PRM_2C_8840 = _CHG_CV_PRM_2C_8840
+    CFG_CHG_CV_PRM_2C_8860 = _CHG_CV_PRM_2C_8860
+    CFG_CHG_CV_PRM_2C_8880 = _CHG_CV_PRM_2C_8880
+    CFG_CHG_CV_PRM_2C_8900 = _CHG_CV_PRM_2C_8900
+    CFG_CHG_CV_PRM_2C_8920 = _CHG_CV_PRM_2C_8920
+    CFG_CHG_CV_PRM_2C_8940 = _CHG_CV_PRM_2C_8940
+    CFG_CHG_CV_PRM_2C_8960 = _CHG_CV_PRM_2C_8960
+    CFG_CHG_CV_PRM_2C_8980 = _CHG_CV_PRM_2C_8980
+    CFG_CHG_CV_PRM_2C_9000 = _CHG_CV_PRM_2C_9000
+    CFG_CHG_CV_PRM_2C_9020 = _CHG_CV_PRM_2C_9020
+    CFG_CHG_CV_PRM_2C_9040 = _CHG_CV_PRM_2C_9040
+    CFG_CHG_CV_PRM_2C_9060 = _CHG_CV_PRM_2C_9060
+    CFG_CHG_CV_PRM_2C_9080 = _CHG_CV_PRM_2C_9080
+    CFG_CHG_CV_PRM_2C_9100 = _CHG_CV_PRM_2C_9100
+    CFG_CHG_CV_PRM_2C_9120 = _CHG_CV_PRM_2C_9120
+    CFG_CHG_CV_PRM_2C_9140 = _CHG_CV_PRM_2C_9140
+    CFG_CHG_CV_PRM_2C_9160 = _CHG_CV_PRM_2C_9160
+    CFG_CHG_CV_PRM_2C_9180 = _CHG_CV_PRM_2C_9180
+    CFG_CHG_CV_PRM_2C_9200 = _CHG_CV_PRM_2C_9200
+    CFG_CHG_CV_PRM_2C_9220 = _CHG_CV_PRM_2C_9220
+    CFG_CHG_CV_PRM_2C_9240 = _CHG_CV_PRM_2C_9240
+    CFG_CHG_CV_PRM_2C_9260 = _CHG_CV_PRM_2C_9260
+    CFG_CHG_CV_PRM_3C_12000 = _CHG_CV_PRM_3C_12000
+    CFG_CHG_CV_PRM_3C_12030 = _CHG_CV_PRM_3C_12030
+    CFG_CHG_CV_PRM_3C_12060 = _CHG_CV_PRM_3C_12060
+    CFG_CHG_CV_PRM_3C_12090 = _CHG_CV_PRM_3C_12090
+    CFG_CHG_CV_PRM_3C_12120 = _CHG_CV_PRM_3C_12120
+    CFG_CHG_CV_PRM_3C_12150 = _CHG_CV_PRM_3C_12150
+    CFG_CHG_CV_PRM_3C_12180 = _CHG_CV_PRM_3C_12180
+    CFG_CHG_CV_PRM_3C_12210 = _CHG_CV_PRM_3C_12210
+    CFG_CHG_CV_PRM_3C_12240 = _CHG_CV_PRM_3C_12240
+    CFG_CHG_CV_PRM_3C_12270 = _CHG_CV_PRM_3C_12270
+    CFG_CHG_CV_PRM_3C_12300 = _CHG_CV_PRM_3C_12300
+    CFG_CHG_CV_PRM_3C_12330 = _CHG_CV_PRM_3C_12330
+    CFG_CHG_CV_PRM_3C_12360 = _CHG_CV_PRM_3C_12360
+    CFG_CHG_CV_PRM_3C_12390 = _CHG_CV_PRM_3C_12390
+    CFG_CHG_CV_PRM_3C_12420 = _CHG_CV_PRM_3C_12420
+    CFG_CHG_CV_PRM_3C_12450 = _CHG_CV_PRM_3C_12450
+    CFG_CHG_CV_PRM_3C_12480 = _CHG_CV_PRM_3C_12480
+    CFG_CHG_CV_PRM_3C_12510 = _CHG_CV_PRM_3C_12510
+    CFG_CHG_CV_PRM_3C_12540 = _CHG_CV_PRM_3C_12540
+    CFG_CHG_CV_PRM_3C_12570 = _CHG_CV_PRM_3C_12570
+    CFG_CHG_CV_PRM_3C_12600 = _CHG_CV_PRM_3C_12600
+    CFG_CHG_CV_PRM_3C_12630 = _CHG_CV_PRM_3C_12630
+    CFG_CHG_CV_PRM_3C_12660 = _CHG_CV_PRM_3C_12660
+    CFG_CHG_CV_PRM_3C_12690 = _CHG_CV_PRM_3C_12690
+    CFG_CHG_CV_PRM_3C_12720 = _CHG_CV_PRM_3C_12720
+    CFG_CHG_CV_PRM_3C_12750 = _CHG_CV_PRM_3C_12750
+    CFG_CHG_CV_PRM_3C_12780 = _CHG_CV_PRM_3C_12780
+    CFG_CHG_CV_PRM_3C_12810 = _CHG_CV_PRM_3C_12810
+    CFG_CHG_CV_PRM_3C_12840 = _CHG_CV_PRM_3C_12840
+    CFG_CHG_CV_PRM_3C_12870 = _CHG_CV_PRM_3C_12870
+    CFG_CHG_CV_PRM_3C_12900 = _CHG_CV_PRM_3C_12900
+    CFG_CHG_CV_PRM_3C_12930 = _CHG_CV_PRM_3C_12930
+    CFG_CHG_CV_PRM_3C_12960 = _CHG_CV_PRM_3C_12960
+    CFG_CHG_CV_PRM_3C_12990 = _CHG_CV_PRM_3C_12990
+    CFG_CHG_CV_PRM_3C_13020 = _CHG_CV_PRM_3C_13020
+    CFG_CHG_CV_PRM_3C_13050 = _CHG_CV_PRM_3C_13050
+    CFG_ITRICKLE = 'BatteryCharger.Current.Trickle'
+    CFG_ITRICKLE_100 = _ITRICKLE_100
+    CFG_ITRICKLE_200 = _ITRICKLE_200
+    CFG_ITRICKLE_300 = _ITRICKLE_300
+    CFG_ITRICKLE_400 = _ITRICKLE_400
+    CFG_B2SOVRC = 'BatteryCharger.Current.Batt2Sys'
+    CFG_B2SOVRC_DISABLED = _B2SOVRC_DISABLED
+    CFG_B2SOVRC_3000 = _B2SOVRC_3000
+    CFG_B2SOVRC_3500 = _B2SOVRC_3500
+    CFG_B2SOVRC_4000 = _B2SOVRC_4000
+    CFG_B2SOVRC_4500 = _B2SOVRC_4500
+    CFG_B2SOVRC_5000 = _B2SOVRC_5000
+    CFG_B2SOVRC_5500 = _B2SOVRC_5500
+    CFG_B2SOVRC_6000 = _B2SOVRC_6000
+    CFG_B2SOVRC_6500 = _B2SOVRC_6500
+    CFG_B2SOVRC_7000 = _B2SOVRC_7000
+    CFG_B2SOVRC_7500 = _B2SOVRC_7500
+    CFG_B2SOVRC_8000 = _B2SOVRC_8000
+    CFG_B2SOVRC_8500 = _B2SOVRC_8500
+    CFG_B2SOVRC_9000 = _B2SOVRC_9000
+    CFG_B2SOVRC_9500 = _B2SOVRC_9500
+    CFG_B2SOVRC_10000= _B2SOVRC_10000
+    CFG_JEITA_EN = 'BatteryCharger.Jeita'
+    CFG_JEITA_EN_ON  = _JEITA_EN_ON
+    CFG_JEITA_EN_OFF = _JEITA_EN_OFF
+    CFG_REGTEMP = 'BatteryCharger.Temp.Reg'
+    CFG_REGTEMP_85  = _REGTEMP_85
+    CFG_REGTEMP_90  = _REGTEMP_90
+    CFG_REGTEMP_95  = _REGTEMP_95
+    CFG_REGTEMP_100 = _REGTEMP_100
+    CFG_REGTEMP_105 = _REGTEMP_105
+    CFG_REGTEMP_110 = _REGTEMP_110
+    CFG_REGTEMP_115 = _REGTEMP_115
+    CFG_REGTEMP_120 = _REGTEMP_120
+    CFG_REGTEMP_125 = _REGTEMP_125
+    CFG_REGTEMP_130 = _REGTEMP_130
+    CFG_VCHGCV_COOL = 'BatteryCharger.Voltage.Jeita.Term'
+    CFG_VCHGCV_COOL_NORMAL  = _VCHGCV_COOL_NORMAL
+    CFG_VCHGCV_COOL_REDUCED = _VCHGCV_COOL_REDUCED
+    CFG_ICHGCC_COOL = 'BatteryCharger.Current.Jeita.FastCharge'
+    CFG_ICHGCC_COOL_NORMAL  = _ICHGCC_COOL_NORMAL
+    CFG_ICHGCC_COOL_REDUCED = _ICHGCC_COOL_REDUCED
+    CFG_CHGIN_ILIM = 'BatteryCharger.Current.Input'
+    CFG_OTG_ILIM = 'BatteryCharger.Current.OTG'
+    CFG_OTG_ILIM_500 = _OTG_ILIM_500
+    CFG_OTG_ILIM_900 = _OTG_ILIM_900
+    CFG_OTG_ILIM_1200= _OTG_ILIM_1200
+    CFG_OTG_ILIM_1500= _OTG_ILIM_1500
+    CFG_OTG_ILIM_2000= _OTG_ILIM_2000
+    CFG_OTG_ILIM_2250= _OTG_ILIM_2250
+    CFG_OTG_ILIM_2500= _OTG_ILIM_2500
+    CFG_OTG_ILIM_3000= _OTG_ILIM_3000
+    CFG_MINVSYS = 'BatteryCharger.Voltage.MinVSys'
+    CFG_MINVSYS_2C_5535 = _MINVSYS_2C_5535
+    CFG_MINVSYS_2C_5740 = _MINVSYS_2C_5740
+    CFG_MINVSYS_2C_5945 = _MINVSYS_2C_5945
+    CFG_MINVSYS_2C_6150 = _MINVSYS_2C_6150
+    CFG_MINVSYS_2C_6355 = _MINVSYS_2C_6355
+    CFG_MINVSYS_2C_6560 = _MINVSYS_2C_6560
+    CFG_MINVSYS_2C_6765 = _MINVSYS_2C_6765
+    CFG_MINVSYS_2C_6970 = _MINVSYS_2C_6970
+    CFG_MINVSYS_3C_8303 = _MINVSYS_3C_8303
+    CFG_MINVSYS_3C_8610 = _MINVSYS_3C_8610
+    CFG_MINVSYS_3C_8918 = _MINVSYS_3C_8918
+    CFG_MINVSYS_3C_9225 = _MINVSYS_3C_9225
+    CFG_MINVSYS_3C_9533 = _MINVSYS_3C_9533
+    CFG_MINVSYS_3C_9840 = _MINVSYS_3C_9840
+    CFG_MINVSYS_3C_10148= _MINVSYS_3C_10148
+    CFG_MINVSYS_3C_10455= _MINVSYS_3C_10455
+    CFG_VCHGIN_REG = 'BatteryCharger.Voltage.ChargeIn'
+    CFG_VCHGIN_REG_4025 = _VCHGIN_REG_4025
+    CFG_VCHGIN_REG_4200 = _VCHGIN_REG_4200
+    CFG_VCHGIN_REG_4375 = _VCHGIN_REG_4375
+    CFG_VCHGIN_REG_4550 = _VCHGIN_REG_4550
+    CFG_VCHGIN_REG_4725 = _VCHGIN_REG_4725
+    CFG_VCHGIN_REG_4900 = _VCHGIN_REG_4900
+    CFG_VCHGIN_REG_5425 = _VCHGIN_REG_5425
+    CFG_VCHGIN_REG_5950 = _VCHGIN_REG_5950
+    CFG_VCHGIN_REG_6475 = _VCHGIN_REG_6475
+    CFG_VCHGIN_REG_7000 = _VCHGIN_REG_7000
+    CFG_VCHGIN_REG_7525 = _VCHGIN_REG_7525
+    CFG_VCHGIN_REG_8050 = _VCHGIN_REG_8050
+    CFG_VCHGIN_REG_8575 = _VCHGIN_REG_8575
+    CFG_VCHGIN_REG_9100 = _VCHGIN_REG_9100
+    CFG_VCHGIN_REG_9625 = _VCHGIN_REG_9625
+    CFG_VCHGIN_REG_10150 = _VCHGIN_REG_10150
+    CFG_VCHGIN_REG_10675 = _VCHGIN_REG_10675
+    CFG_VCHGIN_REG_10950 = _VCHGIN_REG_10950
+    CFG_VCHGIN_REG_11550 = _VCHGIN_REG_11550
+    CFG_VCHGIN_REG_12150 = _VCHGIN_REG_12150
+    CFG_VCHGIN_REG_12750 = _VCHGIN_REG_12750
+    CFG_VCHGIN_REG_13350 = _VCHGIN_REG_13350
+    CFG_VCHGIN_REG_13950 = _VCHGIN_REG_13950
+    CFG_VCHGIN_REG_14550 = _VCHGIN_REG_14550
+    CFG_VCHGIN_REG_15150 = _VCHGIN_REG_15150
+    CFG_VCHGIN_REG_15750 = _VCHGIN_REG_15750
+    CFG_VCHGIN_REG_16350 = _VCHGIN_REG_16350
+    CFG_VCHGIN_REG_16950 = _VCHGIN_REG_16950
+    CFG_VCHGIN_REG_17550 = _VCHGIN_REG_17550
+    CFG_VCHGIN_REG_18150 = _VCHGIN_REG_18150
+    CFG_VCHGIN_REG_18750 = _VCHGIN_REG_18750
+    CFG_VCHGIN_REG_19050 = _VCHGIN_REG_19050
+
+    _CONFIGURABLES = {CFG_COMM_MODE, CFG_DISIBS, CFG_MODE,
+                      CFG_PQEN, CFG_CHG_RSTRT, CFG_STAT_EN, CFG_FCHGTIME,
+                      CFG_CHGCC,
+                      CFG_TO_TIME, CFG_TO_ITH,
+                      CFG_CHG_CV_PRM,
+                      CFG_ITRICKLE, CFG_B2SOVRC,
+                      #skip config register 06
+                      CFG_JEITA_EN, CFG_REGTEMP, CFG_VCHGCV_COOL, CFG_ICHGCC_COOL,
+                      CFG_CHGIN_ILIM,
+                      CFG_OTG_ILIM, CFG_MINVSYS,
+                      CFG_VCHGIN_REG, }
+    
     def _scanParameters( self, paramDict ):
         super()._scanParameters( paramDict )
+        self._config = {}
+        for key in paramDict:
+            if key in MAX77960._CONFIGURABLES:
+                self._config.update( {key: paramDict[key]} )
 
+    #
+    # Note that config registers #1, 2, 3, 4, 5, 7, 8, 9
+    # are write protected (locked), while #0, 6, 10
+    # are not.
+    #
     def _applyConfiguration( self ):
         super()._applyConfiguration()
+        if self._config:
+            reg= [MAX77960._REG_CHG_CNFG_00, MAX77960._REG_CHG_CNFG_01, MAX77960._REG_CHG_CNFG_02, MAX77960._REG_CHG_CNFG_03,
+                  MAX77960._REG_CHG_CNFG_04, MAX77960._REG_CHG_CNFG_05, MAX77960._REG_CHG_CNFG_06, MAX77960._REG_CHG_CNFG_07,
+                  MAX77960._REG_CHG_CNFG_08, MAX77960._REG_CHG_CNFG_09, MAX77960._REG_CHG_CNFG_10]
+            mask=[ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            data=[ 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0]
+            for key in self._config:
+                value = self._config[key]
+                if key==MAX77960.CFG_COMM_MODE:
+                    mask[0] |= MAX77960._COMM_MODE
+                    data[0] |= value
+                if key==MAX77960.CFG_DISIBS:
+                    mask[0] |= MAX77960._DISIBS
+                    data[0] |= value
+                if key==MAX77960.CFG_MODE:
+                    mask[0] |= MAX77960._MODE
+                    data[0] |= value
+                if key==MAX77960.CFG_PQEN:
+                    mask[1] |= MAX77960._PQEN
+                    data[1] |= value
+                if key==MAX77960.CFG_CHG_RSTRT:
+                    mask[1] |= MAX77960._CHG_RSTRT
+                    data[1] |= value
+                if key==MAX77960.CFG_STAT_EN:
+                    mask[1] |= MAX77960._STAT_EN
+                    data[1] |= value
+                if key==MAX77960.CFG_FCHGTIME:
+                    mask[1] |= MAX77960._FCHGTIME
+                    data[1] |= value
+                if key==MAX77960.CFG_CHGCC:
+                    mask[2] = MAX77960._CHGCC
+                    data[2] = value
+                if key==MAX77960.CFG_TO_TIME:
+                    mask[3] |= MAX77960._TO_TIME
+                    data[3] |= value
+                if key==MAX77960.CFG_TO_ITH:
+                    mask[3] |= MAX77960._TO_ITH
+                    data[3] |= value
+                if key==MAX77960.CFG_CHG_CV_PRM:
+                    mask[4] = MAX77960._CHG_CV_PRM
+                    data[4] = value
+                if key==MAX77960.CFG_ITRICKLE:
+                    mask[5] |= MAX77960._ITRICKLE
+                    data[5] |= value
+                if key==MAX77960.CFG_B2SOVRC:
+                    mask[5] |= MAX77960._B2SOVRC
+                    data[5] |= value
+                if key==MAX77960.CFG_JEITA_EN:
+                    mask[7] |= MAX77960._JEITA_EN
+                    data[7] |= value
+                if key==MAX77960.CFG_REGTEMP:
+                    mask[7] |= MAX77960._REGTEMP
+                    data[7] |= value
+                if key==MAX77960.CFG_VCHGCV_COOL:
+                    mask[7] |= MAX77960._VCHGCV_COOL
+                    data[7] |= value
+                if key==MAX77960.CFG_ICHGCC_COOL:
+                    mask[7] |= MAX77960._ICHGCC_COOL
+                    data[7] |= value
+                if key==MAX77960.CFG_CHGIN_ILIM:
+                    mask[8] = MAX77960._CHGIN_ILIM
+                    if value < 100:
+                        data[8] = MAX77960._CHGIN_ILIM_100
+                    elif value > 6300:
+                        data[8] = MAX77960._CHGIN_ILIM_6300
+                    else:
+                        data[8] = value // 50 + 1
+                if key==MAX77960.CFG_OTG_ILIM:
+                    mask[9] |= MAX77960._OTG_ILIM
+                    data[9] |= value
+                if key==MAX77960.CFG_MINVSYS:
+                    mask[9] |= MAX77960._MINVSYS
+                    data[9] |= value
+                if key==MAX77960.CFG_VCHGIN_REG:
+                    mask[10] |= MAX77960._VCHGIN_REG
+                    data[10] |= value
+    
+            self.unlockRegisters()
+            for idx in range( len( reg ) ):
+                if mask[idx] != 0:
+                    self.copyReg( reg[idx], mask[idx], data[idx] )
+            self.lockRegisters()
 
     #
     # Constructor
@@ -832,7 +1251,8 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     # busDesignator: The bus designator. May be a name or number, such as "/dev/i2c-3" or 1.
     # deviceAddress: The I2C address (0x69).
     def __init__( self, paramDict ):
-        # No specific instance attributes
+        # Specific instance attributes
+        self._config = None
         # Override default base class parameter: serial device
         if not ("SerialDevice.deviceAddress" in paramDict):
             paramDict["SerialDevice.deviceAddress"] = MAX77960._ADRESSES_ALLOWED[0]
@@ -862,14 +1282,12 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     def configure(self, paramDict):
         BatteryCharger.configure( self, paramDict )
         Watchdog.configure( self, paramDict )
-        # self.unlockRegisters()
         # self.setReg( MAX77960._REG_CHG_CNFG_00,
         #              MAX77960._COMM_MODE_I2C |
         #              MAX77960._DISIBS_DEFAULT |
         #              MAX77960._STBY_EN_DCDC_DEFAULT |
         #              MAX77960._WDTEN_OFF |
         #              MAX77960._MODE_CHRG_DCDC )
-        # self.lockRegisters()
     
     #
     # Just closes the device. Should be called at the end of a program.
@@ -1150,6 +1568,44 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
         apiStatus = self._mapIntImpl2Api( topStatus, chgStatus )
         return apiStatus
     
+    def getInt(self):
+        topStatus = self.getReg( MAX77960._REG_TOP_INT )
+        chgStatus = self.getReg( MAX77960._REG_CHG_INT )
+        apiStatus = self._mapIntImpl2Api( topStatus, chgStatus )
+        return apiStatus
+    
+    def registerInt(self, apiMask, handler=None ):
+        # Register handler
+        if handler:
+            if apiMask & BatteryCharger.INT_OTG_BUCK_BOOST:
+                self.eventEmitter.on( BatteryCharger.INT_OTG_BUCK_BOOST, handler )
+            if apiMask & BatteryCharger.INT_CHARGER_ONOFF:
+                self.eventEmitter.on( BatteryCharger.INT_CHARGER_ONOFF, handler )
+            if apiMask & BatteryCharger.INT_INPUT_CURRENT_LIMIT:
+                self.eventEmitter.on( BatteryCharger.INT_INPUT_CURRENT_LIMIT, handler )
+            if apiMask & BatteryCharger.INT_BATTERY_TEMPERATURE:
+                self.eventEmitter.on( BatteryCharger.INT_BATTERY_TEMPERATURE, handler )
+            if apiMask & BatteryCharger.INT_STATE_CHANGED:
+                self.eventEmitter.on( BatteryCharger.INT_STATE_CHANGED, handler )
+            if apiMask & BatteryCharger.INT_BATTERY_OVERCURRENT:
+                self.eventEmitter.on( BatteryCharger.INT_BATTERY_OVERCURRENT, handler )
+            if apiMask & BatteryCharger.INT_CHARGER_INPUT:
+                self.eventEmitter.on( BatteryCharger.INT_CHARGER_INPUT, handler )
+            if apiMask & BatteryCharger.INT_INCURR_LIM_BY_SRC:
+                self.eventEmitter.on( BatteryCharger.INT_INCURR_LIM_BY_SRC, handler )
+            if apiMask & BatteryCharger.INT_SYSTEM_UNDERVOLTAGE:
+                self.eventEmitter.on( BatteryCharger.INT_SYSTEM_UNDERVOLTAGE, handler )
+            if apiMask & BatteryCharger.INT_SYSTEM_OVERVOLTAGE:
+                self.eventEmitter.on( BatteryCharger.INT_SYSTEM_OVERVOLTAGE, handler )
+            if apiMask & BatteryCharger.INT_THERMAL_SHUTDOWN:
+                self.eventEmitter.on( BatteryCharger.INT_THERMAL_SHUTDOWN, handler )
+        # Clear current interrupts
+        self.getInt()
+        # Unmask specified interrupts
+        [topMask, chgMask] = self._mapIntApi2Impl(apiMask)
+        self.setReg( MAX77960._REG_TOP_INT_MASK, ~topMask )
+        self.setReg( MAX77960._REG_CHG_INT_MASK, ~chgMask )
+    
     #
     # The Watchdog API
     #
@@ -1182,8 +1638,14 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     #
     
     def lockRegisters(self):
-        self.writeReg( MAX77960._REG_CHG_CNFG_06, MAX77960._CHGPROT_LOCK | MAX77960._WDTCLR_DO_NOT_TOUCH )
+        self.setReg( MAX77960._REG_CHG_CNFG_06, MAX77960._CHGPROT_LOCK | MAX77960._WDTCLR_DO_NOT_TOUCH )
 
     def unlockRegisters(self):
-        self.writeReg( MAX77960._REG_CHG_CNFG_06, MAX77960._CHGPROT_UNLOCK | MAX77960._WDTCLR_DO_NOT_TOUCH )
+        self.setReg( MAX77960._REG_CHG_CNFG_06, MAX77960._CHGPROT_UNLOCK | MAX77960._WDTCLR_DO_NOT_TOUCH )
 
+    def dcStandby(self, enable=False ):
+        if enable:
+            self.enableReg( MAX77960._REG_CHG_CNFG_00, MAX77960._STBY_EN )
+        else:
+            self.disableReg( MAX77960._REG_CHG_CNFG_00, MAX77960._STBY_EN )
+            
