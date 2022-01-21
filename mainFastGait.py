@@ -40,7 +40,7 @@ setupSensor = {
     #   RaspberryPi needs "/dev/i2c-1", while Google Coral has "/dev/i2c-3".
     #   SMBus implementation needs integers (1,3), while the periphery module takes strings.
     #"SerialDevice.busDesignator": "/dev/i2c-1", 
-    "SerialDevice.busDesignator": 1, 
+    "SerialDevice.busDesignator": "/dev/i2c-3", 
     #   SerialDevice.deviceAddress gives either SDO status (0/1) or I2C address right
     #   away (0x18/0x19). Depends on the underlying system board.
     #   Default is 0 (i.e. 0x18).
@@ -62,7 +62,7 @@ setupSystemManagement = {
     #   RaspberryPi needs "/dev/i2c-1", while Google Coral has "/dev/i2c-3".
     #   SMBus implementation needs integers (1,3), while the periphery module takes strings.
     #"SerialDevice.busDesignator": "/dev/i2c-1", 
-    "SerialDevice.busDesignator": 1, 
+    "SerialDevice.busDesignator": "/dev/i2c-3", 
     #   SerialDevice.deviceAddress gives either SDO status (0/1) or I2C address right
     #   away (0x69). Depends on the underlying system board.
     #   Default is 0x69.
@@ -86,15 +86,18 @@ setupSystemManagement = {
     #"ActorUnit.BLE.discovery.timeout": 5.0,
     #    Timeout for the BLE discovery phase, given in seconds.
     ### User interface settings ###
-    "UI.LED.tmp.pin"          : 'BOARD15', # LED_RED, pin 15.
+    #"UI.LED.tmp.pin"          : 'BOARD15', # LED_RED, pin 15.
+    "UI.LED.tmp.pin"          : 11, # GPIO11.
     #    Pin of the TMP LED.
     "UI.LED.tmp.activeHigh"   : False,     # LED is between Vcc and GPIO. 
     #    True, if a logical 1 switches LED on; False, if it makes LED off.
-    "UI.LED.bat.pin"          : 'BOARD36', # LED_ORANGE, pin 36.
+    #"UI.LED.bat.pin"          : 'BOARD36', # LED_ORANGE, pin 36.
+    #"UI.LED.bat.pin"          : 13, # GPIO13
     #    Pin of the BAT LED.
-    "UI.LED.bat.activeHigh"   : False,     # LED is between Vcc and GPIO. 
+    #"UI.LED.bat.activeHigh"   : False,     # LED is between Vcc and GPIO. 
     #    True, if a logical 1 switches LED on; False, if it makes LED off.
-    "UI.LED.ble.pin"          : 'BOARD32', # LED_BLUE, pin 32.
+    #"UI.LED.ble.pin"          : 'BOARD32', # LED_BLUE, pin 32.
+    "UI.LED.ble.pin"          : 12, # GPIO12
     #    Pin of the BLE LED.
     "UI.LED.ble.activeHigh"   : False,     # LED is between Vcc and GPIO. 
     #    True, if a logical 1 switches LED on; False, if it makes LED off.
@@ -106,6 +109,12 @@ setupSystemManagement = {
     #    Pin of the CHG LED.
     #"UI.LED.chg.activeHigh"   : False, 
     #    True, if a logical 1 switches LED on; False, if it makes LED off.
+
+    #    Definition of the user / free / aux LEDs.
+    "UI.LED.0.pin"          : 25,        # LED_GREEN at pin #33, GPIO25
+    "UI.LED.0.activeHigh"   : False,     # LED is between Vcc and GPIO. 
+    "UI.LED.1.pin"          : 13,        # LED_ORANGE at pin #36, GPIO13
+    "UI.LED.1.activeHigh"   : False,     # LED is between Vcc and GPIO. 
     }
 
 #
