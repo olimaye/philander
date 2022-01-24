@@ -3,8 +3,7 @@ from Configurable import Configurable
 from MAX77960 import MAX77960 as Charger
 from BatteryCharger import BatteryCharger
 from ActorUnit import ActorUnit
-#from gpiozero import LED, PWMLED
-from periphery import GPIO
+from SmartLED import SmartLED
 
 import time, logging
 
@@ -155,31 +154,19 @@ class FGSystemManagement( Configurable ):
         self.charger.init()
         super().init()
         if self._tmpLEDpin:
-            #self.tmpLED = LED( self._tmpLEDpin, active_high=self._tmpLEDactHi )
-            self.tmpLED = GPIO( '/dev/gpiochip0', self._tmpLEDpin, 'out', inverted=not self._tmpLEDactHi )
-            self.tmpLED.write(False)
+            self.tmpLED = SmartLED( pin=self._tmpLEDpin, active_high=self._tmpLEDactHi )
         if self._batLEDpin:
-            #self.batLED = LED( self._batLEDpin, active_high=self._batLEDactHi )
-            self.batLED = GPIO( '/dev/gpiochip0', self._batLEDpin, 'out', inverted=not self._batLEDactHi )
-            self.batLED.write(False)
+            self.batLED = SmartLED( pin=self._batLEDpin, active_high=self._batLEDactHi )
         if self._bleLEDpin:
-            #self.bleLED = LED( self._bleLEDpin, active_high=self._bleLEDactHi )
-            self.bleLED = GPIO( '/dev/gpiochip0', self._bleLEDpin, 'out', inverted=not self._bleLEDactHi )
-            self.bleLED.write(False)
+            self.bleLED = SmartLED( pin=self._bleLEDpin, active_high=self._bleLEDactHi )
         if self._dcLEDpin:
-            #self.dcLED = LED( self._dcLEDpin, active_high=self._dcLEDactHi )
-            self.dcLED = GPIO( '/dev/gpiochip0', self._dcLEDpin, 'out', inverted=not self._dcLEDactHi )
-            self.dcLED.write(False)
+            self.dcLED = SmartLED( pin=self._dcLEDpin, active_high=self._dcLEDactHi )
         if self._chgLEDpin:
-            #self.chgLED = LED( self._chgLEDpin, active_high=self._chgLEDactHi )
-            self.chgLED = GPIO( '/dev/gpiochip0', self._chgLEDpin, 'out', inverted=not self._chgLEDactHi )
-            self.chgLED.write(False)
+            self.chgLED = SmartLED( pin=self._chgLEDpin, active_high=self._chgLEDactHi )
         if self._aux0LEDpin:
-            self.aux0LED = GPIO( '/dev/gpiochip0', self._aux0LEDpin, 'out', inverted=not self._aux0LEDactHi )
-            self.aux0LED.write(False)
+            self.aux0LED = SmartLED( pin=self._aux0LEDpin, active_high=self._aux0LEDactHi )
         if self._aux1LEDpin:
-            self.aux1LED = GPIO( '/dev/gpiochip0', self._aux1LEDpin, 'out', inverted=not self._aux1LEDactHi )
-            self.aux1LED.write(False)
+            self.aux1LED = SmartLED( pin=self._aux1LEDpin, active_high=self._aux1LEDactHi )
         self.monitor.start()
         self.actorUnit.on( ActorUnit.EVT_BLE_DISCOVERING, self.bleHandleDiscovering )
         self.actorUnit.on( ActorUnit.EVT_BLE_CONNECTED, self.bleHandleConnected )
@@ -194,36 +181,24 @@ class FGSystemManagement( Configurable ):
         self.charger.close()
         self.actorUnit.close()
         if self.tmpLED:
-            #self.tmpLED.off()
-            self.tmpLED.write(False)
             self.tmpLED.close()
             self.tmpLED = None
         if self.batLED:
-            #self.batLED.off()
-            self.batLED.write(False)
             self.batLED.close()
             self.batLED = None
         if self.bleLED:
-            #self.bleLED.off()
-            self.bleLED.write(False)
             self.bleLED.close()
             self.bleLED = None
         if self.dcLED:
-            #self.dcLED.off()
-            self.dcLED.write(False)
             self.dcLED.close()
             self.dcLED = None
         if self.chgLED:
-            #self.chgLED.off()
-            self.chgLED.write(False)
             self.chgLED.close()
             self.chgLED = None
         if self.aux0LED:
-            self.aux0LED.write(False)
             self.aux0LED.close()
             self.aux0LED = None
         if self.aux1LED:
-            self.aux1LED.write(False)
             self.aux1LED.close()
             self.aux1LED = None
 
@@ -308,62 +283,51 @@ class FGSystemManagement( Configurable ):
             logging.info('TMP state: %s', BatteryCharger.temp2Str.get( newStatus, 'UNKNOWN' ))
             if self.tmpLED:
                 if newStatus == BatteryCharger.TEMP_OK:
-                    #self.tmpLED.off()
-                    self.tmpLED.write(False)
-                #elif (newStatus==BatteryCharger.TEMP_WARM) or (newStatus==BatteryCharger.TEMP_COOL):
-                    #self.tmpLED.blink( on_time=0.5, off_time=0.5 )
-                    #self.tmpLED.write( self.tmpLED.max_brightness // 2 )
+                    self.tmpLED.off()
+                elif (newStatus==BatteryCharger.TEMP_WARM) or (newStatus==BatteryCharger.TEMP_COOL):
+                    self.tmpLED.blink()
                 else:
-                    #self.tmpLED.on()
-                    self.tmpLED.write(True)
+                    self.tmpLED.on()
         elif infoCat == FGSystemManagement._INFOCAT_BAT_STATE:
             logging.info('BAT state: %s', BatteryCharger.batState2Str.get( newStatus, 'UNKNOWN' ))
             if self.batLED:
                 if newStatus == BatteryCharger.BAT_STATE_NORMAL:
-                    #self.batLED.on()
-                    self.batLED.write(True)
+                    self.batLED.on()
+                elif newStatus == BatteryCharger.BAT_STATE_LOW:
+                    self.batLED.blink()
+                elif newStatus == BatteryCharger.BAT_STATE_EMPTY:
+                    self.batLED.blink( cycle_length=SmartLED.CYCLEN_FAST )
                 else:
-                    #self.batLED.off()
-                    self.batLED.write(False)
+                    self.batLED.off()
         elif infoCat == FGSystemManagement._INFOCAT_BLE:
             logging.info('BLE state: %s', ActorUnit.connState2Str.get( newStatus, 'UNKNOWN'))
             if self.bleLED:
                 if newStatus == ActorUnit.BLE_CONN_STATE_CONNECTED:
-                    #self.bleLED.on()
-                    self.bleLED.write(True)
-                #elif newStatus == ActorUnit.BLE_CONN_STATE_DISCOVERING:
-                    #self.bleLED.blink( on_time=0.25, off_time=0.25 )
-                    #self.bleLED.write( self.bleLED.max_brightness // 2 )
+                    self.bleLED.on()
+                elif newStatus == ActorUnit.BLE_CONN_STATE_DISCOVERING:
+                    self.bleLED.blink( cycle_length=SmartLED.CYCLEN_NORMAL )
                 else:
-                    #self.bleLED.off()
-                    self.bleLED.write(False)
+                    self.bleLED.off()
         elif infoCat == FGSystemManagement._INFOCAT_DC_SUPPLY:
             logging.info(' DC state: %s', BatteryCharger.dcState2Str.get( newStatus, 'UNKNOWN' ))
             if self.dcLED:
                 if newStatus == BatteryCharger.DC_STATE_VALID:
-                    #self.dcLED.on()
-                    self.dcLED.write(True)
-                #elif newStatus == BatteryCharger.DC_STATE_OFF:
-                    #self.dcLED.off()
-                    #self.dcLED.write(False)
+                    self.dcLED.on()
+                elif newStatus == BatteryCharger.DC_STATE_OFF:
+                    self.dcLED.off()
                 else:
-                    #self.dcLED.blink( on_time=0.5, off_time=0.5 )
-                    self.dcLED.write( self.dcLED.max_brightness // 2 )
+                    self.dcLED.blink()
         elif infoCat == FGSystemManagement._INFOCAT_CHG_STATE:
             logging.info('CHG state: %s', BatteryCharger.chgState2Str.get( newStatus, 'UNKNOWN' ))
             if self.chgLED:
                 if newStatus in {BatteryCharger.CHG_STATE_DONE, BatteryCharger.CHG_STATE_TOP_OFF}:
-                    #self.chgLED.on()
-                    self.chgLED.write(True)
-                #elif newStatus in {BatteryCharger.CHG_STATE_FASTCHARGE, BatteryCharger.CHG_STATE_FAST_CC, BatteryCharger.CHG_STATE_FAST_CV}:
-                    #self.chgLED.blink( on_time=0.25, off_time=0.25 )
-                    #self.chgLED.write( self.chgLED.max_brightness // 3 )
-                #elif newStatus in {BatteryCharger.CHG_STATE_PRECHARGE, BatteryCharger.CHG_STATE_TRICKLE}:
-                    #self.chgLED.blink( on_time=0.5, off_time=0.5 )
-                    #self.dcLED.write( 2 * self.dcLED.max_brightness // 3 )
+                    self.chgLED.on()
+                elif newStatus in {BatteryCharger.CHG_STATE_FASTCHARGE, BatteryCharger.CHG_STATE_FAST_CC, BatteryCharger.CHG_STATE_FAST_CV}:
+                    self.chgLED.blink( cycle_length=SmartLED.CYCLEN_FAST )
+                elif newStatus in {BatteryCharger.CHG_STATE_PRECHARGE, BatteryCharger.CHG_STATE_TRICKLE}:
+                    self.chgLED.blink()
                 else:
-                    #self.chgLED.off()
-                    self.chgLED.write(False)
+                    self.chgLED.off()
         
     #
     #
