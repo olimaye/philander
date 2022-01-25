@@ -8,6 +8,31 @@ import math # To use sqrt()
 import logging
 import argparse
 
+#
+# Helper functions - just handlers
+#
+
+def hdlBleConnected():
+    logging.info("Main App> BLE connected.")
+
+def hdlBleDisconnected():
+    logging.info("Main App> BLE disconnected.")
+
+def hdlDCPlugged():
+    logging.info("Main App> DC plugged.")
+
+def hdlDCUnplugged():
+    logging.info("Main App> DC unplugged.")
+
+def hdlTempCritical():
+    logging.info("Main App> Temperature critical.")
+
+def hdlTempNormal():
+    logging.info("Main App> Temperature normal.")
+
+def hdlButtonPressed():
+    logging.info("Main App> UI button pressed.")
+
 
 #
 # Step 0: Configure logging
@@ -115,6 +140,9 @@ setupSystemManagement = {
     "UI.LED.0.activeHigh"   : False,     # LED is between Vcc and GPIO. 
     "UI.LED.1.pin"          : 13,        # LED_ORANGE at pin #36, GPIO13
     "UI.LED.1.activeHigh"   : False,     # LED is between Vcc and GPIO. 
+    #    Definition of the button.
+    "UI.Button.cmd.pin"          : 39,        # USER_BTN at pin #40, GPIO39
+    "UI.Button.cmd.activeHigh"   : True, 
     }
 
 #
@@ -130,6 +158,13 @@ logging.info( "Object instantiation done." )
 #
 sd.init()
 sy.init()
+sy.on( FGSystemManagement.EVT_BLE_CONNECTED, hdlBleConnected )
+sy.on( FGSystemManagement.EVT_BLE_DISCONNECTED, hdlBleDisconnected )
+sy.on( FGSystemManagement.EVT_DC_PLUGGED, hdlDCPlugged )
+sy.on( FGSystemManagement.EVT_DC_UNPLUGGED, hdlDCUnplugged )
+sy.on( FGSystemManagement.EVT_TEMP_CRITICAL, hdlTempCritical )
+sy.on( FGSystemManagement.EVT_TEMP_NORMAL, hdlTempNormal )
+sy.on( FGSystemManagement.EVT_BUTTON_PRESSED, hdlButtonPressed )
 
 #
 # This is not mandatory, but just illustrates the

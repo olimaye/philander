@@ -1,6 +1,6 @@
 from periphery import GPIO, PWM
 from threading import Thread
-import time
+import time, logging
 
 class SmartLED():
     
@@ -12,14 +12,17 @@ class SmartLED():
     CYCLEN_FAST   = 0.4
 
     def __init__(self, chip='/dev/gpiochip0', pin=None, channel=None,
-                active_high=True, initial_value=False, frequency=100):
+                active_high=True, initial_value=False, frequency=100, label='LED'):
         self.gpio = None
         self.pwm = None
         self.worker = None
         self.done = False
         self.active_high = active_high
+        self.label = label
         if pin:
-            self.gpio = GPIO( chip, pin, 'out', inverted=not active_high )
+            self.gpio = GPIO( chip, pin, 'out', inverted=not active_high, label=label )
+            logging.debug('SmartLED(gpio) <%s> created, chip:%s, pin:%s, actHigh:%s, initial:%s.', 
+                          label, chip, pin, active_high, initial_value)
             self.gpio.write( initial_value )
         else:
             self.pwm = PWM( chip, channel )
@@ -27,6 +30,8 @@ class SmartLED():
             #    self.pwm.polarity = 'inversed'
             self.pwm.frequency = frequency
             self.pwm.enable()
+            logging.debug('SmartLED(pwm) <%s> created, chip:%s, channel=%s, actHigh:%s, initial:%s, freq:%s.', 
+                          label, chip, channel, active_high, initial_value, frequency)
             self.write( initial_value )
             
     def write(self, brightness):
@@ -37,14 +42,17 @@ class SmartLED():
                 self.pwm.duty_cycle = brightness
             else:
                 self.pwm.duty_cycle = 1-brightness
+        logging.debug('SmartLED <%s> set to %s.', self.label, brightness)
             
     def on(self):
         self.stop_blinking()
         self.write(1)
+        logging.debug('SmartLED <%s> switched ON.', self.label)
         
     def off(self):
         self.stop_blinking()
         self.write(0)
+        logging.debug('SmartLED <%s> switched OFF.', self.label)
 
     def close(self):
         self.off()
@@ -54,6 +62,7 @@ class SmartLED():
             self.pwm.close()
         self.gpio = None
         self.pwm = None
+        logging.debug('SmartLED <%s> closed.', self.label)
 
     def blink(self, curve=CURVE_BLINK_CLASSIC, cycle_length=CYCLEN_NORMAL, num_cycles=None):
         self.stop_blinking()
@@ -70,6 +79,7 @@ class SmartLED():
             
             
     def _blinkingLoop(self, curve, cycle_length, num_cycles):
+        logging.debug('SmartLED <%s> starts blinking thread, cycle_length=%s.', self.label, cycle_length)
         self.done = False
         delay = cycle_length / len( curve )
         if num_cycles:
@@ -84,5 +94,6 @@ class SmartLED():
                 for value in curve:
                     self.write( value )
                     time.sleep( delay ) 
+        logging.debug('SmartLED <%s> terminates blinking thread.', self.label)
         
         

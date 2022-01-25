@@ -1,19 +1,31 @@
+from pymitter import EventEmitter
 from threading import Thread, Lock
 from Configurable import Configurable
 from MAX77960 import MAX77960 as Charger
 from BatteryCharger import BatteryCharger
 from ActorUnit import ActorUnit
+from SmartButton import SmartButton
 from SmartLED import SmartLED
 
 import time, logging
 
 # The fastGait power management and user interface
-class FGSystemManagement( Configurable ):
+class FGSystemManagement( Configurable, EventEmitter ):
     
     #
     # Public class attributes
     #
-        
+    EVT_DELIMITER           = '.'
+    EVT_MASK                = 'SystemManagement'
+    EVT_BLE_CONNECTED       = EVT_MASK + EVT_DELIMITER + 'ble' + EVT_DELIMITER + 'connected'
+    EVT_BLE_DISCONNECTED    = EVT_MASK + EVT_DELIMITER + 'ble' + EVT_DELIMITER + 'disconnected'
+    EVT_DC_PLUGGED          = EVT_MASK + EVT_DELIMITER + 'dc' + EVT_DELIMITER + 'plugged'
+    EVT_DC_UNPLUGGED        = EVT_MASK + EVT_DELIMITER + 'dc' + EVT_DELIMITER + 'unplugged'
+    EVT_BUTTON_PRESSED      = EVT_MASK + EVT_DELIMITER + 'ui' + EVT_DELIMITER + 'button' + EVT_DELIMITER + 'pressed'
+    EVT_TEMP_CRITICAL       = EVT_MASK + EVT_DELIMITER + 'temp' + EVT_DELIMITER + 'critical'
+    EVT_TEMP_NORMAL         = EVT_MASK + EVT_DELIMITER + 'temp' + EVT_DELIMITER + 'normal'
+    
+    
     #
     # Private class attributes
     #
@@ -28,6 +40,8 @@ class FGSystemManagement( Configurable ):
     _SYSJOB_NONE      = 0x00
     _SYSJOB_AU_COUPLE = 0x01
     _SYSJOB_ANY       = 0xFFFF
+    
+    _CRITICAL_TEMPERATURES = (BatteryCharger.TEMP_COLD, BatteryCharger.TEMP_HOT)
     
     #
     # The Configurable API
@@ -76,6 +90,9 @@ class FGSystemManagement( Configurable ):
         self.aux1LED = None
         self._aux1LEDpin = None
         self._aux1LEDactHi = True
+        self.cmdBtn = None
+        self._cmdBtnPin = None
+        self._cmdBtnActHi = True
         self.monitor = Thread( target=self.manageSystem, name='System Management' )
         # Set defaults
         if not "UI.LED.tmp.pin" in paramDict:
@@ -106,7 +123,12 @@ class FGSystemManagement( Configurable ):
             paramDict["UI.LED.1.pin"] = None
         if not "UI.LED.1.activeHigh" in paramDict:
             paramDict["UI.LED.1.activeHigh"] = True
-        super().__init__( paramDict )
+        if not "UI.Button.cmd.pin" in paramDict:
+            paramDict["UI.Button.cmd.pin"] = None
+        if not "UI.Button.cmd.activeHigh" in paramDict:
+            paramDict["UI.Button.cmd.activeHigh"] = True
+        Configurable.__init__( self, paramDict )
+        EventEmitter.__init__( self, wildcard=True, delimiter=FGSystemManagement.EVT_DELIMITER)
 
     #
     # Scans the parameters for known keys.
@@ -140,6 +162,10 @@ class FGSystemManagement( Configurable ):
             self._aux1LEDpin = paramDict["UI.LED.1.pin"]
         if "UI.LED.1.activeHigh" in paramDict:
             self._aux1LEDactHi = paramDict["UI.LED.1.activeHigh"]
+        if "UI.Button.cmd.pin" in paramDict:
+            self._cmdBtnPin = paramDict["UI.Button.cmd.pin"]
+        if "UI.Button.cmd.activeHigh" in paramDict:
+            self._cmdBtnActHi = paramDict["UI.Button.cmd.activeHigh"]
                 
     #
     # Apply the new configuration.
@@ -167,6 +193,11 @@ class FGSystemManagement( Configurable ):
             self.aux0LED = SmartLED( pin=self._aux0LEDpin, active_high=self._aux0LEDactHi )
         if self._aux1LEDpin:
             self.aux1LED = SmartLED( pin=self._aux1LEDpin, active_high=self._aux1LEDactHi )
+        if self._cmdBtnPin:
+            btnName = 'ButtonCMD'
+            self.cmdBtn = SmartButton( pin=self._cmdBtnPin, active_high=self._cmdBtnActHi, label=btnName )
+            self.cmdBtn.on( btnName, func=self.uiHandleButtonPressed )
+            self.cmdBtn.asyncWait4Press()
         self.monitor.start()
         self.actorUnit.on( ActorUnit.EVT_BLE_DISCOVERING, self.bleHandleDiscovering )
         self.actorUnit.on( ActorUnit.EVT_BLE_CONNECTED, self.bleHandleConnected )
@@ -201,13 +232,16 @@ class FGSystemManagement( Configurable ):
         if self.aux1LED:
             self.aux1LED.close()
             self.aux1LED = None
+        if self.cmdBtn:
+            self.cmdBtn.close()
+            self.cmdBtn = None
 
     #
     # Own, specific API
     #
             
     def manageSystem( self ):
-        logging.info('System management thread is running')
+        logging.info('FGSystemManagement> Management thread is running.')
         self._sysjobLock.acquire()
         self._systemJob = FGSystemManagement._SYSJOB_NONE
         self._sysjobLock.release()
@@ -230,15 +264,25 @@ class FGSystemManagement( Configurable ):
                 val = self.charger.getChargerTempState()
                 if batStatus != BatteryCharger.BAT_STATE_REMOVED:
                     val1 = self.charger.getBatteryTempState()
-                    val = self._joinTempStatus( val, val1 )
+                    val = self._combineTempStatus( val, val1 )
                 if val != tmpStatus:
+                    oldStatus = tmpStatus
                     tmpStatus = val
                     self._displayStatusChange( FGSystemManagement._INFOCAT_TEMP, tmpStatus )
+                    if val in FGSystemManagement._CRITICAL_TEMPERATURES:
+                        self.emit( FGSystemManagement.EVT_TEMP_CRITICAL )
+                    elif oldStatus in FGSystemManagement._CRITICAL_TEMPERATURES:
+                        self.emit( FGSystemManagement.EVT_TEMP_NORMAL )
                 
                 val  = self.charger.getDCStatus()
                 if val != dcStatus:
                     dcStatus = val
                     self._displayStatusChange( FGSystemManagement._INFOCAT_DC_SUPPLY, dcStatus )
+                    if dcStatus == BatteryCharger.DC_STATE_VALID:
+                        self.emit( FGSystemManagement.EVT_DC_PLUGGED )
+                    else:
+                        self.emit( FGSystemManagement.EVT_DC_UNPLUGGED )
+                        
                 val = self.charger.getChgStatus()
                 if val != chgStatus:
                     chgStatus = val
@@ -248,10 +292,10 @@ class FGSystemManagement( Configurable ):
             except RuntimeError as exc:
                 logging.exception(exc)
             time.sleep(0.5)
-        logging.info('System management thread stopped.')
+        logging.info('FGSystemManagement> Management thread stopped.')
     
     
-    def _joinTempStatus( self, tempStatus1, tempStatus2 ):
+    def _combineTempStatus( self, tempStatus1, tempStatus2 ):
         if tempStatus1 < tempStatus2:
             low = tempStatus1
             high = tempStatus2
@@ -280,7 +324,7 @@ class FGSystemManagement( Configurable ):
             
     def _displayStatusChange( self, infoCat, newStatus ):
         if infoCat == FGSystemManagement._INFOCAT_TEMP:
-            logging.info('TMP state: %s', BatteryCharger.temp2Str.get( newStatus, 'UNKNOWN' ))
+            logging.info('FGSystemManagement> TMP state: %s', BatteryCharger.temp2Str.get( newStatus, 'UNKNOWN' ))
             if self.tmpLED:
                 if newStatus == BatteryCharger.TEMP_OK:
                     self.tmpLED.off()
@@ -289,7 +333,7 @@ class FGSystemManagement( Configurable ):
                 else:
                     self.tmpLED.on()
         elif infoCat == FGSystemManagement._INFOCAT_BAT_STATE:
-            logging.info('BAT state: %s', BatteryCharger.batState2Str.get( newStatus, 'UNKNOWN' ))
+            logging.info('FGSystemManagement> BAT state: %s', BatteryCharger.batState2Str.get( newStatus, 'UNKNOWN' ))
             if self.batLED:
                 if newStatus == BatteryCharger.BAT_STATE_NORMAL:
                     self.batLED.on()
@@ -300,7 +344,7 @@ class FGSystemManagement( Configurable ):
                 else:
                     self.batLED.off()
         elif infoCat == FGSystemManagement._INFOCAT_BLE:
-            logging.info('BLE state: %s', ActorUnit.connState2Str.get( newStatus, 'UNKNOWN'))
+            logging.info('FGSystemManagement> BLE state: %s', ActorUnit.connState2Str.get( newStatus, 'UNKNOWN'))
             if self.bleLED:
                 if newStatus == ActorUnit.BLE_CONN_STATE_CONNECTED:
                     self.bleLED.on()
@@ -309,7 +353,7 @@ class FGSystemManagement( Configurable ):
                 else:
                     self.bleLED.off()
         elif infoCat == FGSystemManagement._INFOCAT_DC_SUPPLY:
-            logging.info(' DC state: %s', BatteryCharger.dcState2Str.get( newStatus, 'UNKNOWN' ))
+            logging.info('FGSystemManagement>  DC state: %s', BatteryCharger.dcState2Str.get( newStatus, 'UNKNOWN' ))
             if self.dcLED:
                 if newStatus == BatteryCharger.DC_STATE_VALID:
                     self.dcLED.on()
@@ -318,7 +362,7 @@ class FGSystemManagement( Configurable ):
                 else:
                     self.dcLED.blink()
         elif infoCat == FGSystemManagement._INFOCAT_CHG_STATE:
-            logging.info('CHG state: %s', BatteryCharger.chgState2Str.get( newStatus, 'UNKNOWN' ))
+            logging.info('FGSystemManagement> CHG state: %s', BatteryCharger.chgState2Str.get( newStatus, 'UNKNOWN' ))
             if self.chgLED:
                 if newStatus in {BatteryCharger.CHG_STATE_DONE, BatteryCharger.CHG_STATE_TOP_OFF}:
                     self.chgLED.on()
@@ -337,12 +381,19 @@ class FGSystemManagement( Configurable ):
         
     def bleHandleConnected( self ):
         self._displayStatusChange( FGSystemManagement._INFOCAT_BLE, ActorUnit.BLE_CONN_STATE_CONNECTED )
+        self.emit( FGSystemManagement.EVT_BLE_CONNECTED )
         
     def bleHandleDisconnected( self ):
         self._displayStatusChange( FGSystemManagement._INFOCAT_BLE, ActorUnit.BLE_CONN_STATE_DISCONNECTED )
+        self.emit( FGSystemManagement.EVT_BLE_DISCONNECTED )
         # Start re-discovering
         if not self.done:
             self._sysjobLock.acquire()
             self._systemJob = self._systemJob | FGSystemManagement._SYSJOB_AU_COUPLE
             self._sysjobLock.release()
             
+    def uiHandleButtonPressed( self ):
+        self.emit( FGSystemManagement.EVT_BUTTON_PRESSED )
+        
+        
+        
