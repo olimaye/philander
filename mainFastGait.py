@@ -1,6 +1,7 @@
 # Sample application for the BMA456 sensor driver, and the fastGait system management
 # encapsulating the FeelSpace actuator unit and MAX77960 power management
 from BMA456 import BMA456 as sensor
+from MAX77960 import MAX77960
 from FGSystemManagement import FGSystemManagement
 
 import time # Depending on the measurement strategy, this is not really necessary
@@ -59,89 +60,60 @@ ACCELERATION_THRESHOLD = 1200 # measured in milli-g
     
 ### BMA456 driver settings ###
 setupSensor = {
-    #   SerialDevice.busType defaults to sensor.BUSTYPE_I2C
     #"SerialDevice.busType"      : sensor.BUSTYPE_I2C,
-    #   SerialDevice.busDesignator depends on the system/board. Default is "/dev/i2c-1".
-    #   RaspberryPi needs "/dev/i2c-1", while Google Coral has "/dev/i2c-3".
-    #   SMBus implementation needs integers (1,3), while the periphery module takes strings.
-    #"SerialDevice.busDesignator": "/dev/i2c-1", 
     "SerialDevice.busDesignator": "/dev/i2c-3", 
     #   SerialDevice.deviceAddress gives either SDO status (0/1) or I2C address right
     #   away (0x18/0x19). Depends on the underlying system board.
     #   Default is 0 (i.e. 0x18).
     "SerialDevice.deviceAddress": 1,
-    #   Sensor.dataRange defines the measurement range. Set as needed.
-    #   Defaults to sensor.ACC_RANGE_2G.
     #"Sensor.dataRange"    : sensor.ACC_RANGE_2G,
-    #   Sensor.dataRate is the measurement frequency expressed as Hz. Set as needed.
-    #   Default is sensor.ACC_DATARATE_50.
-    #"Sensor.dataRate"     : sensor.ACC_DATARATE_50
-    #
+    #"Sensor.dataRate"     : sensor.ACC_DATARATE_50,
     }
 
 setupSystemManagement = {
-    ### MAX77960 driver settings ###
-    #   SerialDevice.busType defaults to sensor.BUSTYPE_I2C
+    ### Battery charger / MAX77960 driver settings ###
     #"SerialDevice.busType"      : sensor.BUSTYPE_I2C,
-    #   SerialDevice.busDesignator depends on the system/board. Default is "/dev/i2c-1".
-    #   RaspberryPi needs "/dev/i2c-1", while Google Coral has "/dev/i2c-3".
-    #   SMBus implementation needs integers (1,3), while the periphery module takes strings.
-    #"SerialDevice.busDesignator": "/dev/i2c-1", 
     "SerialDevice.busDesignator": "/dev/i2c-3", 
-    #   SerialDevice.deviceAddress gives either SDO status (0/1) or I2C address right
-    #   away (0x69). Depends on the underlying system board.
-    #   Default is 0x69.
     #"SerialDevice.deviceAddress": 0x69,
-    # Individual charger settings would follow here, starting with enabling I2C settings
-    #MAX77960.CFG_COMM_MODE: MAX77960.CFG_COMM_MODE_I2C,
+    MAX77960.CFG_COMM_MODE: MAX77960.CFG_COMM_MODE_I2C,
+    #MAX77960.CFG_STAT_EN  : MAX77960.CFG_STAT_EN_ON,
+    MAX77960.CFG_FCHGTIME : MAX77960.CFG_FCHGTIME_6H,
+    #MAX77960.CFG_CHGCC    : MAX77960.CFG_CHGCC_1000,
+    MAX77960.CFG_TO_TIME  : MAX77960.CFG_TO_TIME_10_MIN,
+    #MAX77960.CFG_TO_ITH   : MAX77960.CFG_TO_ITH_100,
+    MAX77960.CFG_CHG_CV_PRM: MAX77960.CFG_CHG_CV_PRM_2C_8400,
+    MAX77960.CFG_JEITA_EN : MAX77960.CFG_JEITA_EN_ON,
+    #MAX77960.CFG_REGTEMP  : MAX77960.CFG_REGTEMP_115,
+    #MAX77960.CFG_CHGIN_ILIM: 2500,
+    #MAX77960.CFG_MINVSYS  : MAX77960.CFG_MINVSYS_2C_6150,
+    MAX77960.CFG_VCHGIN_REG: MAX77960.CFG_VCHGIN_REG_4900,
     #
     ### ActorUnit's settings ###
-    #"ActorUnit.delay"          : 0,
-    #    Initial delay [0...65535]ms
-    "ActorUnit.pulsePeriod"   : 600,
-    #    Length of one period [0...65535]ms
-    "ActorUnit.pulseOn"       : 250,
-    #    Length of the active part in that period [0...pulsePeriod]ms
-    "ActorUnit.pulseCount"    : 3,
-    #    Number of pulses [0...255]. Zero (0) means infinite pulses.
-    "ActorUnit.pulseIntensity": 55,
-    #    Intensity of the pulses [0...100]%
+    #"ActorUnit.delay"          : 0,  # Initial delay [0...65535]ms
+    "ActorUnit.pulsePeriod"   : 600,  # Length of one period [0...65535]ms
+    "ActorUnit.pulseOn"       : 250,  # Length of the active part in that period [0...pulsePeriod]ms
+    "ActorUnit.pulseCount"    : 3,    # Number of pulses [0...255]. Zero (0) means infinite pulses.
+    "ActorUnit.pulseIntensity": 55,   # Intensity of the pulses [0...100]%
     #"ActorUnit.actuators"     : ActorUnit.MOTORS_ALL,
-    #    Motors to be used for the pulses, one of ActorUnit.{MOTORS_NONE,MOTORS_1,MOTORS_2,MOTORS_ALL}
-    #"ActorUnit.BLE.discovery.timeout": 5.0,
-    #    Timeout for the BLE discovery phase, given in seconds.
+    #"ActorUnit.BLE.discovery.timeout": 5.0, # Timeout for the BLE discovery phase, given in seconds.
+    #
     ### User interface settings ###
-    #"UI.LED.tmp.pin"          : 'BOARD15', # LED_RED, pin 15.
-    "UI.LED.tmp.pin"          : 11, # GPIO11.
-    #    Pin of the TMP LED.
-    "UI.LED.tmp.activeHigh"   : False,     # LED is between Vcc and GPIO. 
-    #    True, if a logical 1 switches LED on; False, if it makes LED off.
-    #"UI.LED.bat.pin"          : 'BOARD36', # LED_ORANGE, pin 36.
-    #"UI.LED.bat.pin"          : 13, # GPIO13
-    #    Pin of the BAT LED.
-    #"UI.LED.bat.activeHigh"   : False,     # LED is between Vcc and GPIO. 
-    #    True, if a logical 1 switches LED on; False, if it makes LED off.
-    #"UI.LED.ble.pin"          : 'BOARD32', # LED_BLUE, pin 32.
-    "UI.LED.ble.pin"          : 12, # GPIO12
-    #    Pin of the BLE LED.
-    "UI.LED.ble.activeHigh"   : False,     # LED is between Vcc and GPIO. 
-    #    True, if a logical 1 switches LED on; False, if it makes LED off.
+    "UI.LED.tmp.pin"          : 11,   # LED_RED, pin 15. GPIO11.
+    "UI.LED.tmp.activeHigh"   : False, 
+    #"UI.LED.bat.pin"          : 13,  # LED_ORANGE, pin 36, GPIO13
+    #"UI.LED.bat.activeHigh"   : False, 
+    "UI.LED.ble.pin"          : 12,   # LED_BLUE, pin 32, GPIO12
+    "UI.LED.ble.activeHigh"   : False, 
     #"UI.LED.dc.pin"           : 'BOARD33', # Actually hard-wired. Leave as comment!
-    #    Pin of the DC LED.
     #"UI.LED.dc.activeHigh"   : False, 
-    #    True, if a logical 1 switches LED on; False, if it makes LED off.
     #"UI.LED.chg.pin"          : 'BOARD33', # Actually hard-wired. Leave as comment!
-    #    Pin of the CHG LED.
     #"UI.LED.chg.activeHigh"   : False, 
-    #    True, if a logical 1 switches LED on; False, if it makes LED off.
-
-    #    Definition of the user / free / aux LEDs.
-    "UI.LED.0.pin"          : 25,        # LED_GREEN at pin #33, GPIO25
-    "UI.LED.0.activeHigh"   : False,     # LED is between Vcc and GPIO. 
-    "UI.LED.1.pin"          : 13,        # LED_ORANGE at pin #36, GPIO13
-    "UI.LED.1.activeHigh"   : False,     # LED is between Vcc and GPIO. 
+    "UI.LED.0.pin"          : 25,     # LED_GREEN at pin #33, GPIO25
+    "UI.LED.0.activeHigh"   : False,  # LED is between Vcc and GPIO. 
+    "UI.LED.1.pin"          : 13,     # LED_ORANGE at pin #36, GPIO13
+    "UI.LED.1.activeHigh"   : False,  # LED is between Vcc and GPIO. 
     #    Definition of the button.
-    "UI.Button.cmd.pin"          : 39,        # USER_BTN at pin #40, GPIO39
+    "UI.Button.cmd.pin"          : 39, # USER_BTN at pin #40, GPIO39
     "UI.Button.cmd.activeHigh"   : True, 
     }
 
