@@ -9,6 +9,8 @@ import math # To use sqrt()
 import logging
 import argparse
 
+
+gDone = False
 #
 # Helper functions - just handlers
 #
@@ -32,8 +34,9 @@ def hdlTempNormal():
     logging.info("Main App> Temperature normal.")
 
 def hdlButtonPressed():
+    global gDone
     logging.info("Main App> UI button pressed.")
-
+    gDone = True
 
 #
 # Step 0: Configure logging
@@ -150,8 +153,9 @@ logging.info("Chip temperature: %d deg.C", val)
 #
 try:
     logging.info('Measurement started.')
-    print("Press Ctrl+C to end.")
-    while True:
+    print("Press button or Ctrl+C to end.")
+    gDone = False
+    while not gDone:
         tNow = time.time()
         data = sd.nextData()
         #data = sensor.lastData()
