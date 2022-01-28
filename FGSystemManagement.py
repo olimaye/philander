@@ -180,21 +180,21 @@ class FGSystemManagement( Configurable, EventEmitter ):
         self.charger.init()
         super().init()
         if self._tmpLEDpin:
-            self.tmpLED = SmartLED( pin=self._tmpLEDpin, active_high=self._tmpLEDactHi )
+            self.tmpLED = SmartLED( pin=self._tmpLEDpin, active_high=self._tmpLEDactHi, label='Temperature' )
         if self._batLEDpin:
-            self.batLED = SmartLED( pin=self._batLEDpin, active_high=self._batLEDactHi )
+            self.batLED = SmartLED( pin=self._batLEDpin, active_high=self._batLEDactHi, label='Battery' )
         if self._bleLEDpin:
-            self.bleLED = SmartLED( pin=self._bleLEDpin, active_high=self._bleLEDactHi )
+            self.bleLED = SmartLED( pin=self._bleLEDpin, active_high=self._bleLEDactHi, label='BLE' )
         if self._dcLEDpin:
-            self.dcLED = SmartLED( pin=self._dcLEDpin, active_high=self._dcLEDactHi )
+            self.dcLED = SmartLED( pin=self._dcLEDpin, active_high=self._dcLEDactHi, label='DC' )
         if self._chgLEDpin:
-            self.chgLED = SmartLED( pin=self._chgLEDpin, active_high=self._chgLEDactHi )
+            self.chgLED = SmartLED( pin=self._chgLEDpin, active_high=self._chgLEDactHi, label='Charger' )
         if self._aux0LEDpin:
-            self.aux0LED = SmartLED( pin=self._aux0LEDpin, active_high=self._aux0LEDactHi )
+            self.aux0LED = SmartLED( pin=self._aux0LEDpin, active_high=self._aux0LEDactHi, label='AUX-0' )
         if self._aux1LEDpin:
-            self.aux1LED = SmartLED( pin=self._aux1LEDpin, active_high=self._aux1LEDactHi )
+            self.aux1LED = SmartLED( pin=self._aux1LEDpin, active_high=self._aux1LEDactHi, label='AUX-1' )
         if self._cmdBtnPin:
-            btnName = 'ButtonCMD'
+            btnName = 'Command'
             self.cmdBtn = SmartButton( pin=self._cmdBtnPin, active_high=self._cmdBtnActHi, label=btnName )
             self.cmdBtn.on( btnName, func=self.uiHandleButtonPressed )
             self.cmdBtn.asyncWait4Press()
@@ -209,6 +209,9 @@ class FGSystemManagement( Configurable, EventEmitter ):
     #
     def close(self):
         self.done = True
+        if self.monitor.is_alive():
+            self.monitor.join()
+        self.off_all()
         self.charger.close()
         self.actorUnit.close()
         if self.tmpLED:

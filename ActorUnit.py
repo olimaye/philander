@@ -7,6 +7,7 @@ from threading import Thread
 import asyncio
 import logging
 
+
 #
 # Implementation of the vibration belt driver, also called actor unit
 #
@@ -112,6 +113,7 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
         self._bleChar = 0
         self._bleConnectionState = ActorUnit.BLE_CONN_STATE_DISCONNECTED
         self._evtLoop = asyncio.new_event_loop()
+        self._worker = None
         # Set defaults
         if not "ActorUnit.delay" in paramDict:
             paramDict["ActorUnit.delay"] = ActorUnit.DELAY_DEFAULT
@@ -193,7 +195,12 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
     # Shuts down the instance safely.
     #
     def close(self):
-        self.decouple()
+        if self.isCoupled():
+            self.decouple()
+        elif self._worker:
+            if self._worker.is_alive():
+                self._worker.join()
+            self._worker = None
     
     #
     # EventHandler API
@@ -250,9 +257,8 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
     def couple(self):
         ret = False
         if self._bleConnectionState == ActorUnit.BLE_CONN_STATE_DISCONNECTED:
-            #self._evtLoop.run_until_complete( self._couplingRoutine() )
-            worker = Thread( target=self._bleWorker, name='AU coupling', args=(self._couplingRoutine(), ) )
-            worker.start()
+            self._worker = Thread( target=self._bleWorker, name='AU coupling', args=(self._couplingRoutine(), ) )
+            self._worker.start()
             ret = True
         return ret
     

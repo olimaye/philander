@@ -43,7 +43,7 @@ parser.add_argument(
     "-log", 
     "--loglevel",
     default="info",
-    help=( "Provide logging level. Example --log debug', default='info'"
+    help=( "{debug|info|warning|error|critical}. Provide logging level. Example --log debug', default='info'"
     ),
 )
 options = parser.parse_args()

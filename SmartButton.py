@@ -6,6 +6,7 @@ import logging
 class SmartButton( EventEmitter ):
 
     _POLL_TIMEOUT = 1
+    _DEBOUNCE_MS  = 2000
     
     def __init__(self, chip='/dev/gpiochip0', pin=None, active_high=True, label='Button' ):
         self.gpio = None
@@ -55,11 +56,14 @@ class SmartButton( EventEmitter ):
     def _waitingLoop(self):
         logging.debug('SmartButton <%s> starts waiting thread.', self.gpio.label)
         self.done = False
+        lastTime = 0
         while not self.done:
             value = self.gpio.poll( SmartButton._POLL_TIMEOUT )
             if value:
-                self.gpio.read_event()
-                logging.debug('SmartButton <%s> emits async event.', self.gpio.label)
-                self.emit( self.gpio.label )
+                evt = self.gpio.read_event()
+                if (evt.timestamp - lastTime) > SmartButton._DEBOUNCE_MS * 1000000:
+                    lastTime = evt.timestamp
+                    logging.debug('SmartButton <%s> consumed event %s.', self.gpio.label, evt)
+                    self.emit( self.gpio.label )
         logging.debug('SmartButton <%s> terminates waiting thread.', self.gpio.label)
         
