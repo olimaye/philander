@@ -38,6 +38,14 @@ def hdlButtonPressed():
     logging.info("Main App> UI button pressed.")
     gDone = True
 
+def hdlPowerCritical():
+    global gDone
+    logging.info("Main App> LDO power critical.")
+    #gDone = True
+
+def hdlPowerNormal():
+    logging.info("Main App> LDO power good (normal).")
+
 #
 # Step 0: Configure logging
 #
@@ -103,21 +111,24 @@ setupSystemManagement = {
     ### User interface settings ###
     "UI.LED.tmp.pin"          : 11,   # LED_RED, pin 15. GPIO11.
     "UI.LED.tmp.activeHigh"   : False, 
-    #"UI.LED.bat.pin"          : 13,  # LED_ORANGE, pin 36, GPIO13
-    #"UI.LED.bat.activeHigh"   : False, 
+    "UI.LED.bat.pin"          : 13,  # LED_ORANGE, pin 36, GPIO13
+    "UI.LED.bat.activeHigh"   : False, 
     "UI.LED.ble.pin"          : 12,   # LED_BLUE, pin 32, GPIO12
     "UI.LED.ble.activeHigh"   : False, 
     #"UI.LED.dc.pin"           : 'BOARD33', # Actually hard-wired. Leave as comment!
-    #"UI.LED.dc.activeHigh"   : False, 
+    #"UI.LED.dc.activeHigh"    : False, 
     #"UI.LED.chg.pin"          : 'BOARD33', # Actually hard-wired. Leave as comment!
     #"UI.LED.chg.activeHigh"   : False, 
-    "UI.LED.0.pin"          : 25,     # LED_GREEN at pin #33, GPIO25
-    "UI.LED.0.activeHigh"   : False,  # LED is between Vcc and GPIO. 
-    "UI.LED.1.pin"          : 13,     # LED_ORANGE at pin #36, GPIO13
-    "UI.LED.1.activeHigh"   : False,  # LED is between Vcc and GPIO. 
+    "UI.LED.0.pin"            : 25,     # LED_GREEN at pin #33, GPIO25
+    "UI.LED.0.activeHigh"     : False,  # LED is between Vcc and GPIO. 
+    #"UI.LED.1.pin"            : 13,     # LED_ORANGE at pin #36, GPIO13
+    #"UI.LED.1.activeHigh"     : False,  # LED is between Vcc and GPIO. 
     #    Definition of the button.
-    "UI.Button.cmd.pin"          : 39, # USER_BTN at pin #40, GPIO39
-    "UI.Button.cmd.activeHigh"   : True, 
+    "UI.Button.cmd.pin"       : 39,     # USER_BTN at pin #40, GPIO39
+    "UI.Button.cmd.activeHigh" : True, 
+    #    Definition of the LDO power-good pin.
+    "Power.LDO.PG.pin"        : 22,      # PG_PIN at pin #7, GPIO22
+    "Power.LDO.PG.activeHigh" : True,   # True, if high-state signals a push, False otherwise
     }
 
 #
@@ -140,6 +151,8 @@ sy.on( FGSystemManagement.EVT_DC_UNPLUGGED, hdlDCUnplugged )
 sy.on( FGSystemManagement.EVT_TEMP_CRITICAL, hdlTempCritical )
 sy.on( FGSystemManagement.EVT_TEMP_NORMAL, hdlTempNormal )
 sy.on( FGSystemManagement.EVT_BUTTON_PRESSED, hdlButtonPressed )
+sy.on( FGSystemManagement.EVT_POWER_CRITICAL, hdlPowerCritical )
+sy.on( FGSystemManagement.EVT_POWER_NORMAL, hdlPowerNormal )
 
 #
 # This is not mandatory, but just illustrates the

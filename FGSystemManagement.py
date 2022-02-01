@@ -6,6 +6,7 @@ from BatteryCharger import BatteryCharger
 from ActorUnit import ActorUnit
 from SmartButton import SmartButton
 from SmartLED import SmartLED
+from periphery import GPIO
 
 import time, logging
 
@@ -24,6 +25,8 @@ class FGSystemManagement( Configurable, EventEmitter ):
     EVT_BUTTON_PRESSED      = EVT_MASK + EVT_DELIMITER + 'ui' + EVT_DELIMITER + 'button' + EVT_DELIMITER + 'pressed'
     EVT_TEMP_CRITICAL       = EVT_MASK + EVT_DELIMITER + 'temp' + EVT_DELIMITER + 'critical'
     EVT_TEMP_NORMAL         = EVT_MASK + EVT_DELIMITER + 'temp' + EVT_DELIMITER + 'normal'
+    EVT_POWER_CRITICAL      = EVT_MASK + EVT_DELIMITER + 'power' + EVT_DELIMITER + 'critical'
+    EVT_POWER_NORMAL        = EVT_MASK + EVT_DELIMITER + 'power' + EVT_DELIMITER + 'normal'
     
     
     #
@@ -36,7 +39,8 @@ class FGSystemManagement( Configurable, EventEmitter ):
     _INFOCAT_BLE       = 5
     _INFOCAT_DC_SUPPLY = 6
     _INFOCAT_CHG_STATE = 7
-    
+    _INFOCAT_LDO_STATE = 8
+   
     _SYSJOB_NONE      = 0x00
     _SYSJOB_AU_COUPLE = 0x01
     _SYSJOB_ANY       = 0xFFFF
@@ -61,6 +65,14 @@ class FGSystemManagement( Configurable, EventEmitter ):
     # UI.LED.dc.activeHigh   : True, if high-state makes the LED shine, False otherwise
     # UI.LED.chg.pin         : Pin of the charger status LED
     # UI.LED.chg.activeHigh  : True, if high-state makes the LED shine, False otherwise
+    # UI.LED.0.pin           : Pin of the aux #0 LED
+    # UI.LED.0.activeHigh    : True, if high-state makes the LED shine, False otherwise
+    # UI.LED.1.pin           : Pin of the aux #1 LED
+    # UI.LED.1.activeHigh    : True, if high-state makes the LED shine, False otherwise
+    # UI.Button.cmd.pin      : Pin of the user command button
+    # UI.Button.cmd.activeHigh: True, if high-state signals a push, False otherwise
+    # Power.LDO.PG.pin       : Pin of the LDO's power good output
+    # Power.LDO.PG.activeHigh: True, if high-state signals a push, False otherwise
     #
     def __init__(self, paramDict):
         # Create instance attributes
@@ -93,6 +105,9 @@ class FGSystemManagement( Configurable, EventEmitter ):
         self.cmdBtn = None
         self._cmdBtnPin = None
         self._cmdBtnActHi = True
+        self.ldoPGGPIO = None
+        self._ldoPGPin = None
+        self._ldoPGActHi = False
         self.monitor = Thread( target=self.manageSystem, name='System Management' )
         # Set defaults
         if not "UI.LED.tmp.pin" in paramDict:
@@ -127,6 +142,10 @@ class FGSystemManagement( Configurable, EventEmitter ):
             paramDict["UI.Button.cmd.pin"] = None
         if not "UI.Button.cmd.activeHigh" in paramDict:
             paramDict["UI.Button.cmd.activeHigh"] = True
+        if not "Power.LDO.PG.pin" in paramDict:
+            paramDict["Power.LDO.PG.pin"] = None
+        if not "Power.LDO.PG.activeHigh" in paramDict:
+            paramDict["Power.LDO.PG.activeHigh"] = True
         Configurable.__init__( self, paramDict )
         EventEmitter.__init__( self, wildcard=True, delimiter=FGSystemManagement.EVT_DELIMITER)
 
@@ -166,6 +185,10 @@ class FGSystemManagement( Configurable, EventEmitter ):
             self._cmdBtnPin = paramDict["UI.Button.cmd.pin"]
         if "UI.Button.cmd.activeHigh" in paramDict:
             self._cmdBtnActHi = paramDict["UI.Button.cmd.activeHigh"]
+        if "Power.LDO.PG.pin" in paramDict:
+            self._ldoPGPin = paramDict["Power.LDO.PG.pin"]
+        if "Power.LDO.PG.activeHigh" in paramDict:
+            self._ldoPGActHi = paramDict["Power.LDO.PG.activeHigh"]
                 
     #
     # Apply the new configuration.
@@ -198,6 +221,8 @@ class FGSystemManagement( Configurable, EventEmitter ):
             self.cmdBtn = SmartButton( pin=self._cmdBtnPin, active_high=self._cmdBtnActHi, label=btnName )
             self.cmdBtn.on( btnName, func=self.uiHandleButtonPressed )
             self.cmdBtn.asyncWait4Press()
+        if self._ldoPGPin:
+            self.ldoPGGPIO = GPIO( '/dev/gpiochip0', self._ldoPGPin, 'in', inverted=not self._ldoPGActHi, label='LDO-PG' )
         self.monitor.start()
         self.actorUnit.on( ActorUnit.EVT_BLE_DISCOVERING, self.bleHandleDiscovering )
         self.actorUnit.on( ActorUnit.EVT_BLE_CONNECTED, self.bleHandleConnected )
@@ -238,6 +263,9 @@ class FGSystemManagement( Configurable, EventEmitter ):
         if self.cmdBtn:
             self.cmdBtn.close()
             self.cmdBtn = None
+        if self.ldoPGGPIO:
+            self.ldoPGGPIO.close()
+            self.ldoPGGPIO = None
 
     #
     # Own, specific API
@@ -254,6 +282,7 @@ class FGSystemManagement( Configurable, EventEmitter ):
         tmpStatus = -1
         dcStatus  = -1
         chgStatus = -1
+        ldoStatus = -1
 
         while not self.done:
             try:
@@ -290,6 +319,16 @@ class FGSystemManagement( Configurable, EventEmitter ):
                 if val != chgStatus:
                     chgStatus = val
                     self._displayStatusChange( FGSystemManagement._INFOCAT_CHG_STATE, chgStatus )
+                
+                if self.ldoPGGPIO:
+                    val = self.ldoPGGPIO.read()
+                    if val != ldoStatus:
+                        ldoStatus = val
+                        self._displayStatusChange( FGSystemManagement._INFOCAT_LDO_STATE, ldoStatus )
+                        if ldoStatus:
+                            self.emit( FGSystemManagement.EVT_POWER_CRITICAL )
+                        else:
+                            self.emit( FGSystemManagement.EVT_POWER_NORMAL )
 
                 self._executeSystemJobs()
             except RuntimeError as exc:
@@ -337,15 +376,6 @@ class FGSystemManagement( Configurable, EventEmitter ):
                     self.tmpLED.on()
         elif infoCat == FGSystemManagement._INFOCAT_BAT_STATE:
             logging.info('FGSystemManagement> BAT state: %s', BatteryCharger.batState2Str.get( newStatus, 'UNKNOWN' ))
-            if self.batLED:
-                if newStatus == BatteryCharger.BAT_STATE_NORMAL:
-                    self.batLED.on()
-                elif newStatus == BatteryCharger.BAT_STATE_LOW:
-                    self.batLED.blink()
-                elif newStatus == BatteryCharger.BAT_STATE_EMPTY:
-                    self.batLED.blink( cycle_length=SmartLED.CYCLEN_FAST )
-                else:
-                    self.batLED.off()
         elif infoCat == FGSystemManagement._INFOCAT_BLE:
             logging.info('FGSystemManagement> BLE state: %s', ActorUnit.connState2Str.get( newStatus, 'UNKNOWN'))
             if self.bleLED:
@@ -375,6 +405,13 @@ class FGSystemManagement( Configurable, EventEmitter ):
                     self.chgLED.blink()
                 else:
                     self.chgLED.off()
+        elif infoCat == FGSystemManagement._INFOCAT_LDO_STATE:
+            logging.info('FGSystemManagement> LDO state: %s', newStatus)
+            if self.batLED:
+                if newStatus:   # under voltage, over-current etc.
+                    self.batLED.blink( cycle_length=SmartLED.CYCLEN_FAST )
+                else:           # power is good, normal operation
+                    self.batLED.off()
         
     #
     #
