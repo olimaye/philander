@@ -97,7 +97,7 @@ setupSystemManagement = {
     #MAX77960.CFG_REGTEMP  : MAX77960.CFG_REGTEMP_115,
     #MAX77960.CFG_CHGIN_ILIM: 2500,
     #MAX77960.CFG_MINVSYS  : MAX77960.CFG_MINVSYS_2C_6150,
-    MAX77960.CFG_VCHGIN_REG: MAX77960.CFG_VCHGIN_REG_4900,
+    MAX77960.CFG_VCHGIN_REG: MAX77960.CFG_VCHGIN_REG_4550,
     #
     ### ActorUnit's settings ###
     #"ActorUnit.delay"          : 0,  # Initial delay [0...65535]ms
