@@ -272,7 +272,7 @@ class FGSystemManagement( Configurable, EventEmitter ):
     #
             
     def manageSystem( self ):
-        logging.info('FGSystemManagement> Management thread is running.')
+        logging.info('Management thread is running.')
         self._sysjobLock.acquire()
         self._systemJob = FGSystemManagement._SYSJOB_NONE
         self._sysjobLock.release()
@@ -334,7 +334,7 @@ class FGSystemManagement( Configurable, EventEmitter ):
             except RuntimeError as exc:
                 logging.exception(exc)
             time.sleep(0.5)
-        logging.info('FGSystemManagement> Management thread stopped.')
+        logging.info('Management thread stopped.')
     
     
     def _combineTempStatus( self, tempStatus1, tempStatus2 ):
@@ -366,7 +366,7 @@ class FGSystemManagement( Configurable, EventEmitter ):
             
     def _displayStatusChange( self, infoCat, newStatus ):
         if infoCat == FGSystemManagement._INFOCAT_TEMP:
-            logging.info('FGSystemManagement> TMP state: %s', BatteryCharger.temp2Str.get( newStatus, 'UNKNOWN' ))
+            logging.info('TMP state: %s', BatteryCharger.temp2Str.get( newStatus, 'UNKNOWN' ))
             if self.tmpLED:
                 if newStatus == BatteryCharger.TEMP_OK:
                     self.tmpLED.off()
@@ -375,9 +375,9 @@ class FGSystemManagement( Configurable, EventEmitter ):
                 else:
                     self.tmpLED.on()
         elif infoCat == FGSystemManagement._INFOCAT_BAT_STATE:
-            logging.info('FGSystemManagement> BAT state: %s', BatteryCharger.batState2Str.get( newStatus, 'UNKNOWN' ))
+            logging.info('BAT state: %s', BatteryCharger.batState2Str.get( newStatus, 'UNKNOWN' ))
         elif infoCat == FGSystemManagement._INFOCAT_BLE:
-            logging.info('FGSystemManagement> BLE state: %s', ActorUnit.connState2Str.get( newStatus, 'UNKNOWN'))
+            logging.info('BLE state: %s', ActorUnit.connState2Str.get( newStatus, 'UNKNOWN'))
             if self.bleLED:
                 if newStatus == ActorUnit.BLE_CONN_STATE_CONNECTED:
                     self.bleLED.on()
@@ -386,7 +386,7 @@ class FGSystemManagement( Configurable, EventEmitter ):
                 else:
                     self.bleLED.off()
         elif infoCat == FGSystemManagement._INFOCAT_DC_SUPPLY:
-            logging.info('FGSystemManagement>  DC state: %s', BatteryCharger.dcState2Str.get( newStatus, 'UNKNOWN' ))
+            logging.info(' DC state: %s', BatteryCharger.dcState2Str.get( newStatus, 'UNKNOWN' ))
             if self.dcLED:
                 if newStatus == BatteryCharger.DC_STATE_VALID:
                     self.dcLED.on()
@@ -395,7 +395,7 @@ class FGSystemManagement( Configurable, EventEmitter ):
                 else:
                     self.dcLED.blink()
         elif infoCat == FGSystemManagement._INFOCAT_CHG_STATE:
-            logging.info('FGSystemManagement> CHG state: %s', BatteryCharger.chgState2Str.get( newStatus, 'UNKNOWN' ))
+            logging.info('CHG state: %s', BatteryCharger.chgState2Str.get( newStatus, 'UNKNOWN' ))
             if self.chgLED:
                 if newStatus in {BatteryCharger.CHG_STATE_DONE, BatteryCharger.CHG_STATE_TOP_OFF}:
                     self.chgLED.on()
@@ -406,7 +406,7 @@ class FGSystemManagement( Configurable, EventEmitter ):
                 else:
                     self.chgLED.off()
         elif infoCat == FGSystemManagement._INFOCAT_LDO_STATE:
-            logging.info('FGSystemManagement> LDO state: %s', newStatus)
+            logging.info('LDO state: %s', newStatus)
             if self.batLED:
                 if newStatus:   # under voltage, over-current etc.
                     self.batLED.blink( cycle_length=SmartLED.CYCLEN_FAST )

@@ -16,35 +16,35 @@ gDone = False
 #
 
 def hdlBleConnected():
-    logging.info("Main App> BLE connected.")
+    logging.info("BLE connected.")
 
 def hdlBleDisconnected():
-    logging.info("Main App> BLE disconnected.")
+    logging.info("BLE disconnected.")
 
 def hdlDCPlugged():
-    logging.info("Main App> DC plugged.")
+    logging.info("DC plugged.")
 
 def hdlDCUnplugged():
-    logging.info("Main App> DC unplugged.")
+    logging.info("DC unplugged.")
 
 def hdlTempCritical():
-    logging.info("Main App> Temperature critical.")
+    logging.info("Temperature critical.")
 
 def hdlTempNormal():
-    logging.info("Main App> Temperature normal.")
+    logging.info("Temperature normal.")
 
 def hdlButtonPressed():
     global gDone
-    logging.info("Main App> UI button pressed.")
+    logging.info("UI button pressed.")
     gDone = True
 
 def hdlPowerCritical():
     global gDone
-    logging.info("Main App> LDO power critical.")
+    logging.info("LDO power critical.")
     #gDone = True
 
 def hdlPowerNormal():
-    logging.info("Main App> LDO power good (normal).")
+    logging.info("LDO power good (normal).")
 
 #
 # Step 0: Configure logging
@@ -58,7 +58,9 @@ parser.add_argument(
     ),
 )
 options = parser.parse_args()
-logging.basicConfig( level=options.loglevel.upper() )
+fn = 'log/application-'+time.strftime('%Y%m%d-%H%M%S')+'.log'
+logging.basicConfig( filename=fn, format='%(asctime)s %(levelname)s %(module)s: %(message)s', datefmt='%d.%m.%Y %H:%M:%S', level=options.loglevel.upper() )
+#logging.basicConfig( format='%(asctime)s %(levelname)s %(module)s: %(message)s', datefmt='%d.%m.%Y %H:%M:%S', level=options.loglevel.upper() )
 
 
 #
@@ -194,3 +196,4 @@ except KeyboardInterrupt:
 sd.close()
 sy.close()
 logging.info( "Program ends." )
+print("Done.")
