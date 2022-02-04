@@ -27,6 +27,10 @@ class FGSystemManagement( Configurable, EventEmitter ):
     EVT_TEMP_NORMAL         = EVT_MASK + EVT_DELIMITER + 'temp' + EVT_DELIMITER + 'normal'
     EVT_POWER_CRITICAL      = EVT_MASK + EVT_DELIMITER + 'power' + EVT_DELIMITER + 'critical'
     EVT_POWER_NORMAL        = EVT_MASK + EVT_DELIMITER + 'power' + EVT_DELIMITER + 'normal'
+
+    # Battery durations for level transitions
+    BAT_WARN_TIME_FULL2LOW    = 7200    # Full to Low time in seconds
+    BAT_WARN_TIME_LOW2EMPTY   = 1800    # Low to empty time in seconds
     
     
     #
@@ -40,6 +44,8 @@ class FGSystemManagement( Configurable, EventEmitter ):
     _INFOCAT_DC_SUPPLY = 6
     _INFOCAT_CHG_STATE = 7
     _INFOCAT_LDO_STATE = 8
+    _INFOCAT_LDO_STATE = 8
+    _INFOCAT_RUN_TIME  = 9
    
     _SYSJOB_NONE      = 0x00
     _SYSJOB_AU_COUPLE = 0x01
@@ -283,6 +289,8 @@ class FGSystemManagement( Configurable, EventEmitter ):
         dcStatus  = -1
         chgStatus = -1
         ldoStatus = -1
+        startTime = time.time()
+        batTimeStatus = -1
 
         while not self.done:
             try:
@@ -313,6 +321,7 @@ class FGSystemManagement( Configurable, EventEmitter ):
                     if dcStatus == BatteryCharger.DC_STATE_VALID:
                         self.emit( FGSystemManagement.EVT_DC_PLUGGED )
                     else:
+                        startTime = time.time()
                         self.emit( FGSystemManagement.EVT_DC_UNPLUGGED )
                         
                 val = self.charger.getChgStatus()
@@ -330,6 +339,29 @@ class FGSystemManagement( Configurable, EventEmitter ):
                         else:
                             self.emit( FGSystemManagement.EVT_POWER_NORMAL )
 
+                if dcStatus != BatteryCharger.DC_STATE_VALID:   # Battery only
+                    now = time.time()
+                    dur = now - startTime 
+                    if batTimeStatus == BatteryCharger.BAT_STATE_EMPTY:
+                        val = BatteryCharger.BAT_STATE_EMPTY
+                    elif batTimeStatus == BatteryCharger.BAT_STATE_LOW:
+                        if dur >= FGSystemManagement.BAT_WARN_TIME_LOW2EMPTY:
+                            val = BatteryCharger.BAT_STATE_EMPTY
+                            startTime = now
+                        else:
+                            val = BatteryCharger.BAT_STATE_LOW
+                    else:
+                        if dur >= FGSystemManagement.BAT_WARN_TIME_FULL2LOW:
+                            val = BatteryCharger.BAT_STATE_LOW
+                            startTime = now
+                        else:
+                            val = BatteryCharger.BAT_STATE_NORMAL
+                else:
+                    val = batStatus       # while charging
+                if val != batTimeStatus:
+                    batTimeStatus = val
+                    self._displayStatusChange( FGSystemManagement._INFOCAT_RUN_TIME, batTimeStatus )
+                    
                 self._executeSystemJobs()
             except RuntimeError as exc:
                 logging.exception(exc)
@@ -407,11 +439,18 @@ class FGSystemManagement( Configurable, EventEmitter ):
                     self.chgLED.off()
         elif infoCat == FGSystemManagement._INFOCAT_LDO_STATE:
             logging.info('LDO state: %s', newStatus)
+
+        elif infoCat == FGSystemManagement._INFOCAT_RUN_TIME:
+            logging.info('BAT estimated by runtime: %s', BatteryCharger.batState2Str.get( newStatus, 'UNKNOWN' ))
             if self.batLED:
-                if newStatus:   # under voltage, over-current etc.
+                if newStatus == BatteryCharger.BAT_STATE_EMPTY:
                     self.batLED.blink( cycle_length=SmartLED.CYCLEN_FAST )
-                else:           # power is good, normal operation
+                elif newStatus == BatteryCharger.BAT_STATE_LOW:
+                    self.batLED.blink( cycle_length=SmartLED.CYCLEN_SLOW )
+                elif newStatus == BatteryCharger.BAT_STATE_NORMAL:
                     self.batLED.off()
+                else:   # Errors
+                    self.batLED.on()
         
     #
     #
