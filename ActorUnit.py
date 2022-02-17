@@ -75,8 +75,12 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
     # Private attributes
     #
     
-    _CMD_START   = 0x01
-    _CMD_STOP    = 0x02
+    _CMD_START         = 0x01
+    _CMD_STOP          = 0x02
+    _CMD_SET_DEFAULT   = 0x03
+    _CMD_GET_DEFAULT   = 0x04
+    _CMD_START_DEFAULT = 0x05
+    
     _TIMER_KEEP  = 0x00
     _TIMER_RESET = 0x01
     
@@ -105,8 +109,7 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
         self.pulseCount = ActorUnit.PULSE_COUNT_DEFAULT
         self.pulseIntensity = ActorUnit.PULSE_INTENSITY_DEFAULT
         self.actuators = ActorUnit.ACTUATORS_DEFAULT
-        self.cmdStart = bytearray(11)
-        self.cmdStart[0] = ActorUnit._CMD_START
+        self.cmdStart = bytearray([ActorUnit._CMD_START_DEFAULT])
         self.cmdStop = bytearray([ActorUnit._CMD_STOP])
         self.bleDiscoveryTimeout = ActorUnit.BLE_DISCOVERY_TIMEOUT
         self._bleClient = 0
@@ -171,17 +174,18 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
     # Apply the new configuration.
     #
     def _applyConfiguration( self ):
-        #self.cmdStart[0] = ActorUnit._CMD_START
-        self.cmdStart[1] = self.pulseOn & 0xFF
-        self.cmdStart[2] = self.pulseOn >> 8
-        self.cmdStart[3] = self.pulsePeriod & 0xFF
-        self.cmdStart[4] = self.pulsePeriod >> 8
-        self.cmdStart[5] = self.delay & 0xFF
-        self.cmdStart[6] = self.delay >> 8
-        self.cmdStart[7] = self.pulseCount
-        self.cmdStart[8] = self.pulseIntensity
-        self.cmdStart[9] = self.actuators
-        self.cmdStart[10] = ActorUnit._TIMER_RESET
+        # self.cmdStart[0] = ActorUnit._CMD_START
+        # self.cmdStart[1] = self.pulseOn & 0xFF
+        # self.cmdStart[2] = self.pulseOn >> 8
+        # self.cmdStart[3] = self.pulsePeriod & 0xFF
+        # self.cmdStart[4] = self.pulsePeriod >> 8
+        # self.cmdStart[5] = self.delay & 0xFF
+        # self.cmdStart[6] = self.delay >> 8
+        # self.cmdStart[7] = self.pulseCount
+        # self.cmdStart[8] = self.pulseIntensity
+        # self.cmdStart[9] = self.actuators
+        # self.cmdStart[10] = ActorUnit._TIMER_RESET
+        pass
         
     #
     # Initializes the instance. Must be called once, before the features of
