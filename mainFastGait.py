@@ -119,10 +119,10 @@ setupSystemManagement = {
     "UI.LED.ble.activeHigh"   : False, 
     #"UI.LED.dc.pin"           : 'BOARD33', # Actually hard-wired. Leave as comment!
     #"UI.LED.dc.activeHigh"    : False, 
-    #"UI.LED.chg.pin"          : 'BOARD33', # Actually hard-wired. Leave as comment!
-    #"UI.LED.chg.activeHigh"   : False, 
-    "UI.LED.0.pin"            : 25,     # LED_GREEN at pin #33, GPIO25
-    "UI.LED.0.activeHigh"     : False,  # LED is between Vcc and GPIO. 
+    "UI.LED.chg.pin"          : 25,     # LED_GREEN, pin 33, GPIO25
+    "UI.LED.chg.activeHigh"   : False, 
+    #"UI.LED.0.pin"            : 25,     # LED_GREEN at pin #33, GPIO25
+    #"UI.LED.0.activeHigh"     : False,  # LED is between Vcc and GPIO. 
     #"UI.LED.1.pin"            : 13,     # LED_ORANGE at pin #36, GPIO13
     #"UI.LED.1.activeHigh"     : False,  # LED is between Vcc and GPIO. 
     #    Definition of the button.
