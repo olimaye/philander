@@ -58,10 +58,21 @@ parser.add_argument(
     ),
 )
 options = parser.parse_args()
-fn = 'log/application-'+time.strftime('%Y%m%d-%H%M%S')+'.log'
+nowStr = time.strftime('%Y%m%d-%H%M%S')
+# The general logging of application messages
+fn = 'log/application-'+nowStr+'.log'
 logging.basicConfig( filename=fn, format='%(asctime)s %(levelname)s %(module)s: %(message)s', datefmt='%d.%m.%Y %H:%M:%S', level=options.loglevel.upper() )
 #logging.basicConfig( format='%(asctime)s %(levelname)s %(module)s: %(message)s', datefmt='%d.%m.%Y %H:%M:%S', level=options.loglevel.upper() )
-
+# The data logger
+fn = 'log/data-'+nowStr+'.log'
+dataLogger = logging.getLogger('FastGait.Data')
+fHdlr = logging.FileHandler(fn)
+fFrmt = logging.Formatter( fmt='%(asctime)s,%(msecs)03d; %(message)s', datefmt='%H:%M:%S' )
+fHdlr.setFormatter( fFrmt )
+dataLogger.addHandler( fHdlr )
+dataLogger.setLevel( logging.INFO )
+dataLogger.propagate = False
+dataLogger.info('Sensor micros; AccelX; AccelY; AccelZ')
 
 #
 # Main program
@@ -177,10 +188,14 @@ try:
         #print(f'{tNow:0.4f}  {data}')
         #print( data[1], data[2], data[3] )
         
+        # Log data
+        dataLogger.info("%d; %d; %d; %d", data[0], data[1], data[2], data[3])
+        
         # Alerting part
         norm = math.sqrt( data[1]**2 + data[2]**2 + data[3]**2 )
         if norm > ACCELERATION_THRESHOLD:
             sy.actorUnit.handleEvent()
+            logging.info('FOG alarm triggered.')
             
         # Loop delay
         time.sleep( MEASUREMENT_INTERVAL )
