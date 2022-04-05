@@ -2,8 +2,9 @@ from Configurable import Configurable
 from EventHandler import EventHandler
 from pymitter import EventEmitter
 
-from bleak import BleakClient, BleakScanner
-from threading import Thread
+from bleak import BleakClient, BleakScanner, BleakError
+from bleak.exc import BleakDBusError
+from threading import Thread, Lock
 import asyncio
 import logging
 
@@ -115,6 +116,7 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
         self._bleClient = 0
         self._bleChar = 0
         self._bleConnectionState = ActorUnit.BLE_CONN_STATE_DISCONNECTED
+        self._bleLock = Lock()
         self._evtLoop = asyncio.new_event_loop()
         self._worker = None
         # Set defaults
@@ -247,7 +249,9 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
     # Returns a boolean success-or-failure indicator.
     # 
     def isCoupled(self):
+        self._bleLock.acquire()
         ret = (self._bleConnectionState == ActorUnit.BLE_CONN_STATE_CONNECTED)
+        self._bleLock.release()
         return ret
 
     #
@@ -292,8 +296,10 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
                     self._evtLoop.create_task( self.bleClient.write_gatt_char( self.bleChar, self.cmdStart, response=True ) )
                 else:
                     self._evtLoop.run_until_complete( self.bleClient.write_gatt_char( self.bleChar, self.cmdStart, response=True ) )
-            except EOFError as err:
-                logging.exception(err)
+            except BleakDBusError as err:
+                logging.error( self.startCueing.__name__ + ' caught ' + type(err).__name__ + ' ' + err.dbus_error_details )
+            except (EOFError, BleakError) as err:
+                logging.error( self.startCueing.__name__ + ' caught ' + type(err).__name__ )
                 
     
     #
@@ -306,7 +312,7 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
                     self._evtLoop.create_task( self.bleClient.write_gatt_char( self.bleChar, self.cmdStop, response=True ) )
                 else:
                     self._evtLoop.run_until_complete( self.bleClient.write_gatt_char( self.bleChar, self.cmdStop, response=True ) )
-            except EOFError as exc:
+            except (EOFError, BleakError) as exc:
                 logging.exception(exc)
     
 
@@ -315,10 +321,33 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
     #
     
 
-    def _handleDisconnected( self, client ):
-        self._bleConnectionState = ActorUnit.BLE_CONN_STATE_DISCONNECTED
-        self.emit( ActorUnit.EVT_BLE_DISCONNECTED )
+    def _setState(self, newState ):
+        self._bleLock.acquire()
+        self._bleConnectionState = newState
+        self._bleLock.release()
+        self.emit( newState )
         
+    def _changeState( self, toState, fromState=None ):
+        ret = False
+        
+        self._bleLock.acquire()
+        if fromState is None:
+            ret = (self._bleConnectionState != toState)
+        else:
+            ret = (self._bleConnectionState == fromState)
+        if ret:
+            self._bleConnectionState = toState
+        self._bleLock.acquire()
+
+        if ret:
+            self.emit( toState )
+        return ret
+        
+        
+    def _handleDisconnected( self, client ):
+        self._setState( ActorUnit.BLE_CONN_STATE_DISCONNECTED )
+    
+    
     #
     # Establishes a connection with the first available actuator unit,
     # i.e. does the BlueTooth coupling
@@ -327,30 +356,25 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
     #
     async def _couplingRoutine(self):
         # Discovering
-        self._bleConnectionState = ActorUnit.BLE_CONN_STATE_DISCOVERING
-        self.emit( ActorUnit.EVT_BLE_DISCOVERING )
-        try:
-            devices = await BleakScanner.discover( timeout=self.bleDiscoveryTimeout, filters={'UUIDs': [ActorUnit.BLE_DEVICE_UUID]} )
-            if devices:
-                # Try to connect
-                self.bleClient = BleakClient( devices[0] )
-                self.bleClient.set_disconnected_callback( self._handleDisconnected )
-                success = await self.bleClient.connect()
-                if success:
-                    svcColl = await self.bleClient.get_services()
-                    self.bleChar = svcColl.get_characteristic( ActorUnit.BLE_CHARACTERISTIC_UUID )
-                    self._bleConnectionState = ActorUnit.BLE_CONN_STATE_CONNECTED
-                    self.emit( ActorUnit.EVT_BLE_CONNECTED )
+        if self._changeState( ActorUnit.BLE_CONN_STATE_DISCOVERING ):
+            try:
+                devices = await BleakScanner.discover( timeout=self.bleDiscoveryTimeout, filters={'UUIDs': [ActorUnit.BLE_DEVICE_UUID]} )
+                if devices:
+                    # Try to connect
+                    self.bleClient = BleakClient( devices[0] )
+                    self.bleClient.set_disconnected_callback( self._handleDisconnected )
+                    success = await self.bleClient.connect()
+                    if success:
+                        svcColl = await self.bleClient.get_services()
+                        self.bleChar = svcColl.get_characteristic( ActorUnit.BLE_CHARACTERISTIC_UUID )
+                        self._setState( ActorUnit.BLE_CONN_STATE_CONNECTED )
+                    else:
+                        self._setState( ActorUnit.BLE_CONN_STATE_DISCONNECTED )
                 else:
-                    self._bleConnectionState = ActorUnit.BLE_CONN_STATE_DISCONNECTED
-                    self.emit( ActorUnit.EVT_BLE_DISCONNECTED )
-            else:
-                self._bleConnectionState = ActorUnit.BLE_CONN_STATE_DISCONNECTED
-                self.emit( ActorUnit.EVT_BLE_DISCONNECTED )
-        except RuntimeError as exc:
-            logging.exception(exc)
-            self._bleConnectionState = ActorUnit.BLE_CONN_STATE_DISCONNECTED
-            self.emit( ActorUnit.EVT_BLE_DISCONNECTED )
+                    self._setState( ActorUnit.BLE_CONN_STATE_DISCONNECTED )
+            except Exception as exc:
+                logging.exception(exc)
+                self._setState( ActorUnit.BLE_CONN_STATE_DISCONNECTED )
 
     #
     # Closes a BLE connection.
@@ -360,10 +384,9 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
         if self.bleClient:
             try:
                 await self.bleClient.disconnect()
-            except RuntimeError as exc:
+            except Exception as exc:
                 logging.exception(exc)
-        self._bleConnectionState = ActorUnit.BLE_CONN_STATE_DISCONNECTED
-        self.emit( ActorUnit.EVT_BLE_DISCONNECTED )
+        self._setState( ActorUnit.BLE_CONN_STATE_DISCONNECTED )
                 
 
     def _bleWorker( self, routine ):
@@ -374,6 +397,6 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
                 self._evtLoop.create_task( routine )
             else:
                 self._evtLoop.run_until_complete( routine )
-        except RuntimeError as exc:
+        except Exception as exc:
                 logging.exception(exc)
 
