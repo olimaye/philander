@@ -357,7 +357,7 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
         
     def _handleDisconnected( self, client ):
         self._setState( ActorUnit.BLE_CONN_STATE_DISCONNECTED )
-    
+        logging.info('Unsolicited disconnect: ' + client.address )
     
     #
     # Establishes a connection with the first available actuator unit,
