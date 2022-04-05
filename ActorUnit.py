@@ -282,7 +282,10 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
     def decouple(self):
         ret = False
         if self._bleConnectionState == ActorUnit.BLE_CONN_STATE_CONNECTED:
-            self._evtLoop.run_until_complete( self._decouplingRoutine() )
+            try:
+                self._evtLoop.run_until_complete( self._decouplingRoutine() )
+            except Exception as exc:
+                logging.exception(exc)
             ret = True
         return ret
     
@@ -293,13 +296,11 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
         if self._bleConnectionState == ActorUnit.BLE_CONN_STATE_CONNECTED:
             try:
                 if self._evtLoop.is_running():
-                    self._evtLoop.create_task( self.bleClient.write_gatt_char( self.bleChar, self.cmdStart, response=True ) )
+                    self._evtLoop.create_task( self._sendRoutine( self.cmdStart ) )
                 else:
-                    self._evtLoop.run_until_complete( self.bleClient.write_gatt_char( self.bleChar, self.cmdStart, response=True ) )
-            except BleakDBusError as err:
-                logging.error( self.startCueing.__name__ + ' caught ' + type(err).__name__ + ' ' + err.dbus_error_details )
-            except (EOFError, BleakError) as err:
-                logging.error( self.startCueing.__name__ + ' caught ' + type(err).__name__ )
+                    self._evtLoop.run_until_complete( self._sendRoutine( self.cmdStart ) )
+            except Exception as exc:
+                logging.exception(exc)
                 
     
     #
@@ -309,10 +310,10 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
         if self._bleConnectionState == ActorUnit.BLE_CONN_STATE_CONNECTED:
             try:
                 if self._evtLoop.is_running():
-                    self._evtLoop.create_task( self.bleClient.write_gatt_char( self.bleChar, self.cmdStop, response=True ) )
+                    self._evtLoop.create_task( self._sendRoutine( self.cmdStop ) )
                 else:
-                    self._evtLoop.run_until_complete( self.bleClient.write_gatt_char( self.bleChar, self.cmdStop, response=True ) )
-            except (EOFError, BleakError) as exc:
+                    self._evtLoop.run_until_complete( self._sendRoutine( self.cmdStop ) )
+            except Exception as exc:
                 logging.exception(exc)
     
 
@@ -325,7 +326,8 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
         self._bleLock.acquire()
         self._bleConnectionState = newState
         self._bleLock.release()
-        self.emit( newState )
+        self._emitState( newState )
+        
         
     def _changeState( self, toState, fromState=None ):
         ret = False
@@ -337,11 +339,20 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
             ret = (self._bleConnectionState == fromState)
         if ret:
             self._bleConnectionState = toState
-        self._bleLock.acquire()
+        self._bleLock.release()
 
         if ret:
-            self.emit( toState )
+            self._emitState( toState )
         return ret
+        
+        
+    def _emitState(self, newState):
+        stateXevt = {
+            ActorUnit.BLE_CONN_STATE_DISCONNECTED:  ActorUnit.EVT_BLE_DISCONNECTED,
+            ActorUnit.BLE_CONN_STATE_CONNECTED:     ActorUnit.EVT_BLE_CONNECTED,
+            ActorUnit.BLE_CONN_STATE_DISCOVERING:   ActorUnit.EVT_BLE_DISCOVERING,
+        }
+        self.emit( stateXevt.get( newState, ActorUnit.EVT_BLE_DISCONNECTED ) )
         
         
     def _handleDisconnected( self, client ):
@@ -373,7 +384,7 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
                 else:
                     self._setState( ActorUnit.BLE_CONN_STATE_DISCONNECTED )
             except Exception as exc:
-                logging.exception(exc)
+                logging.warning( self._couplingRoutine.__name__ + ' caught ' + type(exc).__name__ + ' ' + str(exc) )
                 self._setState( ActorUnit.BLE_CONN_STATE_DISCONNECTED )
 
     #
@@ -385,9 +396,18 @@ class ActorUnit( Configurable, EventHandler, EventEmitter ):
             try:
                 await self.bleClient.disconnect()
             except Exception as exc:
-                logging.exception(exc)
+                logging.warning( self._decouplingRoutine.__name__ + ' caught ' + type(exc).__name__ + ' ' + str(exc) )
         self._setState( ActorUnit.BLE_CONN_STATE_DISCONNECTED )
-                
+
+
+    async def _sendRoutine(self, cmdData):
+        try:
+            await self.bleClient.write_gatt_char( self.bleChar, cmdData, response=True )
+        except BleakDBusError as err: # In Progress
+            logging.warning( self._sendRoutine.__name__ + ' caught ' + type(err).__name__ + ' ' + err.dbus_error_details )
+        except Exception as exc:
+            logging.warning( self._sendRoutine.__name__ + ' caught ' + type(exc).__name__ + ' ' + str(exc) )
+
 
     def _bleWorker( self, routine ):
         try:
