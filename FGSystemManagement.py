@@ -29,8 +29,8 @@ class FGSystemManagement( Configurable, EventEmitter ):
     EVT_POWER_NORMAL        = EVT_MASK + EVT_DELIMITER + 'power' + EVT_DELIMITER + 'normal'
 
     # Battery durations for level transitions
-    BAT_WARN_TIME_FULL2LOW    = 7200    # Full to Low time in seconds
-    BAT_WARN_TIME_LOW2EMPTY   = 1800    # Low to empty time in seconds
+    BAT_WARN_TIME_FULL2LOW    = 21600    # Full to Low time in seconds
+    BAT_WARN_TIME_LOW2EMPTY   = 3600     # Low to empty time in seconds
     
     
     #
