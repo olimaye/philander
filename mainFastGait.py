@@ -4,10 +4,13 @@ from BMA456 import BMA456 as sensor
 from MAX77960 import MAX77960
 from FGSystemManagement import FGSystemManagement
 
+from os.path import exists
+import sys
 import time # Depending on the measurement strategy, this is not really necessary
 import math # To use sqrt()
 import logging
 import argparse
+import configparser
 
 import numpy as np 
 #import time
@@ -56,22 +59,44 @@ def hdlPowerNormal():
     logging.info("LDO power good (normal).")
 
 #
-# Step 0: Configure logging
+# Main program
 #
+    
+#
+# Step 0: Configuration
+#
+
+### Command line arguments
 parser = argparse.ArgumentParser()
 parser.add_argument(
-    "-log", 
-    "--loglevel",
+    "-log", "--loglevel",
     default="info",
-    help=( "{debug|info|warning|error|critical}. Provide logging level. Example --log debug', default='info'"
-    ),
+    help="{debug|info|warning|error|critical}. Provide logging level. Example --log debug', default='info'",
 )
+parser.add_argument(
+    "-c", "--cfg",
+    default="fastgait.cfg",
+    help="Configuration file name.",
+    )
+
 options = parser.parse_args()
+
+### Configuration file
+if not exists(options.cfg):
+    print( "Missing configuration file:", options.cfg )
+    sys.exit()
+config = configparser.ConfigParser()
+config.read( options.cfg )
+
+### Logging
 nowStr = time.strftime('%Y%m%d-%H%M%S')
 # The general logging of application messages
 fn = 'log/application-'+nowStr+'.log'
 logging.basicConfig( filename=fn, format='%(asctime)s %(levelname)s %(module)s: %(message)s', datefmt='%d.%m.%Y %H:%M:%S', level=options.loglevel.upper() )
 #logging.basicConfig( format='%(asctime)s %(levelname)s %(module)s: %(message)s', datefmt='%d.%m.%Y %H:%M:%S', level=options.loglevel.upper() )
+logging.info( "Launching application." )
+logging.info( "Config file in use: %s", options.cfg )
+
 # The data logger
 fn = 'log/data-'+nowStr+'.log'
 dataLogger = logging.getLogger('FastGait.Data')
@@ -83,14 +108,6 @@ dataLogger.setLevel( logging.INFO )
 dataLogger.propagate = False
 dataLogger.info('Sensor micros; AccelX; AccelY; AccelZ')
 
-#
-# Main program
-#
-
-MEASUREMENT_INTERVAL = 0.1 # given in seconds
-ACCELERATION_THRESHOLD = 1200 # measured in milli-g
-
-    
 ### BMA456 driver settings ###
 setupSensor = {
     #"SerialDevice.busType"      : sensor.BUSTYPE_I2C,
@@ -99,8 +116,8 @@ setupSensor = {
     #   away (0x18/0x19). Depends on the underlying system board.
     #   Default is 0 (i.e. 0x18).
     "SerialDevice.deviceAddress": 1,
-    #"Sensor.dataRange"    : sensor.ACC_RANGE_2G,
-    #"Sensor.dataRate"     : sensor.ACC_DATARATE_50,
+    "Sensor.dataRange"    : sensor.ACC_RANGE_4G,
+    "Sensor.dataRate"     : sensor.ACC_DATARATE_100,
     }
 
 setupSystemManagement = {
@@ -152,6 +169,7 @@ setupSystemManagement = {
     "Power.LDO.PG.pin"        : 22,      # PG_PIN at pin #7, GPIO22
     "Power.LDO.PG.activeHigh" : True,   # True, if high-state signals a push, False otherwise
     }
+setupSystemManagement = { **setupSystemManagement, **config['system.management'] }
 
 #
 # Step 1: Instantiate objects.
@@ -188,7 +206,7 @@ logging.info("Chip temperature: %d deg.C", val)
 #
 try:
     #storing frequency
-    acquisition_frequency= 64
+    acquisition_frequency= 100
     
     # number of data coming by each sd.nextData() 
     # 3 data from axis of acceleration and 1 timestamp
@@ -197,18 +215,20 @@ try:
     # 3 acceleration channels are required. timestamp is ignored.
     data_window = np.zeros((acquisition_frequency, nr_channel-1))
     
+    # orientated signal according to patient data in ghostnode
+    oriented_signal = np.zeros((acquisition_frequency, nr_channel-1))
+    
     i = 0
     
-    logging.info('interpreter is going to load tflite file.')
-    model_name = 'LSTM_model_p15_95percent_float32_tf26_p38_0055_28032022_batchsize1.tflite'
-    
-    interpreter = Interpreter(model_name)
+    logging.info('interpreter is going to load %s.', config['model.AI']['filename'] )
+    interpreter = Interpreter( config['model.AI']['filename'] )
     logging.info('interpreter loaded tflite file.')
     interpreter.allocate_tensors()
-    logging.info('interpreter allocate tensors.')
-    
+    logging.info('interpreter allocated tensors.')
     # model is laoded and the required tensors allocated
-    
+    shiftX = config['model.AI'].getint('shift.x', 0)
+    shiftY = config['model.AI'].getint('shift.y', 0)
+    shiftZ = config['model.AI'].getint('shift.z', 0)
     
     logging.info('Measurement started.')
     print("Press button or Ctrl+C to end.")
@@ -218,16 +238,22 @@ try:
         data = sd.nextData()
         data_window[i] = data[1:4]
         i = i + 1
-        #data = sensor.lastData()
-        #print(f'{tNow:0.4f}  {data}')
-        #print( data[1], data[2], data[3] )
         
         # Log data
         dataLogger.info("%d; %d; %d; %d", data[0], data[1], data[2], data[3])
         
-        if i == 64:
-            # input the window of data (64,3) into the LSTM model            
-            common.set_input(interpreter, data_window)
+        # Change the axis, orientation and signals corresponding to axis 
+        # and orientation achieved by same patient data with ghostndoe from Konstanz
+        # x <- -y
+        oriented_signal[:,0] = -data_window[:,1] + shiftX
+        # y <- -z
+        oriented_signal[:,1] = -data_window[:,2] + shiftY
+        # z <- x
+        oriented_signal[:,2] = data_window[:,0] + shiftZ
+        
+        if i == acquisition_frequency:
+            # input the window of data into the LSTM model            
+            common.set_input(interpreter, oriented_signal)
             # deply the inference
             interpreter.invoke()
             
@@ -239,25 +265,12 @@ try:
             if score_interpreter[1] > score_interpreter[0]:
                 sy.actorUnit.handleEvent()
                 logging.info('FOG alarm triggered.')
-                #print('FOG detected')
-                # bluetooth vibrator 
             i = 0
-
-
-        
-        
-        
-        # Alerting part
-        #norm = math.sqrt( data[1]**2 + data[2]**2 + data[3]**2 )
-        # if norm > ACCELERATION_THRESHOLD:
-        #     sy.actorUnit.handleEvent()
-        #     logging.info('FOG alarm triggered.')
-            
-        # Loop delay
-        #time.sleep( MEASUREMENT_INTERVAL )
     
 except KeyboardInterrupt:
     pass
+except KeyError as err:
+    logging.critical( 'Configuration key error: %s', err )
 
 #
 # Done. When finishing the application, it's good practice to
