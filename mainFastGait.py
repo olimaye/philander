@@ -116,7 +116,7 @@ setupSensor = {
     #   away (0x18/0x19). Depends on the underlying system board.
     #   Default is 0 (i.e. 0x18).
     "SerialDevice.deviceAddress": 1,
-    "Sensor.dataRange"    : sensor.ACC_RANGE_4G,
+    "Sensor.dataRange"    : sensor.ACC_RANGE_2G,
     "Sensor.dataRate"     : sensor.ACC_DATARATE_100,
     }
 
