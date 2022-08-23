@@ -226,9 +226,9 @@ try:
     interpreter.allocate_tensors()
     logging.info('interpreter allocated tensors.')
     # model is laoded and the required tensors allocated
-    shiftX = config['model.AI'].getint('shift.x', 0)
-    shiftY = config['model.AI'].getint('shift.y', 0)
-    shiftZ = config['model.AI'].getint('shift.z', 0)
+    # shiftX = config['model.AI'].getint('shift.x', 0)
+    # shiftY = config['model.AI'].getint('shift.y', 0)
+    # shiftZ = config['model.AI'].getint('shift.z', 0)
     
     logging.info('Measurement started.')
     print("Press button or Ctrl+C to end.")
@@ -245,15 +245,15 @@ try:
         # Change the axis, orientation and signals corresponding to axis 
         # and orientation achieved by same patient data with ghostndoe from Konstanz
         # x <- -y
-        oriented_signal[:,0] = -data_window[:,1] + shiftX
+        # oriented_signal[:,0] = -data_window[:,1] + shiftX
         # y <- -z
-        oriented_signal[:,1] = -data_window[:,2] + shiftY
+        # oriented_signal[:,1] = -data_window[:,2] + shiftY
         # z <- x
-        oriented_signal[:,2] = data_window[:,0] + shiftZ
+        # oriented_signal[:,2] = data_window[:,0] + shiftZ
         
         if i == acquisition_frequency:
             # input the window of data into the LSTM model            
-            common.set_input(interpreter, oriented_signal)
+            common.set_input(interpreter, data_window)
             # deply the inference
             interpreter.invoke()
             
@@ -266,6 +266,9 @@ try:
                 sy.actorUnit.handleEvent()
                 logging.info('FOG alarm triggered.')
             i = 0
+
+            # reset all varaibles of model to original state
+            interpreter.reset_all_variables()
     
 except KeyboardInterrupt:
     pass
