@@ -1,0 +1,22 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "philander"
+version = "0.0.1"
+authors = [
+  { name="Oliver Maye", email="maye@ihp-microelectronics.com" },
+]
+description = "Sensor and other parts driver collection"
+readme = "README.txt"
+requires-python = ">=3.0"
+classifiers = [
+    "Programming Language :: Python :: 3",
+    "License :: OSI Approved :: European Union Public Licence 1.2 (EUPL 1.2)",
+    "Operating System :: OS Independent",
+]
+
+[project.urls]
+"Homepage" = "https://www.ihp-microelectronics.com/"
+"Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
