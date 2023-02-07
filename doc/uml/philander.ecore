@@ -1,0 +1,142 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<ecore:EPackage xmi:version="2.0" xmlns:xmi="http://www.omg.org/XMI" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xmlns:ecore="http://www.eclipse.org/emf/2002/Ecore">
+  <eSubpackages name="pymitter">
+    <eClassifiers xsi:type="ecore:EClass" name="EventEmitter" abstract="true" interface="true"/>
+  </eSubpackages>
+  <eSubpackages name="philander">
+    <eClassifiers xsi:type="ecore:EClass" name="AnalogueVoltmeter" eSuperTypes="#//philander/Configurable #//philander/FuelGauge">
+      <eOperations name="init"/>
+      <eOperations name="close"/>
+      <eOperations name="getRemainingCapacity"/>
+    </eClassifiers>
+    <eClassifiers xsi:type="ecore:EClass" name="SerialDevice" abstract="true" eSuperTypes="#//philander/Device #//philander/Configurable">
+      <eOperations name="readByte"/>
+      <eOperations name="readWord"/>
+      <eOperations name="readDWord"/>
+      <eOperations name="writeByte"/>
+      <eOperations name="writeWord"/>
+      <eOperations name="writeDWord"/>
+      <eOperations name="writeBlock"/>
+      <eOperations name="getReg"/>
+      <eOperations name="setReg"/>
+      <eOperations name="getWReg"/>
+      <eOperations name="setWReg"/>
+    </eClassifiers>
+    <eClassifiers xsi:type="ecore:EClass" name="ActorUnit" eSuperTypes="#//philander/EventHandler #//philander/Configurable #//pymitter/EventEmitter">
+      <eOperations name="init"/>
+      <eOperations name="close"/>
+      <eOperations name="handleEvent"/>
+      <eOperations name="setBLEDiscoveryTimeout"/>
+      <eOperations name="getBLEConnectionState"/>
+      <eOperations name="isCoupled"/>
+      <eOperations name="couple"/>
+      <eOperations name="decouple"/>
+      <eOperations name="startCueing"/>
+      <eOperations name="stopCueing"/>
+    </eClassifiers>
+    <eClassifiers xsi:type="ecore:EClass" name="Device" abstract="true">
+      <eOperations name="getReg"/>
+      <eOperations name="setReg"/>
+      <eOperations name="modReg"/>
+      <eOperations name="disableReg"/>
+      <eOperations name="enableReg"/>
+      <eOperations name="copyReg"/>
+      <eOperations name="disableWReg"/>
+      <eOperations name="enableWReg"/>
+      <eOperations name="copyWReg"/>
+      <eOperations name="getWReg"/>
+      <eOperations name="setWReg"/>
+      <eOperations name="modWReg"/>
+    </eClassifiers>
+    <eClassifiers xsi:type="ecore:EClass" name="Sensor" abstract="true" interface="true">
+      <eOperations name="reset"/>
+      <eOperations name="getID"/>
+      <eOperations name="checkID"/>
+      <eOperations name="testConnection"/>
+      <eOperations name="nextData"/>
+      <eOperations name="lastData"/>
+      <eOperations name="setRange"/>
+      <eOperations name="setDataRate"/>
+    </eClassifiers>
+    <eClassifiers xsi:type="ecore:EClass" name="FuelGauge" abstract="true" interface="true">
+      <eOperations name="getRemainingCapacity"/>
+      <eOperations name="getRemainingCapacityLevel"/>
+      <eOperations name="getRemainingCapacityStr"/>
+      <eOperations name="cap2level"/>
+    </eClassifiers>
+    <eClassifiers xsi:type="ecore:EClass" name="Configurable" abstract="true" interface="true">
+      <eOperations name="Init"/>
+      <eOperations name="close"/>
+      <eOperations name="configure"/>
+    </eClassifiers>
+    <eClassifiers xsi:type="ecore:EClass" name="InterruptSource" abstract="true" interface="true">
+      <eOperations name="init"/>
+      <eOperations name="close"/>
+      <eOperations name="getIntStatus"/>
+      <eOperations name="registerInt"/>
+    </eClassifiers>
+    <eClassifiers xsi:type="ecore:EClass" name="EventHandler" abstract="true" interface="true">
+      <eOperations name="handleEvent"/>
+    </eClassifiers>
+    <eClassifiers xsi:type="ecore:EClass" name="BatteryCharger" abstract="true" eSuperTypes="#//philander/Configurable #//philander/InterruptSource">
+      <eOperations name="reset"/>
+      <eOperations name="getID"/>
+      <eOperations name="checkID"/>
+      <eOperations name="testConnection"/>
+      <eOperations name="isBatteryPresent"/>
+      <eOperations name="getNumCells"/>
+      <eOperations name="getBatStatus"/>
+      <eOperations name="getChgStatus"/>
+      <eOperations name="getDCStatus"/>
+      <eOperations name="getPowerSrc"/>
+      <eOperations name="getChargerTempState"/>
+      <eOperations name="getBatteryTempState"/>
+      <eOperations name="getError"/>
+      <eOperations name="restartCharging"/>
+    </eClassifiers>
+    <eClassifiers xsi:type="ecore:EClass" name="BMA456" eSuperTypes="#//philander/SerialSensor"/>
+    <eClassifiers xsi:type="ecore:EClass" name="SerialSensor" eSuperTypes="#//philander/Sensor #//philander/SerialDevice"/>
+    <eClassifiers xsi:type="ecore:EClass" name="FGSystemManagement" eSuperTypes="#//philander/Configurable #//pymitter/EventEmitter">
+      <eOperations name="init"/>
+      <eOperations name="close"/>
+      <eOperations name="manageSystem"/>
+      <eOperations name="bleHandleDiscovering"/>
+      <eOperations name="bleHandleConnected"/>
+      <eOperations name="bleHandleDisconnected"/>
+      <eOperations name="uiHandleButtonPressed"/>
+    </eClassifiers>
+    <eClassifiers xsi:type="ecore:EClass" name="MAX77960" eSuperTypes="#//philander/SerialDevice #//philander/BatteryCharger #//philander/Watchdog">
+      <eOperations name="getInt"/>
+      <eOperations name="lockRegisters"/>
+      <eOperations name="unlockRegisters"/>
+      <eOperations name="dcStandBy"/>
+    </eClassifiers>
+    <eClassifiers xsi:type="ecore:EClass" name="Watchdog" abstract="true" eSuperTypes="#//philander/Configurable #//philander/InterruptSource">
+      <eOperations name="init"/>
+      <eOperations name="close"/>
+      <eOperations name="enable"/>
+      <eOperations name="disable"/>
+      <eOperations name="isRunning"/>
+      <eOperations name="clear"/>
+      <eOperations name="isElapsed"/>
+      <eOperations name="clearElapsed"/>
+    </eClassifiers>
+    <eClassifiers xsi:type="ecore:EClass" name="NullCharger" eSuperTypes="#//philander/BatteryCharger"/>
+    <eClassifiers xsi:type="ecore:EClass" name="SmartButton" eSuperTypes="#//pymitter/EventEmitter">
+      <eOperations name="read"/>
+      <eOperations name="poll"/>
+      <eOperations name="close"/>
+      <eOperations name="setLabel"/>
+      <eOperations name="asyncWait4Press"/>
+      <eOperations name="stop_waiting"/>
+    </eClassifiers>
+    <eClassifiers xsi:type="ecore:EClass" name="SmartLED">
+      <eOperations name="write"/>
+      <eOperations name="on"/>
+      <eOperations name="off"/>
+      <eOperations name="blink"/>
+      <eOperations name="stop_blinking"/>
+    </eClassifiers>
+  </eSubpackages>
+</ecore:EPackage>
