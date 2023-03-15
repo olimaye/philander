@@ -1,7 +1,7 @@
-from InterruptSource import InterruptSource
+from Interruptable import Interruptable
 from Configurable import Configurable
 
-class Watchdog( InterruptSource, Configurable ):
+class Watchdog( Interruptable, Configurable ):
 
     # Interrupts
     INT_WATCHDOG      = 0x0101 # Watchdog elapsed.
@@ -33,14 +33,14 @@ class Watchdog( InterruptSource, Configurable ):
     # this module can be used.
     #
     def init(self):
-        InterruptSource.init(self)
+        Interruptable.init(self)
         Configurable.init(self)
 
     # 
     # Shuts down the WATCHDOG module safely.
     #
     def close(self):
-        InterruptSource.close(self)
+        Interruptable.close(self)
         #Configurable.close(self)
 
     #

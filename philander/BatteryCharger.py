@@ -1,7 +1,7 @@
-from InterruptSource import InterruptSource
+from Interruptable import Interruptable
 from Configurable import Configurable
 
-class BatteryCharger( InterruptSource, Configurable ):
+class BatteryCharger( Interruptable, Configurable ):
 
     BAT_STATE_UNKNOWN       = 0 # Battery state is unavailable
     BAT_STATE_REMOVED       = 1 # Battery removed

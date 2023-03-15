@@ -1562,7 +1562,7 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
         intMask = intMask | (chgMask & MAX77960._CHG_INT_MASK_ALL)
         return intMask
 
-    def getIntStatus(self):
+    def getEventContext(self):
         topStatus = ~self.getReg( MAX77960._REG_TOP_INT_OK )
         chgStatus = ~self.getReg( MAX77960._REG_CHG_INT_OK )
         apiStatus = self._mapIntImpl2Api( topStatus, chgStatus )
@@ -1574,7 +1574,7 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
         apiStatus = self._mapIntImpl2Api( topStatus, chgStatus )
         return apiStatus
     
-    def registerInt(self, apiMask, handler=None ):
+    def registerInterruptHandler(self, apiMask, handler=None ):
         # Register handler
         if handler:
             if apiMask & BatteryCharger.INT_OTG_BUCK_BOOST:
