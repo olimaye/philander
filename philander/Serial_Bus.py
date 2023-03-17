@@ -223,18 +223,14 @@ class Serial_Bus( Module ):
         ret = Serial_Bus._IMPLMOD_NONE
         if busType == Serial_Bus.TYPE_I2C:
             try:
-                from smbus import SMBus
-                ret = Serial_Bus._IMPLMOD_SMBUS
+                from smbus2 import SMBus, i2c_msg
+                ret = Serial_Bus._IMPLMOD_SMBUS2
             except ModuleNotFoundError:
                 try:
-                    from smbus2 import SMBus
-                    ret = Serial_Bus._IMPLMOD_SMBUS2
+                    from periphery import I2C
+                    ret = Serial_Bus._IMPLMOD_PERIPHERY
                 except ModuleNotFoundError:
-                    try:
-                        from periphery import I2C
-                        ret = Serial_Bus._IMPLMOD_PERIPHERY
-                    except ModuleNotFoundError:
-                        ret = Serial_Bus._IMPLMOD_SIM
+                    ret = Serial_Bus._IMPLMOD_SIM
         else:
             raise NotImplementedError('Currently, only I2C is supported!')
         return ret
@@ -246,77 +242,115 @@ class Serial_Bus( Module ):
     # *** SMBus implementation ***
 
     def _smbus_open( self, paramDict ):
-        if (self.drvMod == Serial_Bus._IMPLMOD_SMBUS):
-            from smbus import SMBus
-        else:
-            from smbus2 import SMBus
         try:
-            self.i2c = SMBus( self.busDesignator )
+            if (self.drvMod == Serial_Bus._IMPLMOD_SMBUS):
+                from smbus import SMBus
+                self.msg = None
+            elif (self.drvMod == Serial_Bus._IMPLMOD_SMBUS2):
+                from smbus2 import SMBus, i2c_msg
+                self.msg = i2c_msg
+            self.bus = SMBus( self.busDesignator )
         except Exception as exc:
             raise SystemError("Couldn't initialize serial bus ["+str(self.busDesignator)+"]. Designator right? Access to interface granted?") from exc
+        return None
+
+    def _smbus_close( self ):
+        return self.bus.close()
     
+    def _smbus_readRegByte( self, devAdr, aReg ):
+        return self.bus.read_byte_data( devAdr, aReg )
+    
+    def _smbus_writeRegByte( self, devAdr, aReg, data ):
+        return self.bus.write_byte_data( devAdr, aReg, data )
+            
+    def _smbus_readRegWord( self, devAdr, aReg ):
+        return self.bus.read_word_data( devAdr, aReg )
+    
+    def _smbus_writeRegWord( self, devAdr, aReg, data ):
+        return self.bus.write_word_data( devAdr, aReg, data )
+            
     def _smbus_readRegDWord( self, devAdr, aReg ):
-        L = self.i2c.read_word_data( devAdr, aReg )
-        H = self.i2c.read_word_data( devAdr, aReg+2 )
+        L = self.bus.read_word_data( devAdr, aReg )
+        H = self.bus.read_word_data( devAdr, aReg+2 )
         ret = (H << 16) + L
         return ret
 
     def _smbus_writeRegDWord( self, devAdr, aReg, data ):
         L = data & 0xFFFF
         H = (data & 0xFFFF0000) >> 16
-        self.i2c.write_word_data( devAdr, aReg, L )
-        self.i2c.write_word_data( devAdr, aReg+2, H )
+        self.bus.write_word_data( devAdr, aReg, L )
+        self.bus.write_word_data( devAdr, aReg+2, H )
     
+    def _smbus_readRegBlock( self, devAdr, aReg, num ):
+        if (num <= 32 ):
+            ret = self.bus.read_i2c_block_data( devAdr, aReg, num )
+        else:
+            msg1 = self.msg.write( devAdr, [aReg] )
+            msg2 = self.msg.read( devAdr, num )
+            self.bus.i2c_rdwr( msg1, msg2 )
+            ret = list(msg2)
+        return ret
     
+    def _smbus_writeRegBlock( self, devAdr, aReg, data ):
+        if (len(data) <= 32 ):
+            self.bus.write_i2c_block_data( devAdr, aReg, data )
+        else:
+            bdata = data
+            bdata.insert( 0, aReg )
+            msg = self.msg.write( devAdr, bdata )
+            self.bus.i2c_rdwr( msg )
+        return None
+            
+   
     # *** periphery module implementation ***
 
     def _periphery_open( self, paramDict ):
         from periphery import I2C
-        self.i2c = I2C( self.busDesignator )
+        self.bus = I2C( self.busDesignator )
     
     def _periphery_close(self):
-        self.i2c.close()
+        self.bus.close()
         
     def _periphery_readRegByte( self, devAdr, aReg ):
-        msgs = [self.i2c.Message([aReg]), self.i2c.Message([0x00], read=True)]
-        self.i2c._transfer( devAdr, msgs)
+        msgs = [self.bus.Message([aReg]), self.bus.Message([0x00], read=True)]
+        self.bus._transfer( devAdr, msgs)
         return msgs[1].data[0]
 
     def _periphery_writeRegByte( self, devAdr, aReg, data ):
-        msgs = [self.i2c.Message([aReg, data])]
-        self.i2c._transfer( devAdr, msgs)
+        msgs = [self.bus.Message([aReg, data])]
+        self.bus._transfer( devAdr, msgs)
 
     def _periphery_readRegWord( self, devAdr, aReg ):
-        msgs = [self.i2c.Message([aReg]), self.i2c.Message([0, 0], read=True)]
-        self.i2c._transfer( devAdr, msgs)
+        msgs = [self.bus.Message([aReg]), self.bus.Message([0, 0], read=True)]
+        self.bus._transfer( devAdr, msgs)
         ret = (msgs[1].data[1] << 8) | msgs[1].data[0]
         return ret
 
     def _periphery_writeRegWord( self, devAdr, aReg, data ):
-        msgs = [self.i2c.Message([aReg, (data & 0xFF), (data >> 8)])]
-        self.i2c._transfer( devAdr, msgs)
+        msgs = [self.bus.Message([aReg, (data & 0xFF), (data >> 8)])]
+        self.bus._transfer( devAdr, msgs)
 
     def _periphery_readRegDWord( self, devAdr, aReg ):
-        msgs = [self.i2c.Message([aReg]), self.i2c.Message([0, 0, 0, 0], read=True)]
-        self.i2c._transfer( devAdr, msgs)
+        msgs = [self.bus.Message([aReg]), self.bus.Message([0, 0, 0, 0], read=True)]
+        self.bus._transfer( devAdr, msgs)
         ret = (msgs[1].data[3] << 24) | (msgs[1].data[2] << 16) | (msgs[1].data[1] << 8) | msgs[1].data[0]
         return ret
 
     def _periphery_writeRegDWord( self, devAdr, aReg, data ):
-        msgs = [self.i2c.Message([aReg, (data & 0xFF), (data >> 8), (data >> 16), (data >> 24)])]
-        self.i2c._transfer( devAdr, msgs)
+        msgs = [self.bus.Message([aReg, (data & 0xFF), (data >> 8), (data >> 16), (data >> 24)])]
+        self.bus._transfer( devAdr, msgs)
     
     def _periphery_readRegBlock( self, devAdr, aReg, num ):
         ba = bytearray(num)
-        msgs = [self.i2c.Message([aReg]), self.i2c.Message(ba, read=True)]
-        self.i2c._transfer( devAdr, msgs)
+        msgs = [self.bus.Message([aReg]), self.bus.Message(ba, read=True)]
+        self.bus._transfer( devAdr, msgs)
         return msgs[1].data
 
     def _periphery_writeRegBlock( self, devAdr, aReg, data ):
         bdata = data
         bdata.insert( 0, aReg )
-        msgs = [self.i2c.Message( bdata )]
-        self.i2c._transfer( devAdr, msgs)
+        msgs = [self.bus.Message( bdata )]
+        self.bus._transfer( devAdr, msgs)
 
     # *** Serial Bus simulator implementation ***
 
@@ -410,15 +444,15 @@ class Serial_Bus( Module ):
         # Multiplex the different implementations depending on the driver module
         if (self.drvMod==Serial_Bus._IMPLMOD_SMBUS) or (self.drvMod==Serial_Bus._IMPLMOD_SMBUS2):
             self._serDevPtr_open = self._smbus_open
-            self._serDevPtr_close = self.i2c.close
-            self._serDevPtr_readRegByte = self.i2c.read_byte_data
-            self._serDevPtr_writeRegByte = self.i2c.write_byte_data
-            self._serDevPtr_readRegWord = self.i2c.read_word_data
-            self._serDevPtr_writeRegWord = self.i2c.write_word_data
+            self._serDevPtr_close = self._smbus_close
+            self._serDevPtr_readRegByte = self._smbus_readRegByte
+            self._serDevPtr_writeRegByte = self._smbus_writeRegByte
+            self._serDevPtr_readRegWord = self._smbus_readRegWord
+            self._serDevPtr_writeRegWord = self._smbus_writeRegWord
             self._serDevPtr_readRegDWord = self._smbus_readRegDWord
             self._serDevPtr_writeRegDWord = self._smbus_writeRegDWord
-            self._serDevPtr_readRegBlock = self.i2c.read_i2c_block_data
-            self._serDevPtr_writeRegBlock = self.i2c.write_i2c_block_data
+            self._serDevPtr_readRegBlock = self._smbus_readRegBlock
+            self._serDevPtr_writeRegBlock = self._smbus_writeRegBlock
         elif (self.drvMod==Serial_Bus._IMPLMOD_PERIPHERY):
             self._serDevPtr_open = self._periphery_open
             self._serDevPtr_close = self._periphery_close

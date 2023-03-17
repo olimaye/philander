@@ -10,6 +10,8 @@ from systypes import ErrorCode, RunLevel
 import time
 from sbsim import sbsimNull
 from sbsimBMA456 import sbsimBMA456
+import gpio
+from gpio import GPIO
 
 class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
     #
@@ -124,8 +126,8 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
         self.dataRange = 1
         self.featureSet = BMA456.BMA456_DEFAULT_FEATURE_SET
         self.featureBuf = []
-        self.gpio_int1_idx = None
-        self.gpio_int2_idx = None
+        self.pinInt1 = None
+        self.pinInt2 = None
         self.regInt1IOctrl = 0
         self.regInt2IOctrl = 0
         self.regInt1Map    = 0
@@ -161,9 +163,9 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
     #
     def intHandler( self):
         pinIndex = 17
-        if (self.gpio_int1_idx == pinIndex):
+        if (self.pinInt1 == pinIndex):
             self.eventEmitter.emit( Event.evtInt1 )
-        if (self.gpio_int2_idx == pinIndex):
+        if (self.pinInt2 == pinIndex):
             self.eventEmitter.emit( Event.evtInt2 )
     
     #
@@ -501,6 +503,14 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
             paramDict["BMA456.INT2_MAP"] = BMA456.BMA456_CNT_INTX_MAP_DEFAULT
         if not ("BMA456.INT_MAP_DATA" in paramDict):
             paramDict["BMA456.INT_MAP_DATA"] = BMA456.BMA456_CNT_INT_MAP_DATA_DEFAULT
+        # Add interrupt pin /gpio specifics
+        gpioParams = {}
+        GPIO.Params_init( gpioParams )
+        gp1 = dict( [("BMA456.int1."+k,v) for k,v in gpioParams.items()] )
+        gp2 = dict( [("BMA456.int2."+k,v) for k,v in gpioParams.items()] )
+        gp1.update(gp2)
+        gp1.update(paramDict)
+        paramDict = gp1
 
 
     def open(self, paramDict):
@@ -522,10 +532,14 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
                 result = Accelerometer.open(self, paramDict)
             if (result == ErrorCode.errOk):
                 # Setup interrupt related stuff.
-                #GPIO_setCallback( sContext[devIdx].gpio_int1_idx, intHandler );
-                #GPIO_setCallback( sContext[devIdx].gpio_int2_idx, intHandler );
-                handler = paramDict.get("Interruptable.handler", None)
-                result = self.registerInterruptHandler( handler )
+                if ("BMA456.int1.gpio.pinDesignator" in paramDict):
+                    gpioParams = dict( [(k.replace("BMA456.int1.", ""),v) for k,v in paramDict.items() if k.startswith("BMA456.int1.")] )
+                    self.pinInt1 = GPIO()
+                    result = self.pinInt1.open(gpioParams)
+                if ("BMA456.int2.gpio.pinDesignator" in paramDict):
+                    gpioParams = dict( [(k.replace("BMA456.int2.", ""),v) for k,v in paramDict.items() if k.startswith("BMA456.int2.")] )
+                    self.pinInt2 = GPIO()
+                    result = self.pinInt2.open(gpioParams)
         return result
 
 
@@ -533,6 +547,12 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
         if (self.isAttached()):
             self.setRunLevel( RunLevel.runLevelShutdown )
             Serial_Bus_Device.close(self)
+        if not (self.pinInt1 is None):
+            self.pinInt1.close()
+            self.pinInt1 = None
+        if not (self.pinInt2 is None):
+            self.pinInt2.close()
+            self.pinInt2 = None
         return None
     
     #
@@ -596,6 +616,23 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
     #
     #
     #
+    def registerInterruptHandler(self, handler=None ):
+        ret = ErrorCode.errOk
+        fAnyInt = 0
+        if not (self.pinInt1 is None):
+            fAnyInt = 1
+            ret = self.pinInt1.registerInterruptHandler(handler)
+        if not (self.pinInt2 is None):
+            fAnyInt = 1
+            err = self.pinInt2.registerInterruptHandler(handler)
+            if (ret == ErrorCode.errOk):
+                ret = err
+        if( not fAnyInt ):
+            ret = ErrorCode.errExhausted
+        return ret
+    #
+    #
+    #
     def enableInterrupt(self):
         ret = ErrorCode.errOk
         if (not self.isAttached()):
@@ -603,15 +640,17 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
         else:
             ret = ErrorCode.errOk
             fNoInt = 1
-            if not (self.gpio_int1_idx is None):
+            if not (self.pinInt1 is None):
+                ret = self.pinInt1.enableInterrupt()
                 fNoInt = 0
-                #GPIO_enableInt( sContext[devIdx].gpio_int1_idx );
+                #GPIO_enableInt( sContext[devIdx].pinInt1 );
                 data = self.regInt1IOctrl
                 data |= BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT_ENABLE
                 ret = self.write_Reg_Byte( BMA456.BMA456_REG_INT1_IO_CTRL, data )
-            if not(self.gpio_int2_idx is None):
+            if not(self.pinInt2 is None):
+                ret = self.pinInt2.enableInterrupt()
                 fNoInt = 0;
-                #GPIO_enableInt( sContext[devIdx].gpio_int2_idx );
+                #GPIO_enableInt( sContext[devIdx].pinInt2 );
                 data = self.regInt2IOctrl
                 data |= BMA456.BMA456_CNT_INT2_IO_CTRL_OUTPUT_ENABLE
                 err = self.write_Reg_Byte( BMA456.BMA456_REG_INT2_IO_CTRL, data )
@@ -630,18 +669,20 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
             ret = ErrorCode.errResourceConflict
         else:
             ret = ErrorCode.errOk
-            if not(self.gpio_int1_idx is None):
+            if not(self.pinInt1 is None):
+                ret = self.pinInt1.disableInterrupt()
                 data = self.regInt1IOctrl & ~BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT
                 data |= BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT_DISABLE
                 ret = self.write_Reg_Byte( BMA456.BMA456_REG_INT1_IO_CTRL, data )
-                #GPIO_disableInt( sContext[devIdx].gpio_int1_idx );
-            if not(self.gpio_int2_idx is None):
+                #GPIO_disableInt( sContext[devIdx].pinInt1 );
+            if not(self.pinInt2 is None):
+                ret = self.pinInt2.disableInterrupt()
                 data = self.regInt2IOctrl & ~BMA456.BMA456_CNT_INT2_IO_CTRL_OUTPUT
                 data |= BMA456.BMA456_CNT_INT2_IO_CTRL_OUTPUT_DISABLE
                 err = self.write_Reg_Byte( BMA456.BMA456_REG_INT2_IO_CTRL, data )
                 if (ret == ErrorCode.errOk):
                     ret = err
-                #GPIO_disableInt( sContext[devIdx].gpio_int2_idx );
+                #GPIO_disableInt( sContext[devIdx].pinInt2 );
         return ret;
  
     def getEventContext(self, event, context):

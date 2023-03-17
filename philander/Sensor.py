@@ -123,37 +123,38 @@ class Sensor(Module):
     #
     def open(self, paramDict):
         if "Sensor.dataRange" in paramDict:
-            newSetting = paramDict["Sensor.dataRange"]
-            self.setRange( newSetting )
+            self.dataRange = paramDict["Sensor.dataRange"]
         if "Sensor.dataRate" in paramDict:
-            newSetting  = paramDict["Sensor.dataRate"]
-            self.setRate( newSetting )
+            self.dataRate  = paramDict["Sensor.dataRate"]
         return ErrorCode.errOk
     
     #
     # Sensor self test
     #
     def selfTest(self, tests):
-        pass
+        del tests
+        return ErrorCode.errNotSupported
 
     #
     # Soft resets the sensor. The device is in some default state, afterwards and
     # must be re-configured according to the application's needs.
     #
     def reset(self):
-        pass
+        return ErrorCode.errNotSupported
 
     #
-    # Gets static info data from sensor
+    # Configures the sensor
     #
     def configure(self, configData):
-        pass
+        del configData
+        return ErrorCode.errNotSupported
 
     #
-    # Gets static info data from sensor
+    # Calibrates the sensor
     #
     def calibrate(self, calib):
-        pass
+        del calib
+        return ErrorCode.errNotSupported
 
 
     #
@@ -168,9 +169,8 @@ class Sensor(Module):
     # Gets dynamic status data from sensor
     #
     def getStatus(self, statusID):
-        ret = ErrorCode.errOk
-        status = 0
-        return status, ret
+        del statusID
+        return None, ErrorCode.errNotSupported
 
     #
     # Retrieves the most recent data available and returns immediately.
@@ -178,26 +178,12 @@ class Sensor(Module):
     # read before.
     #
     def getLatestData(self):
-        pass
-
+        return None, ErrorCode.errNotSupported
+    
     #
     # Retrieves the next data, possibly waiting (blocking) depending on the
     # data dataRate configured.
     # Always returns with fresh, new data, never read before.
     #
     def getNextData(self):
-        pass
-
-    #
-    # Configures the data dataRange.
-    # newRange: The new dataRange to set.
-    #
-    def setRange( self, newRange ):
-        self.dataRange = newRange
-
-    #
-    # Configures the data update dataRate.
-    # newRate: The new data dataRate.
-    #
-    def setRate( self, newRate ):
-        self.dataRate = newRate
+        return None, ErrorCode.errNotSupported
