@@ -2,24 +2,6 @@
 
 class Module:
     
-    # Abstract function to initialize the module. Acquires all resources necessary
-    # for operation. Depending on the underlying
-    # implementation, the initialization procedure may include a default
-    # configuration of one or more instances.
-    # @return An <code>#ErrorCode</code> error code either indicating that this
-    # call was successful or the reason why it failed.
-    @classmethod
-    def init(cls):
-        pass
-    
-
-    # Shuts down the module safely and disposes all resources claimed during
-    # initialization.
-    # @return <code>None</code>
-    @classmethod
-    def shutdown(cls):
-        pass
-
     # Abstract function to initialize parameters with its defaults.
     # @param[in, out] params The parameter structure to be initialized. Should not be NULL.
     # @return <code>None</code>
