@@ -27,6 +27,7 @@ class GPIO( Module, Interruptable ):
     TRIGGER_LEVEL_HIGH  = 4
     TRIGGER_LEVEL_LOW   = 5
     
+    BOUNCE_NONE         = 0
     BOUNCE_DEFAULT      = 200
     EVENT_DEFAULT       = "gpioFired"
     

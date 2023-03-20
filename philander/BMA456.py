@@ -504,13 +504,24 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
         if not ("BMA456.INT_MAP_DATA" in paramDict):
             paramDict["BMA456.INT_MAP_DATA"] = BMA456.BMA456_CNT_INT_MAP_DATA_DEFAULT
         # Add interrupt pin /gpio specifics
+        paramDict["BMA456.int1.gpio.direction"] = GPIO.DIRECTION_IN
+        paramDict["BMA456.int2.gpio.direction"] = GPIO.DIRECTION_IN
+        if not ("BMA456.int1.gpio.trigger" in paramDict):
+            paramDict["BMA456.int1.gpio.trigger"] = GPIO.TRIGGER_EDGE_FALLING
+        if not ("BMA456.int2.gpio.trigger" in paramDict):
+            paramDict["BMA456.int2.gpio.trigger"] = GPIO.TRIGGER_EDGE_FALLING
+        if not ("BMA456.int1.gpio.bounce" in paramDict):
+            paramDict["BMA456.int1.gpio.bounce"] = GPIO.BOUNCE_NONE
+        if not ("BMA456.int2.gpio.bounce" in paramDict):
+            paramDict["BMA456.int2.gpio.bounce"] = GPIO.BOUNCE_NONE
         gpioParams = {}
         GPIO.Params_init( gpioParams )
         gp1 = dict( [("BMA456.int1."+k,v) for k,v in gpioParams.items()] )
         gp2 = dict( [("BMA456.int2."+k,v) for k,v in gpioParams.items()] )
         gp1.update(gp2)
-        gp1.update(paramDict)
-        paramDict = gp1
+        for key, value in gp1.items():
+            if not( key in paramDict.keys()):
+                paramDict[key] = value
 
 
     def open(self, paramDict):
@@ -533,10 +544,12 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
             if (result == ErrorCode.errOk):
                 # Setup interrupt related stuff.
                 if ("BMA456.int1.gpio.pinDesignator" in paramDict):
+                    paramDict["BMA456.int1.gpio.direction"] = GPIO.DIRECTION_IN
                     gpioParams = dict( [(k.replace("BMA456.int1.", ""),v) for k,v in paramDict.items() if k.startswith("BMA456.int1.")] )
                     self.pinInt1 = GPIO()
                     result = self.pinInt1.open(gpioParams)
                 if ("BMA456.int2.gpio.pinDesignator" in paramDict):
+                    paramDict["BMA456.int2.gpio.direction"] = GPIO.DIRECTION_IN
                     gpioParams = dict( [(k.replace("BMA456.int2.", ""),v) for k,v in paramDict.items() if k.startswith("BMA456.int2.")] )
                     self.pinInt2 = GPIO()
                     result = self.pinInt2.open(gpioParams)
