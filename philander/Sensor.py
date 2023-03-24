@@ -1,9 +1,22 @@
+from dataclasses import dataclass, field
 from enum import Enum, unique, auto
 from Module import Module
 from systypes import ErrorCode
-from dataclasses import dataclass, field
 from typing import List
 
+@unique
+class ConfigItem(Enum):
+    cfgRate  = auto()
+    cfgRange = auto()
+    cfgFifo         = auto()
+    cfgEventArm     = auto()
+    cfgEventCondition = auto()
+
+@dataclass
+class Configuration():
+    type: ConfigItem
+    value: int = 1
+    
 @unique
 class CalibType(Enum):
     calibDefault            = auto()
@@ -101,9 +114,11 @@ class Sensor(Module):
     # Initializes the sensor.
     #
     def __init__( self ):
+        defaults = dict()
+        self.Params_init( defaults )
         # Create instance attributes
-        self.dataRange = 1
-        self.dataRate = 0
+        self.dataRange = paramDict["Sensor.dataRange"]
+        self.dataRate  = paramDict["Sensor.dataRate"]
  
     # The only input parameter is a dictionary containing key-value pairs that
     # configure the instance. Regarded key names and their meanings are:
@@ -122,11 +137,20 @@ class Sensor(Module):
     #
     #
     def open(self, paramDict):
-        if "Sensor.dataRange" in paramDict:
-            self.dataRange = paramDict["Sensor.dataRange"]
-        if "Sensor.dataRate" in paramDict:
-            self.dataRate  = paramDict["Sensor.dataRate"]
-        return ErrorCode.errOk
+        defaults = dict()
+        self.Params_init( defaults )
+        ret = ErrorCode.errOk
+        if ("Sensor.dataRange" in paramDict):
+            cfg = Configuration( ConfigItem.cfgRange, value=paramDict["Sensor.dataRange"])
+            ret = self.configure( cfg )
+        else:
+            paramDict["Sensor.dataRange"] = defaults["Sensor.dataRange"]
+        if ("Sensor.dataRate" in paramDict):
+            cfg = Configuration( ConfigItem.cfgRate, value=paramDict["Sensor.dataRate"])
+            ret = self.configure( cfg )
+        else:
+            paramDict["Sensor.dataRate"] = defaults["Sensor.dataRate"]
+        return ret
     
     #
     # Sensor self test
@@ -146,8 +170,14 @@ class Sensor(Module):
     # Configures the sensor
     #
     def configure(self, configData):
-        del configData
-        return ErrorCode.errNotSupported
+        ret = ErrorCode.errOk
+        if (configData.type == ConfigItem.cfgRange):
+            self.dataRange = configData.value
+        elif (configData.type == ConfigItem.cfgRate):
+            self.dataRate = configData.value
+        else:
+            ret = ErrorCode.errNotSupported
+        return ret
 
     #
     # Calibrates the sensor

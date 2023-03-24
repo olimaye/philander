@@ -39,7 +39,7 @@
 # <tr><td>3</td><td>16000</td></tr>
 # </table>
 # It is also possible to translate vice-versa, i.e. from the value-domain into
-# keys b˝ finding the nearest matching key. The behavior of this search
+# keys b—ç finding the nearest matching key. The behavior of this search
 # algorithm can be controlled by the dictionary's <em>mode</em> attribute.
 # </p>
 # <p>
@@ -180,11 +180,11 @@ class dictionary():
                 key = [k for k, v in self.entry.items() if v == value]
             elif ((self.mode & dictionary.DICT_MODE_MAP) == dictionary.DICT_MODE_MAP_NEAREST_LOWER):
                 for k, v in self.entry.items():
-                    if (v < value) and ((key is None) or (v > self.entry[key])):
+                    if (v <= value) and ((key is None) or (v > self.entry[key])):
                         key = k
             elif ((self.mode & dictionary.DICT_MODE_MAP) == dictionary.DICT_MODE_MAP_NEAREST_HIGHER):
                 for k, v in self.entry.items():
-                    if (v > value) and ((key is None) or (v < self.entry[key])):
+                    if (v >= value) and ((key is None) or (v < self.entry[key])):
                         key = k
             elif ((self.mode & dictionary.DICT_MODE_MAP) == dictionary.DICT_MODE_MAP_NEAREST):
                 for k, v in self.entry.items():

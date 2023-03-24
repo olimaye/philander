@@ -1,10 +1,10 @@
 from _BMA456_Reg import _BMA456_Reg
 from _BMA456_Feature import _BMA456_Feature
-from Accelerometer import Accelerometer, Activity, AxesSign, ConfigItem, Configuration, Event, EventContext, EventSource, Orientation, SamplingMode, StatusID, Tap
+from Accelerometer import Accelerometer, Activity, AxesSign, Configuration, EventSource, Orientation, SamplingMode, StatusID, Tap
 from dictionary import dictionary
 import imath
-from Interruptable import EventContextControl
-from Sensor import SelfTest, CalibType, Info
+from Interruptable import Event, EventContextControl
+from Sensor import ConfigItem, Sensor
 from Serial_Bus import Serial_Bus_Device
 from systypes import ErrorCode, RunLevel
 import time
@@ -123,7 +123,6 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
     #
     def __init__(self):
         # Create instance attributes
-        self.dataRange = 1
         self.featureSet = BMA456.BMA456_DEFAULT_FEATURE_SET
         self.featureBuf = []
         self.pinInt1 = None
@@ -157,17 +156,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
         self._putFeatureByteAt(idx, data >> 8)
         self._putFeatureByteAt(idx+1, data & 0xFF)
         return None
-        
-    #
-    # Interrupt handler
-    #
-    def intHandler( self):
-        pinIndex = 17
-        if (self.pinInt1 == pinIndex):
-            self.eventEmitter.emit( Event.evtInt1 )
-        if (self.pinInt2 == pinIndex):
-            self.eventEmitter.emit( Event.evtInt2 )
-    
+            
     #
     # Transfer function to translate digital measurement reading into
     # physical dimension value.
@@ -275,68 +264,68 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
     # Accelerometer.EventSource
     #
     def _bmaInt2accelEvtSrc( self, intID ):
-        ret = BMA456.EventSource.evtSrcNone
+        ret = EventSource.evtSrcNone
     
         # INT_STATUS_1, high-byte
         if( intID & BMA456.BMA456_CNT_INT_STATUS_ACC_DRDY ):
-            ret |= BMA456.EventSource.evtSrcDataRdy;
+            ret |= EventSource.evtSrcDataRdy;
         if( intID & BMA456.BMA456_CNT_INT_STATUS_AUX_DRDY ):
-            ret |= BMA456.EventSource.evtSrcNone
+            ret |= EventSource.evtSrcNone
         if( intID & BMA456.BMA456_CNT_INT_STATUS_FIFO_WM ):
-            ret |= BMA456.EventSource.evtSrcFifoWM
+            ret |= EventSource.evtSrcFifoWM
         if( intID & BMA456.BMA456_CNT_INT_STATUS_FIFO_FULL ):
-            ret |= BMA456.EventSource.evtSrcFifoFull
+            ret |= EventSource.evtSrcFifoFull
         # INT_STATUS_0, low-byte
         if( intID & BMA456.BMA456_CNT_INT_STATUS_ERROR ):
-            ret |= BMA456.EventSource.evtSrcError
+            ret |= EventSource.evtSrcError
         # Interpretation of the rest of the low-byte INT_STATUS_0 depends
         # on the feature set.
         if (self.featureSet == BMA456.BMA456_FEATURE_SET_WEARABLE):
             if( intID & BMA456.BMA456_FSWBL_CNT_INT_STATUS_NO_MOTION ):
-                ret |= BMA456.EventSource.evtSrcLowSlopeTime
+                ret |= EventSource.evtSrcLowSlopeTime
             if( intID & BMA456.BMA456_FSWBL_CNT_INT_STATUS_ANY_MOTION ):
-                ret |= BMA456.EventSource.evtSrcHighSlopeTime
+                ret |= EventSource.evtSrcHighSlopeTime
             if( intID & BMA456.BMA456_FSWBL_CNT_INT_STATUS_DBL_TAP ):
-                ret |= BMA456.EventSource.evtSrcTap
+                ret |= EventSource.evtSrcTap
             if( intID & BMA456.BMA456_FSWBL_CNT_INT_STATUS_WRIST_WKUP ):
-                ret |= BMA456.EventSource.evtSrcGesture
+                ret |= EventSource.evtSrcGesture
             if( intID & BMA456.BMA456_FSWBL_CNT_INT_STATUS_ACTIVITY ):
-                ret |= BMA456.EventSource.evtSrcActivity
+                ret |= EventSource.evtSrcActivity
             if( intID & BMA456.BMA456_FSWBL_CNT_INT_STATUS_STEP_COUNT ):
-                ret |= BMA456.EventSource.evtSrcStep
+                ret |= EventSource.evtSrcStep
             if( intID & BMA456.BMA456_FSWBL_CNT_INT_STATUS_TAP_DETECT ):
-                ret |= BMA456.EventSource.evtSrcTap
+                ret |= EventSource.evtSrcTap
         elif (self.featureSet == BMA456.BMA456_FEATURE_SET_HEARABLE):
             if( intID & BMA456.BMA456_FSHBL_CNT_INT_STATUS_NO_MOTION ):
-                ret |= BMA456.EventSource.evtSrcLowSlopeTime
+                ret |= EventSource.evtSrcLowSlopeTime
             if( intID & BMA456.BMA456_FSHBL_CNT_INT_STATUS_ANY_MOTION ):
-                ret |= BMA456.EventSource.evtSrcHighSlopeTime
+                ret |= EventSource.evtSrcHighSlopeTime
             if( intID & BMA456.BMA456_FSHBL_CNT_INT_STATUS_ACTIVITY ):
-                ret |= BMA456.EventSource.evtSrcActivity
+                ret |= EventSource.evtSrcActivity
             if( intID & BMA456.BMA456_FSHBL_CNT_INT_STATUS_STEP_COUNT ):
-                ret |= BMA456.EventSource.evtSrcStep
+                ret |= EventSource.evtSrcStep
             if( intID & BMA456.BMA456_FSHBL_CNT_INT_STATUS_TAP_DETECT ):
-                ret |= BMA456.EventSource.evtSrcTap
+                ret |= EventSource.evtSrcTap
         elif (self.featureSet == BMA456.BMA456_FEATURE_SET_MM):
             if( intID & BMA456.BMA456_FSMM_CNT_INT_STATUS_NO_MOTION ):
-                ret |= BMA456.EventSource.evtSrcLowSlopeTime
+                ret |= EventSource.evtSrcLowSlopeTime
             if( intID & BMA456.BMA456_FSMM_CNT_INT_STATUS_ANY_MOTION ):
-                ret |= BMA456.EventSource.evtSrcHighSlopeTime
+                ret |= EventSource.evtSrcHighSlopeTime
             if( intID & BMA456.BMA456_FSMM_CNT_INT_STATUS_SIG_MOTION ):
-                ret |= BMA456.EventSource.evtSrcSigMotion
+                ret |= EventSource.evtSrcSigMotion
             if( intID & BMA456.BMA456_FSMM_CNT_INT_STATUS_HIGH_G ):
-                ret |= BMA456.EventSource.evtSrcHighGTime
+                ret |= EventSource.evtSrcHighGTime
             if( intID & BMA456.BMA456_FSMM_CNT_INT_STATUS_LOW_G ):
-                ret |= BMA456.EventSource.evtSrcLowGTime
+                ret |= EventSource.evtSrcLowGTime
             if( intID & BMA456.BMA456_FSMM_CNT_INT_STATUS_ORIENT ):
-                ret |= BMA456.EventSource.evtSrcOrientation
+                ret |= EventSource.evtSrcOrientation
             if( intID & BMA456.BMA456_FSMM_CNT_INT_STATUS_TAP_DETECT ):
-                ret |= BMA456.EventSource.evtSrcTap
+                ret |= EventSource.evtSrcTap
         elif (self.featureSet == BMA456.BMA456_FEATURE_SET_AN):
             if( intID & BMA456.BMA456_FSAN_CNT_INT_STATUS_NO_MOTION ):
-                ret |= BMA456.EventSource.evtSrcLowSlopeTime
+                ret |= EventSource.evtSrcLowSlopeTime
             if( intID & BMA456.BMA456_FSAN_CNT_INT_STATUS_ANY_MOTION ):
-                ret |= BMA456.EventSource.evtSrcHighSlopeTime
+                ret |= EventSource.evtSrcHighSlopeTime
 
         return ret;
     
@@ -344,39 +333,37 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
     # Given a single interrupt identifier, fills the event context structure,
     # i.e. the source and detail attributes, appropriately.
     #
-    def _fillEventContext( self, singleIntID ):
+    def _fillEventContext( self, singleIntID, context ):
         ret = ErrorCode.errOk
-        context = EventContext()
         
         # Map BMA interrupt source to API event source
         context.source = self._bmaInt2accelEvtSrc( singleIntID )
         # Now, depending on the event source, get additional information.
-        if (context.source == BMA456.EventSource.evtSrcDataRdy):
-            ret = self.getLatestData( context.data )
-        elif (context.source == BMA456.EventSource.evtSrcFifoWM) or (context.source == BMA456.EventSource.evtSrcFifoFull):
-            ret = self.getStatus( BMA456.StatusID.StatusFifo, context.status)
-        elif (context.source == BMA456.EventSource.evtSrcActivity):
-            ret = self.getStatus( BMA456.StatusID.StatusActivity, context.status)
-        elif (context.source == BMA456.EventSource.evtSrcStep):
-            ret = self.getStatus( BMA456.StatusID.StatusStepCnt, context.status)
-        elif (context.source == BMA456.EventSource.evtSrcHighGTime):
-            ret = self.getStatus( BMA456.StatusID.StatusHighG, context.status)
-        elif (context.source == BMA456.EventSource.evtSrcOrientation):
-            ret = self.getStatus( BMA456.StatusID.StatusOrientation, context.status)
-        elif (context.source == BMA456.EventSource.evtSrcTap):
+        if (context.source == EventSource.evtSrcDataRdy):
+            context.data, ret = self.getLatestData()
+        elif (context.source == EventSource.evtSrcFifoWM) or (context.source == EventSource.evtSrcFifoFull):
+            context.status, ret = self.getStatus( StatusID.StatusFifo )
+        elif (context.source == EventSource.evtSrcActivity):
+            context.status, ret = self.getStatus( StatusID.StatusActivity )
+        elif (context.source == EventSource.evtSrcStep):
+            context.status, ret = self.getStatus( StatusID.StatusStepCnt )
+        elif (context.source == EventSource.evtSrcHighGTime):
+            context.status, ret = self.getStatus( StatusID.StatusHighG )
+        elif (context.source == EventSource.evtSrcOrientation):
+            context.status, ret = self.getStatus( StatusID.StatusOrientation )
+        elif (context.source == EventSource.evtSrcTap):
             if( self.featureSet == BMA456.BMA456_FEATURE_SET_WEARABLE ):
                 if( singleIntID == BMA456.BMA456_FSWBL_CNT_INT_STATUS_TAP_DETECT ):
-                    context.status = BMA456.Tap.tapSingle
+                    context.status = Tap.tapSingle
                 elif( singleIntID == BMA456.BMA456_FSWBL_CNT_INT_STATUS_DBL_TAP ):
-                    context.status = BMA456.Tap.tapDouble
+                    context.status = Tap.tapDouble
                 else:
-                    context.status = BMA456.Tap.tapNone
+                    context.status = Tap.tapNone
             else:
                 # Multi-tap concept.
-                context.status = []
-                ret = self.getStatus( BMA456.StatusID.StatusTap, context.status )
+                context.status, ret = self.getStatus( StatusID.StatusTap )
     
-        return ret, context
+        return ret
 
     #
     # Convert an API accel_EventSource_t to a BMA interrupt-map bit mask
@@ -387,88 +374,88 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
     
         # Set INT_MAP_DATA, first
         dataMap = BMA456.BMA456_CNT_INTX_MAP_NONE
-        if( evtSrc & BMA456.EventSource.evtSrcDataRdy ):
+        if( evtSrc & EventSource.evtSrcDataRdy ):
             dataMap |= (BMA456.BMA456_CNT_INT_MAP_DATA_INT1_DRDY | BMA456.BMA456_CNT_INT_MAP_DATA_INT2_DRDY)
-            remainder &= ~BMA456.EventSource.evtSrcDataRdy
-        if( evtSrc & BMA456.EventSource.evtSrcFifoWM ):
+            remainder &= ~EventSource.evtSrcDataRdy
+        if( evtSrc & EventSource.evtSrcFifoWM ):
             dataMap |= (BMA456.BMA456_CNT_INT_MAP_DATA_INT1_FIFO_WM | BMA456.BMA456_CNT_INT_MAP_DATA_INT2_FIFO_WM)
-            remainder &= ~BMA456.EventSource.evtSrcFifoWM
-        if( evtSrc & BMA456.EventSource.evtSrcFifoFull ):
+            remainder &= ~EventSource.evtSrcFifoWM
+        if( evtSrc & EventSource.evtSrcFifoFull ):
             dataMap |= (BMA456.BMA456_CNT_INT_MAP_DATA_INT1_FIFO_FULL | BMA456.BMA456_CNT_INT_MAP_DATA_INT2_FIFO_FULL)
-            remainder &= ~BMA456.EventSource.evtSrcFifoFull
+            remainder &= ~EventSource.evtSrcFifoFull
     
         # Now, set INT1_MAP
         featMap = BMA456.BMA456_CNT_INTX_MAP_NONE
-        if( evtSrc & BMA456.EventSource.evtSrcError ):
+        if( evtSrc & EventSource.evtSrcError ):
             featMap |= BMA456.BMA456_CNT_INTX_MAP_ERROR
-            remainder &= ~BMA456.EventSource.evtSrcError
+            remainder &= ~EventSource.evtSrcError
         
         # Interpretation of INTx_MAP depends on the feature set.
         if (self.featureSet == BMA456.BMA456_FEATURE_SET_WEARABLE):
-            if( evtSrc & BMA456.EventSource.evtSrcLowSlopeTime ):
+            if( evtSrc & EventSource.evtSrcLowSlopeTime ):
                 featMap |= BMA456.BMA456_FSWBL_CNT_INTX_MAP_NO_MOTION
-                remainder &= ~BMA456.EventSource.evtSrcLowSlopeTime
-            if( evtSrc & BMA456.EventSource.evtSrcHighSlopeTime ):
+                remainder &= ~EventSource.evtSrcLowSlopeTime
+            if( evtSrc & EventSource.evtSrcHighSlopeTime ):
                 featMap |= BMA456.BMA456_FSWBL_CNT_INTX_MAP_ANY_MOTION
-                remainder &= ~BMA456.EventSource.evtSrcHighSlopeTime
+                remainder &= ~EventSource.evtSrcHighSlopeTime
             # Double tap must be treated by the caller
-            if( evtSrc & BMA456.EventSource.evtSrcGesture):
+            if( evtSrc & EventSource.evtSrcGesture):
                 featMap |= BMA456.BMA456_FSWBL_CNT_INTX_MAP_WRIST_WKUP
-                remainder &= ~BMA456.EventSource.evtSrcGesture
-            if( evtSrc & BMA456.EventSource.evtSrcActivity):
+                remainder &= ~EventSource.evtSrcGesture
+            if( evtSrc & EventSource.evtSrcActivity):
                 featMap |= BMA456.BMA456_FSWBL_CNT_INTX_MAP_ACTIVITY
-                remainder &= ~BMA456.EventSource.evtSrcActivity
-            if( evtSrc & BMA456.EventSource.evtSrcStep ):
+                remainder &= ~EventSource.evtSrcActivity
+            if( evtSrc & EventSource.evtSrcStep ):
                 featMap |= BMA456.BMA456_FSWBL_CNT_INTX_MAP_STEP_CNT
-                remainder &= ~BMA456.EventSource.evtSrcStep
-            if( evtSrc & BMA456.EventSource.evtSrcTap):
+                remainder &= ~EventSource.evtSrcStep
+            if( evtSrc & EventSource.evtSrcTap):
                 featMap |= BMA456.BMA456_FSWBL_CNT_INTX_MAP_STAP
-                remainder &= ~BMA456.EventSource.evtSrcTap
+                remainder &= ~EventSource.evtSrcTap
         elif (self.featureSet == BMA456.BMA456_FEATURE_SET_HEARABLE):
-            if( evtSrc & BMA456.EventSource.evtSrcLowSlopeTime):
+            if( evtSrc & EventSource.evtSrcLowSlopeTime):
                 featMap |= BMA456.BMA456_FSHBL_CNT_INTX_MAP_NO_MOTION
-                remainder &= ~BMA456.EventSource.evtSrcLowSlopeTime
-            if( evtSrc & BMA456.EventSource.evtSrcHighSlopeTime):
+                remainder &= ~EventSource.evtSrcLowSlopeTime
+            if( evtSrc & EventSource.evtSrcHighSlopeTime):
                 featMap |= BMA456.BMA456_FSHBL_CNT_INTX_MAP_ANY_MOTION
-                remainder &= ~BMA456.EventSource.evtSrcHighSlopeTime
-            if( evtSrc & BMA456.EventSource.evtSrcActivity):
+                remainder &= ~EventSource.evtSrcHighSlopeTime
+            if( evtSrc & EventSource.evtSrcActivity):
                 featMap |= BMA456.BMA456_FSHBL_CNT_INTX_MAP_ACTIVITY
-                remainder &= ~BMA456.EventSource.evtSrcActivity
-            if( evtSrc & BMA456.EventSource.evtSrcStep):
+                remainder &= ~EventSource.evtSrcActivity
+            if( evtSrc & EventSource.evtSrcStep):
                 featMap |= BMA456.BMA456_FSHBL_CNT_INTX_MAP_STEP_CNT
-                remainder &= ~BMA456.EventSource.evtSrcStep
-            if( evtSrc & BMA456.EventSource.evtSrcTap):
+                remainder &= ~EventSource.evtSrcStep
+            if( evtSrc & EventSource.evtSrcTap):
                 featMap |= BMA456.BMA456_FSHBL_CNT_INTX_MAP_TAP
-                remainder &= ~BMA456.EventSource.evtSrcTap
+                remainder &= ~EventSource.evtSrcTap
         elif (self.featureSet == BMA456.BMA456_FEATURE_SET_MM):
-            if( evtSrc & BMA456.EventSource.evtSrcLowSlopeTime):
+            if( evtSrc & EventSource.evtSrcLowSlopeTime):
                 featMap |= BMA456.BMA456_FSMM_CNT_INTX_MAP_NO_MOTION
-                remainder &= ~BMA456.EventSource.evtSrcLowSlopeTime
-            if( evtSrc & BMA456.EventSource.evtSrcHighSlopeTime):
+                remainder &= ~EventSource.evtSrcLowSlopeTime
+            if( evtSrc & EventSource.evtSrcHighSlopeTime):
                 featMap |= BMA456.BMA456_FSMM_CNT_INTX_MAP_ANY_MOTION
-                remainder &= ~BMA456.EventSource.evtSrcHighSlopeTime
-            if( evtSrc & BMA456.EventSource.evtSrcSigMotion):
+                remainder &= ~EventSource.evtSrcHighSlopeTime
+            if( evtSrc & EventSource.evtSrcSigMotion):
                 featMap |= BMA456.BMA456_FSMM_CNT_INTX_MAP_SIG_MOTION
-                remainder &= ~BMA456.EventSource.evtSrcSigMotion
-            if( evtSrc & BMA456.EventSource.evtSrcHighGTime):
+                remainder &= ~EventSource.evtSrcSigMotion
+            if( evtSrc & EventSource.evtSrcHighGTime):
                 featMap |= BMA456.BMA456_FSMM_CNT_INTX_MAP_HIGH_G
-                remainder &= ~BMA456.EventSource.evtSrcHighGTime
-            if( evtSrc & BMA456.EventSource.evtSrcLowGTime):
+                remainder &= ~EventSource.evtSrcHighGTime
+            if( evtSrc & EventSource.evtSrcLowGTime):
                 featMap |= BMA456.BMA456_FSMM_CNT_INTX_MAP_LOW_G
-                remainder &= ~BMA456.EventSource.evtSrcLowGTime
-            if( evtSrc & BMA456.EventSource.evtSrcOrientation):
+                remainder &= ~EventSource.evtSrcLowGTime
+            if( evtSrc & EventSource.evtSrcOrientation):
                 featMap |= BMA456.BMA456_FSMM_CNT_INTX_MAP_ORIENT
-                remainder &= ~BMA456.EventSource.evtSrcOrientation
-            if( evtSrc & BMA456.EventSource.evtSrcTap):
+                remainder &= ~EventSource.evtSrcOrientation
+            if( evtSrc & EventSource.evtSrcTap):
                 featMap |= BMA456.BMA456_FSMM_CNT_INTX_MAP_TAP
-                remainder &= ~BMA456.EventSource.evtSrcTap
+                remainder &= ~EventSource.evtSrcTap
         elif (self.featureSet == BMA456.BMA456_FEATURE_SET_AN):
-            if( evtSrc & BMA456.EventSource.evtSrcLowSlopeTime):
+            if( evtSrc & EventSource.evtSrcLowSlopeTime):
                 featMap |= BMA456.BMA456_FSAN_CNT_INTX_MAP_NO_MOTION
-                remainder &= ~BMA456.EventSource.evtSrcLowSlopeTime
-            if( evtSrc & BMA456.EventSource.evtSrcHighSlopeTime ):
+                remainder &= ~EventSource.evtSrcLowSlopeTime
+            if( evtSrc & EventSource.evtSrcHighSlopeTime ):
                 featMap |= BMA456.BMA456_FSAN_CNT_INTX_MAP_ANY_MOTION
-                remainder &= ~BMA456.EventSource.evtSrcHighSlopeTime
+                remainder &= ~EventSource.evtSrcHighSlopeTime
         return remainder, dataMap, featMap
 
     #
@@ -520,7 +507,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
         gp2 = dict( [("BMA456.int2."+k,v) for k,v in gpioParams.items()] )
         gp1.update(gp2)
         for key, value in gp1.items():
-            if not( key in paramDict.keys()):
+            if not( key in paramDict):
                 paramDict[key] = value
 
 
@@ -548,11 +535,26 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
                     gpioParams = dict( [(k.replace("BMA456.int1.", ""),v) for k,v in paramDict.items() if k.startswith("BMA456.int1.")] )
                     self.pinInt1 = GPIO()
                     result = self.pinInt1.open(gpioParams)
+                    self.regInt1IOctrl = paramDict.get ("BMA456.INT1_IO_CTRL", BMA456.BMA456_CNT_INT1_IO_CTRL_DEFAULT)
+                    self.regInt1IOctrl &= ~BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT
+                    self.regInt1IOctrl |= BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT_DISABLE
+                    self.write_Reg_Byte( BMA456.BMA456_REG_INT1_IO_CTRL, self.regInt1IOctrl )
+                    self.regInt1Map = paramDict.get ("BMA456.INT1_MAP", BMA456.BMA456_CNT_INTX_MAP_DEFAULT)
+                    self.write_Reg_Byte( BMA456.BMA456_REG_INT1_MAP, self.regInt1Map )
                 if ("BMA456.int2.gpio.pinDesignator" in paramDict):
                     paramDict["BMA456.int2.gpio.direction"] = GPIO.DIRECTION_IN
                     gpioParams = dict( [(k.replace("BMA456.int2.", ""),v) for k,v in paramDict.items() if k.startswith("BMA456.int2.")] )
                     self.pinInt2 = GPIO()
                     result = self.pinInt2.open(gpioParams)
+                    self.regInt2IOctrl = paramDict.get ("BMA456.INT2_IO_CTRL", BMA456.BMA456_CNT_INT2_IO_CTRL_DEFAULT)
+                    self.regInt2IOctrl &= ~BMA456.BMA456_CNT_INT2_IO_CTRL_OUTPUT
+                    self.regInt2IOctrl |= BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT_DISABLE
+                    self.write_Reg_Byte( BMA456.BMA456_REG_INT2_IO_CTRL, self.regInt2IOctrl )
+                    self.regInt2Map = paramDict.get ("BMA456.INT2_MAP", BMA456.BMA456_CNT_INTX_MAP_DEFAULT)
+                    self.write_Reg_Byte( BMA456.BMA456_REG_INT2_MAP, self.regInt2Map )
+                self.regIntMapData = paramDict.get ("BMA456.INT_MAP_DATA", BMA456.BMA456_CNT_INT_MAP_DATA_DEFAULT)
+                self.write_Reg_Byte( BMA456.BMA456_REG_INT_MAP_DATA, self.regIntMapData )
+                self.enableInterrupt()
         return result
 
 
@@ -629,20 +631,21 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
     #
     #
     #
-    def registerInterruptHandler(self, handler=None ):
+    def registerInterruptHandler(self, onEvent=None, callerFeedBack=None, handler=None ):
         ret = ErrorCode.errOk
-        fAnyInt = 0
-        if not (self.pinInt1 is None):
-            fAnyInt = 1
-            ret = self.pinInt1.registerInterruptHandler(handler)
-        if not (self.pinInt2 is None):
-            fAnyInt = 1
-            err = self.pinInt2.registerInterruptHandler(handler)
-            if (ret == ErrorCode.errOk):
-                ret = err
-        if( not fAnyInt ):
+        fAny = False
+        if ((onEvent == Event.evtInt1) or (onEvent == Event.evtAny)) and not (self.pinInt1 is None):
+            fAny = True
+            self.pinInt1.registerInterruptHandler( GPIO.EVENT_DEFAULT, callerFeedBack, handler )
+        if ((onEvent == Event.evtInt2) or (onEvent == Event.evtAny)) and not (self.pinInt2 is None):
+            fAny = True
+            self.pinInt2.registerInterruptHandler( GPIO.EVENT_DEFAULT, callerFeedBack, handler )
+        if (fAny):
+            ret = self.enableInterrupt()
+        else:
             ret = ErrorCode.errExhausted
         return ret
+    
     #
     #
     #
@@ -652,25 +655,21 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
             ret = ErrorCode.errResourceConflict
         else:
             ret = ErrorCode.errOk
-            fNoInt = 1
+            # Clear interrupt
+            _, ret = self.read_Reg_Word( BMA456.BMA456_REG_INT_STATUS )
+            # Enable from upper layer down to hardware
             if not (self.pinInt1 is None):
                 ret = self.pinInt1.enableInterrupt()
-                fNoInt = 0
-                #GPIO_enableInt( sContext[devIdx].pinInt1 );
-                data = self.regInt1IOctrl
+                data = self.regInt1IOctrl & ~BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT
                 data |= BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT_ENABLE
                 ret = self.write_Reg_Byte( BMA456.BMA456_REG_INT1_IO_CTRL, data )
             if not(self.pinInt2 is None):
                 ret = self.pinInt2.enableInterrupt()
-                fNoInt = 0;
-                #GPIO_enableInt( sContext[devIdx].pinInt2 );
-                data = self.regInt2IOctrl
+                data = self.regInt2IOctrl & ~BMA456.BMA456_CNT_INT2_IO_CTRL_OUTPUT
                 data |= BMA456.BMA456_CNT_INT2_IO_CTRL_OUTPUT_ENABLE
                 err = self.write_Reg_Byte( BMA456.BMA456_REG_INT2_IO_CTRL, data )
                 if (ret == ErrorCode.errOk):
                     ret = err
-            if( fNoInt ):
-                ret = ErrorCode.errExhausted
         return ret;
     
     #
@@ -683,20 +682,19 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
         else:
             ret = ErrorCode.errOk
             if not(self.pinInt1 is None):
-                ret = self.pinInt1.disableInterrupt()
                 data = self.regInt1IOctrl & ~BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT
                 data |= BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT_DISABLE
                 ret = self.write_Reg_Byte( BMA456.BMA456_REG_INT1_IO_CTRL, data )
-                #GPIO_disableInt( sContext[devIdx].pinInt1 );
+                ret = self.pinInt1.disableInterrupt()
             if not(self.pinInt2 is None):
-                ret = self.pinInt2.disableInterrupt()
                 data = self.regInt2IOctrl & ~BMA456.BMA456_CNT_INT2_IO_CTRL_OUTPUT
                 data |= BMA456.BMA456_CNT_INT2_IO_CTRL_OUTPUT_DISABLE
                 err = self.write_Reg_Byte( BMA456.BMA456_REG_INT2_IO_CTRL, data )
                 if (ret == ErrorCode.errOk):
                     ret = err
-                #GPIO_disableInt( sContext[devIdx].pinInt2 );
+                ret = self.pinInt2.disableInterrupt()
         return ret;
+ 
  
     def getEventContext(self, event, context):
         ret = ErrorCode.errOk
@@ -799,17 +797,35 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
             # Restore old configuration
             self.write_Reg_Byte( BMA456.BMA456_REG_ACC_CONF, oldRate )
             config.type = ConfigItem.cfgRange
-            config.setting.range = oldRange
+            config.range = oldRange
             self.configure( config )
         return ret
     
     def reset(self):
-        # Initiate a soft reset
-        ret = self.write_Reg_Byte( BMA456.BMA456_REG_CMD, BMA456.BMA456_CNT_CMD_SOFTRESET )
-        # Possibly wait some time
+        # Known issue with BMA456: It does not ACK the softreset command, when
+        # the sensor is not in suspend mode. (Search for "BMA456 soft reset error"!)
+        # Instead of suspending, we catch and ignore the exception thrown.
+        ret = ErrorCode.errOk
+        # Initiate the soft reset
+        try:
+            ret = self.write_Reg_Byte( BMA456.BMA456_REG_CMD, BMA456.BMA456_CNT_CMD_SOFTRESET )
+        except OSError:
+            pass
+        # Wait for some time
+        time.sleep( 5 / 1000 )   
         # Restore configuration
         if (ret == ErrorCode.errOk):
             ret = self._initialize()
+            data = self.regInt1IOctrl & ~BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT
+            data |= BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT_DISABLE
+            self.write_Reg_Byte( BMA456.BMA456_REG_INT1_IO_CTRL, data )
+            self.write_Reg_Byte( BMA456.BMA456_REG_INT1_MAP, self.regInt1Map )
+            data = self.regInt2IOctrl & ~BMA456.BMA456_CNT_INT2_IO_CTRL_OUTPUT
+            data |= BMA456.BMA456_CNT_INT2_IO_CTRL_OUTPUT_DISABLE
+            self.write_Reg_Byte( BMA456.BMA456_REG_INT2_IO_CTRL, data )
+            self.write_Reg_Byte( BMA456.BMA456_REG_INT2_MAP, self.regInt2Map )
+            self.write_Reg_Byte( BMA456.BMA456_REG_INT_MAP_DATA, self.regIntMapData )
+            self.enableInterrupt()
         return ret
 
     #
@@ -818,22 +834,25 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
     def configure(self, config):
         ret = ErrorCode.errOk
     
-        if (config.type == ConfigItem.cfgRateAvg):
+        if (config.type == ConfigItem.cfgRate):
             # Construct ACC_CONF register content
-            key, ret = self.dictRate.findKey( config.rateMode.rate )
+            key, ret = self.dictRate.findKey( config.value )
             if (ret == ErrorCode.errOk):
                 data = key
-                if (config.setting.rateMode.control == SamplingMode.smplAverage):
-                    key, ret = self.dictAverage.findKey( config.setting.rateMode.mValue )
-                    data |= key
-                elif (config.setting.rateMode.control == SamplingMode.smplNormal):
-                    data |= BMA456.BMA456_CNT_ACC_CONF_MODE_NORM
-                elif (config.setting.rateMode.control == SamplingMode.smplOSR2):
-                    data |= BMA456.BMA456_CNT_ACC_CONF_MODE_OSR2
-                elif (config.setting.rateMode.control == SamplingMode.smplOSR4):
-                    data |= BMA456.BMA456_CNT_ACC_CONF_MODE_OSR4
+                if (isinstance( config, Configuration)):
+                    if (config.rateMode.control == SamplingMode.smplAverage):
+                        key, ret = self.dictAverage.findKey( config.rateMode.mValue )
+                        data |= key
+                    elif (config.rateMode.control == SamplingMode.smplNormal):
+                        data |= BMA456.BMA456_CNT_ACC_CONF_MODE_NORM
+                    elif (config.rateMode.control == SamplingMode.smplOSR2):
+                        data |= BMA456.BMA456_CNT_ACC_CONF_MODE_OSR2
+                    elif (config.rateMode.control == SamplingMode.smplOSR4):
+                        data |= BMA456.BMA456_CNT_ACC_CONF_MODE_OSR4
+                    else:
+                        ret = ErrorCode.errNotSupported
                 else:
-                    ret = ErrorCode.errNotSupported
+                    data |= BMA456.BMA456_CNT_ACC_CONF_MODE_NORM
             if (ret == ErrorCode.errOk):
                 ret = self.write_Reg_Byte( BMA456.BMA456_REG_ACC_CONF, data )
                 if (ret == ErrorCode.errOk):
@@ -844,7 +863,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
                         ret = ErrorCode.errSpecRange
         elif (config.type == ConfigItem.cfgRange):
             # Construct ACC_RANGE register content
-            key, ret = self.dictRange.findKey( config.setting.range )
+            key, ret = self.dictRange.findKey( config.value )
             if (ret == ErrorCode.errOk):
                 data = key
                 ret = self.write_Reg_Byte( BMA456.BMA456_REG_ACC_RANGE, data )
@@ -856,7 +875,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
             ret = ErrorCode.errNotImplemented
         elif (config.type == ConfigItem.cfgEventArm):
             # Translate accel_EventSource_t into INTxMAP and INT_MAT_DATA bit masks
-            remainEvt, dataMap, featureMap = self._accelEvtSrc2bmaMap( config.setting.armedEvents )
+            remainEvt, dataMap, featureMap = self._accelEvtSrc2bmaMap( config.armedEvents )
             if (remainEvt != EventSource.evtSrcNone):
                 ret = ErrorCode.errNotSupported
             else:
@@ -866,11 +885,11 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
             if (ret == ErrorCode.errOk):
                 ret = self.write_Reg_Byte( BMA456.BMA456_REG_INT2_MAP, featureMap )
         elif (config.type == ConfigItem.cfgEventCondition):
-            if (config.setting.eventCondition.event in [EventSource.evtSrcDataRdy, EventSource.evtSrcFifoWM,
+            if (config.eventCondition.event in [EventSource.evtSrcDataRdy, EventSource.evtSrcFifoWM,
                                                         EventSource.evtSrcFifoFull, EventSource.evtSrcError]):
                 # Nothing to condition, already done.
                 ret = ErrorCode.errOk
-            elif (config.setting.eventCondition.event in [EventSource.evtSrcLowGTime, EventSource.evtSrcHighGTime,
+            elif (config.eventCondition.event in [EventSource.evtSrcLowGTime, EventSource.evtSrcHighGTime,
                                                           EventSource.evtSrcLowSlopeTime, EventSource.evtSrcHighSlopeTime,
                                                           EventSource.evtSrcSigMotion, EventSource.evtSrcTap,
                                                           EventSource.evtSrcStep, EventSource.evtSrcGesture,
@@ -881,7 +900,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
                 ret = ErrorCode.errNotImplemented
             else:
                 # Either unsupported event or invalid event mask.
-                if( not imath.ispowtwo( config.setting.eventCondition.event ) ):
+                if( not imath.ispowtwo( config.eventCondition.event ) ):
                     ret = ErrorCode.errInvalidParameter
                 else:
                     ret = ErrorCode.errNotSupported
@@ -949,19 +968,19 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
         elif (statID == StatusID.StatusError):
             # Implementation-specific error/health code
             status = 0
-            # Copy INTERNAL_ERROR (int_err_2, int_err_1)
+            # Copy INTERNAL_ERROR 0x5F (int_err_2, int_err_1)
             if (ret == ErrorCode.errOk):
                 data, ret = self.read_Reg_Byte( BMA456.BMA456_REG_INTERNAL_ERR )
                 status = (status << 8) | data
-            # Copy INTERNAL_STATUS (odr_high_error, odr_50hz_error, axes_remap_error, message)
+            # Copy INTERNAL_STATUS 0x2A (odr_high_error, odr_50hz_error, axes_remap_error, message)
             if (ret == ErrorCode.errOk):
                 data, ret = self.read_Reg_Byte( BMA456.BMA456_REG_INTERNAL_STATUS )
                 status = (status << 8) | data
-            # Copy EVENT (por_detected)
+            # Copy EVENT 0x1B (por_detected)
             if (ret == ErrorCode.errOk):
                 data, ret = self.read_Reg_Byte( BMA456.BMA456_REG_EVENT )
                 status = (status << 8) | data
-            # Copy ERR_REG (aux_err, fifo_err, error_code, cmd_err, fatal_err)
+            # Copy ERR_REG 0x02 (aux_err, fifo_err, error_code, cmd_err, fatal_err)
             if (ret == ErrorCode.errOk):
                 data, ret = self.read_Reg_Byte( BMA456.BMA456_REG_ERROR )
                 status = (status << 8) | data

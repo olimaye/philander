@@ -1,6 +1,14 @@
-from pymitter import EventEmitter
+from dataclasses import dataclass
 from enum import Enum, auto, unique
+from pymitter import EventEmitter
 from systypes import ErrorCode
+
+@unique
+class Event(Enum):
+    evtNone   = auto()
+    evtAny	  = auto()
+    evtInt1   = auto()
+    evtInt2   = auto()
 
 
 @unique
@@ -11,22 +19,21 @@ class EventContextControl(Enum):
     evtCtxtCtrl_getLast     = auto()
     evtCtxtCtrl_getPrevious = auto()
 
+@dataclass
+class EventContext:
+    control:    EventContextControl = EventContextControl.evtCtxtCtrl_getFirst
+    remainInt:  int = 0
+
+    def __init__(self):
+        pass
+
 
 class Interruptable:
 
     def __init__(self):
         self.eventEmitter = EventEmitter()
-    
-
-    @classmethod
-    def Params_init(cls, paramDict):
-        if not ("Interruptable.int1.gpio" in paramDict):
-            paramDict["Interruptable.int1.gpio"] = 0
-        if not ("Interruptable.int2.gpio" in paramDict):
-            paramDict["Interruptable.int2.gpio"] = 0
-        if not ("Interruptable.handler" in paramDict):
-            paramDict["Interruptable.handler"] = None
-        
+        self.dictFeedbacks = dict()
+            
     #
     # Just closes the object.
     #
@@ -40,19 +47,37 @@ class Interruptable:
     # The given handler will be called upon occurrence
     # of the interrupts specified.
     #
-    def registerInterruptHandler(self, handler=None ):
+    def registerInterruptHandler(self, onEvent=None, callerFeedBack=None, handler=None ):
         ret = ErrorCode.errOk
         if (handler is None):
-            # Disable; from hardware to app.
-            ret = self.disableInterrupt()
-            self.eventEmitter.off_all()
+            if (onEvent is None) or (onEvent == Event.evtNone):
+                # Disable; from hardware to app.
+                ret = self.disableInterrupt()
+                self.eventEmitter.off_all()
+            else:
+                self.dictFeedbacks[onEvent] = callerFeedBack
+        elif (onEvent is None) or (onEvent == Event.evtNone):
+            self.eventEmitter.off_any( handler )
+            if (len(self.eventEmitter.listeners_all()) < 1):
+                self.disableInterrupt()
         else:
             # Enable; from app (=sink) to hardware (=source)
-            self.eventEmitter.on_any( handler )
-            ret = self.enableInterrupt()
-            if (ret != ErrorCode.errOk):
-                self.eventEmitter.off_any( handler )
-                self.disableInterrupt()
+            if (onEvent == Event.evtAny):
+                self.eventEmitter.on_any( handler )
+                ret = self.enableInterrupt()
+                if (ret == ErrorCode.errOk):
+                    self.dictFeedbacks[onEvent] = callerFeedBack
+                else:
+                    self.disableInterrupt()
+                    self.eventEmitter.off_any( handler )
+            else:
+                self.eventEmitter.on( onEvent, handler )
+                ret = self.enableInterrupt()
+                if (ret == ErrorCode.errOk):
+                    self.dictFeedbacks[onEvent] = callerFeedBack
+                else:
+                    self.disableInterrupt()
+                    self.eventEmitter.off( onEvent, handler )
         return ret;
 
     #
@@ -74,3 +99,15 @@ class Interruptable:
     def getEventContext(self, event, context):
         pass
     
+    #
+    #
+    #
+    def fire(self, event, *args):
+        if (event in self.dictFeedbacks):
+            fb = self.dictFeedbacks[event]
+        elif (not(event is None)) and (event != Event.evtNone) and (Event.evtAny in self.dictFeedbacks):
+            fb = self.dictFeedbacks[Event.evtAny]
+        else:
+            fb = None
+        self.eventEmitter.emit( event, fb, args )
+        return None

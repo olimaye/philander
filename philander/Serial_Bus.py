@@ -280,6 +280,7 @@ class Serial_Bus( Module ):
         H = (data & 0xFFFF0000) >> 16
         self.bus.write_word_data( devAdr, aReg, L )
         self.bus.write_word_data( devAdr, aReg+2, H )
+        return None
     
     def _smbus_readRegBlock( self, devAdr, aReg, num ):
         if (num <= 32 ):
@@ -319,6 +320,7 @@ class Serial_Bus( Module ):
     def _periphery_writeRegByte( self, devAdr, aReg, data ):
         msgs = [self.bus.Message([aReg, data])]
         self.bus._transfer( devAdr, msgs)
+        return None
 
     def _periphery_readRegWord( self, devAdr, aReg ):
         msgs = [self.bus.Message([aReg]), self.bus.Message([0, 0], read=True)]
@@ -329,6 +331,7 @@ class Serial_Bus( Module ):
     def _periphery_writeRegWord( self, devAdr, aReg, data ):
         msgs = [self.bus.Message([aReg, (data & 0xFF), (data >> 8)])]
         self.bus._transfer( devAdr, msgs)
+        return None
 
     def _periphery_readRegDWord( self, devAdr, aReg ):
         msgs = [self.bus.Message([aReg]), self.bus.Message([0, 0, 0, 0], read=True)]
@@ -339,6 +342,7 @@ class Serial_Bus( Module ):
     def _periphery_writeRegDWord( self, devAdr, aReg, data ):
         msgs = [self.bus.Message([aReg, (data & 0xFF), (data >> 8), (data >> 16), (data >> 24)])]
         self.bus._transfer( devAdr, msgs)
+        return None
     
     def _periphery_readRegBlock( self, devAdr, aReg, num ):
         ba = bytearray(num)
@@ -351,6 +355,7 @@ class Serial_Bus( Module ):
         bdata.insert( 0, aReg )
         msgs = [self.bus.Message( bdata )]
         self.bus._transfer( devAdr, msgs)
+        return None
 
     # *** Serial Bus simulator implementation ***
 
@@ -601,8 +606,8 @@ class Serial_Bus( Module ):
     # Note that the data is sent in little endian order, i.e. the first byte received
     # is interpreted as the least significant byte (lower 8 bits).
     # @return An error code indicating success or the reason of failure.
-    def read_Reg_Word( self, device, reg, data16 ):
-        data = self._serDevPtr_readRegWord( device.deviceAddress, reg, data16 )
+    def read_Reg_Word( self, device, reg ):
+        data = self._serDevPtr_readRegWord( device.deviceAddress, reg )
         return data, ErrorCode.errOk
 
     # <p>Sends a register number followed by a 16 bit word down to the device
@@ -630,8 +635,8 @@ class Serial_Bus( Module ):
     # Note that the data is sent in little endian order, i.e. the first byte received
     # is interpreted as the least significant byte (lower 8 bits).
     # @return An error code indicating success or the reason of failure.
-    def read_Reg_DWord( self, device, reg, data32 ):
-        data = self._serDevPtr_readRegDWord( device.deviceAddress, reg, data32 )
+    def read_Reg_DWord( self, device, reg ):
+        data = self._serDevPtr_readRegDWord( device.deviceAddress, reg )
         return data, ErrorCode.errOk
 
     # <p>Sends a register number followed by a 32 bit dword down to the device

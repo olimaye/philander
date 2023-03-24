@@ -1,7 +1,7 @@
 from dataclasses import dataclass
 from enum import Enum, Flag, unique, auto
-from Interruptable import Interruptable, EventContextControl
-from Sensor import Sensor
+from Interruptable import Interruptable, Event, EventContext as InterruptableEventContext
+import Sensor
 
 @unique
 class Activity(Enum):
@@ -46,14 +46,6 @@ class Tap(Flag):
     tapTriple       = auto()
     
 @unique
-class ConfigItem(Enum):
-    cfgRateAvg      = auto()
-    cfgRange        = auto()
-    cfgFifo         = auto()
-    cfgEventArm     = auto()
-    cfgEventCondition = auto()
-    
-@unique
 class SamplingMode(Enum):
     smplAverage     = auto()
     smplNormal      = auto()
@@ -84,34 +76,33 @@ class EventSource(Flag):
     evtSrcError     = auto()
     evtSrcAll       = 0xFFFFFFFF
 
+
 @dataclass
-class Configuration():
-    
+class Configuration( Sensor.Configuration ):
+        
     @dataclass
     class CfgRateMode():
-        rate:   int
-        mValue: int
-        control:    SamplingMode
+        mValue: int = 2
+        control: SamplingMode = SamplingMode.smplNormal
 
     @dataclass
     class CfgFifo():
-        watermark:  int
-        control:    int
+        watermark:  int = 4
+        control:    int = 0
         
     @dataclass
     class CfgInterrupt():
-        delay:      int
-        thrshld:    int
-        hysteresis: int
-        axes:       AxesSign
-        event:      EventSource
+        delay:      int = 10
+        thrshld:    int = 1500
+        hysteresis: int = 200
+        axes:       AxesSign = AxesSign.axsZ
+        event:      EventSource = EventSource.evtSrcDataRdy
         
-    type:       ConfigItem
-    rateMode:   CfgRateMode
-    range:      int
-    fifo:       CfgFifo
-    armedEvents:    EventSource
-    eventCondition: CfgInterrupt
+    rateMode:   CfgRateMode = None
+    fifo:       CfgFifo = None
+    armedEvents:    EventSource = EventSource.evtSrcNone
+    eventCondition: CfgInterrupt = None
+    
     
         
 @unique
@@ -136,23 +127,18 @@ class Data:
     y:  int
     z:  int
 
-@unique
-class Event(Enum):
-    evtNone   = auto()
-    evtInt1   = auto()
-    evtInt2   = auto()
-
 @dataclass
-class EventContext:
-    control:    EventContextControl
-    remainInt:  int
-    source:     EventSource
-    data:       Data
-    status:     int
+class EventContext( InterruptableEventContext ):
+    source:     EventSource = EventSource.evtSrcNone
+    data:       Data = (0,0,0)
+    status:     int = 0
+    
+    def __init__(self):
+        super().__init__()
 
 #
 #
 #        
-class Accelerometer(Interruptable, Sensor):
+class Accelerometer(Interruptable, Sensor.Sensor):
     pass    
-    
+   
