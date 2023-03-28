@@ -10,7 +10,6 @@ from systypes import ErrorCode, RunLevel
 import time
 from sbsim import sbsimNull
 from sbsimBMA456 import sbsimBMA456
-import gpio
 from gpio import GPIO
 
 class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
