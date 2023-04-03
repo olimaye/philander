@@ -8,29 +8,30 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["GPIO"]
 
-from systypes import ErrorCode
-from Module import Module
-from Interruptable import Interruptable
-from threading import Thread
 import logging
+from threading import Thread
 import warnings
+
+from Interruptable import Interruptable
+from Module import Module
+from systypes import ErrorCode
 
 
 class GPIO(Module, Interruptable):
     """General-purpose I/O abstraction class.
     
     Provide access to and control over the underlying GPIO hardware. For
-    that, an implementing driver module is used. Currently, RPi.gpio,
+    that, an implementing driver module is used. Currently, RPi.GPIO,
     gpiozero and periphery are supported. As a convergence layer, this
     class is to hide specifics and level syntactic requirements of the
-    implementing module.
+    implementing package.
     """
     
-    _IMPLMOD_NONE = 0
-    _IMPLMOD_RPIGPIO = 1
-    _IMPLMOD_GPIOZERO = 2
-    _IMPLMOD_PERIPHERY = 3
-    _IMPLMOD_SIM = 4
+    _IMPLPAK_NONE = 0
+    _IMPLPAK_RPIGPIO = 1
+    _IMPLPAK_GPIOZERO = 2
+    _IMPLPAK_PERIPHERY = 3
+    _IMPLPAK_SIM = 4
 
     _POLL_TIMEOUT = 1
 
@@ -61,9 +62,12 @@ class GPIO(Module, Interruptable):
     def __init__(self):
         """Initialize the instance with defaults.
         
-        Note that just after construction, the instance is not operable,
-        yet. Call open() to configure it and set it into a functional
-        state.
+        As part of the construction, the underlying implementation is
+        determined. So, at this time, one of the supported gpio packages
+        will be accessed.
+        Still, note that just after construction, the instance is not
+        operable, yet. Call open() to configure it and set it into a
+        functional state.
         """
         self._factory = None
         self.pin = None
@@ -77,7 +81,7 @@ class GPIO(Module, Interruptable):
         self._bounce = GPIO.BOUNCE_NONE
         self._fIntEnabled = False
         Interruptable.__init__(self)
-        self._implmod = self._detectDriverModule()
+        self._implpak = self._detectDriverModule()
         self._worker = None
         self._workerDone = False
 
@@ -88,13 +92,15 @@ class GPIO(Module, Interruptable):
     #   - RPi.GPIO
     #   - gpiozero
     #   - periphery
-    # :return: One of the One of the _IMPLMOD_xxx constants to
-    #          indicate the implementation package. 
+    # :return: One of the _IMPLPAK_xxx constants to indicate the
+    #          implementation package. 
     # :rtype: int
+    # :raise: warning in case that none of the supported packages could
+    #        be found.
     def _detectDriverModule(self):
-        ret = GPIO._IMPLMOD_NONE
+        ret = GPIO._IMPLPAK_NONE
         # Check for RPi.GPIO
-        if ret == GPIO._IMPLMOD_NONE:
+        if ret == GPIO._IMPLPAK_NONE:
             try:
                 import RPi.GPIO as gpioFactory
                 self._factory = gpioFactory
@@ -120,11 +126,11 @@ class GPIO(Module, Interruptable):
                     GPIO.TRIGGER_EDGE_FALLING: gpioFactory.FALLING,
                     GPIO.TRIGGER_EDGE_ANY: gpioFactory.BOTH,
                 }
-                ret = GPIO._IMPLMOD_RPIGPIO
+                ret = GPIO._IMPLPAK_RPIGPIO
             except ModuleNotFoundError:
                 pass    # Suppress the exception, use return, instead.
         # Check for gpiozero
-        if ret == GPIO._IMPLMOD_NONE:
+        if ret == GPIO._IMPLPAK_NONE:
             try:
                 from gpiozero import DigitalInputDevice, DigitalOutputDevice
                 self._inFactory = DigitalInputDevice
@@ -135,15 +141,13 @@ class GPIO(Module, Interruptable):
                     GPIO.PULL_DOWN: False,
                     GPIO.PULL_UP: True,
                 }
-                # self._dictTrigger = {GPIO.TRIGGER_EDGE_RISING: gpioFactory.RISING, GPIO.TRIGGER_EDGE_FALLING: gpioFactory.FALLING, GPIO.TRIGGER_EDGE_ANY: gpioFactory.BOTH}
-                ret = GPIO._IMPLMOD_GPIOZERO
+                ret = GPIO._IMPLPAK_GPIOZERO
             except ModuleNotFoundError:
                 pass    # Suppress the exception, use return, instead.
         # Check for periphery
-        if ret == GPIO._IMPLMOD_NONE:
+        if ret == GPIO._IMPLPAK_NONE:
             try:
                 from periphery import GPIO as gpioFactory
-
                 self._factory = gpioFactory
                 self._dictDirection = {
                     GPIO.DIRECTION_IN: "in",
@@ -161,11 +165,11 @@ class GPIO(Module, Interruptable):
                     GPIO.TRIGGER_EDGE_FALLING: "falling",
                     GPIO.TRIGGER_EDGE_ANY: "both",
                 }
-                ret = GPIO._IMPLMOD_PERIPHERY
+                ret = GPIO._IMPLPAK_PERIPHERY
             except ModuleNotFoundError:
                 pass    # Suppress the exception, use return, instead.
         # Failure
-        if ret == GPIO._IMPLMOD_NONE:
+        if ret == GPIO._IMPLPAK_NONE:
             warnings.warn(
                 "Cannot find GPIO factory lib. Using SIM. Consider installing RPi.GPIO, gpiozero or periphery!"
             )
@@ -173,23 +177,27 @@ class GPIO(Module, Interruptable):
                 GPIO.LEVEL_LOW: GPIO.LEVEL_LOW,
                 GPIO.LEVEL_HIGH: GPIO.LEVEL_HIGH,
             }
-            ret = GPIO._IMPLMOD_SIM
+            ret = GPIO._IMPLPAK_SIM
         return ret
 
+    # Interrupt handling routine called by the underlying implementation 
+    # upon a gpio interrupt occurrence. Determine the source (pin) of
+    # this interrupt and inform registrants by firing an event.
     #
-    #
-    #
-    def _callback(self, param):
-        if self._implmod == GPIO._IMPLMOD_GPIOZERO:
-            argDes = param.pin.number
+    # :param handin: Parameter as provided by the underlying implementation
+    # :type handin: implementation-specific 
+    def _callback(self, handin):
+        if self._implpak == GPIO._IMPLPAK_GPIOZERO:
+            argDes = handin.pin.number
         else:
-            argDes = param
+            argDes = handin
         super().fire(GPIO.EVENT_DEFAULT, argDes)
         return None
 
-    #
-    #
-    #
+    # Thread working loop to poll for the pin state triggering an
+    # interrupt. This is necessary in case interrupts are not natively
+    # supported by the underlying implementation, such as for the
+    # periphery package.
     def _workerLoop(self):
         logging.debug("gpio <%d> starts working loop.", self._designator)
         self._workerDone = False
@@ -204,7 +212,7 @@ class GPIO(Module, Interruptable):
                     self._callback(self._designator)
         logging.debug("gpio <%d> terminates working loop.", self._designator)
 
-    #
+    # Stop the worker thread, if appropriate.
     def _stopWorker(self):
         if self._worker:
             if self._worker.is_alive():
@@ -212,19 +220,31 @@ class GPIO(Module, Interruptable):
                 self._worker.join()
             self._worker = None
 
-    # Initialize parameters with its defaults.
-    # @param[in, out] paramDict The parameter structure to be initialized. Should not be NULL.
-    # @return <code>None</code>
+
     @classmethod
     def Params_init(cls, paramDict):
-        """[Brief]
+        """Initialize parameters with their defaults.
 
-        [Description]
-        :param [ParamName]: [ParamDescription], defaults to [DefaultParamVal]
-        :type [ParamName]: [ParamType](, optional)
-        :raises [ErrorType]: [ErrorDescription]
-        :return: [ReturnDescription]
-        :rtype: [ReturnType]
+        :param paramDict: Dictionary with string keys mapping certain
+        options to their respective values. On entry, this is the
+        parameter structure to be initialized. Should not be None.
+        Options not present in the dictionary will be added and set to
+        their defaults on return. The following options are supported.
+        =====              =====                                              ======
+        Key                Range                                              Default
+        =====              =====                                              ======
+        gpio.pinNumbering  [GPIO.PINNUMBERING_BCM|GPIO.PINNUMBERING_BOARD]  GPIO.PINNUMBERING_BCM
+        gpio.direction     [GPIO.DIRECTION_IN|GPIO.DIRECTION_OUT]           GPIO.DIRECTION_OUT
+        gpio.level         [GPIO.LEVEL_LOW|GPIO.LEVEL_HIGH]                 GPIO.LEVEL_LOW
+        gpio.pull          [GPIO.PULL_NONE|GPIO.PULL_UP|GPIO.PULL_DOWN]     GPIO.PULL_NONE
+        gpio.trigger       [GPIO.TRIGGER_EDGE_RISING|GPIO.TRIGGER_EDGE_FALLING|TRIGGER_EDGE_ANY]  GPIO.TRIGGER_EDGE_RISING
+        gpio.bounce        integer number giving delay in milliseconds [ms]  GPIO.BOUNCE_DEFAULT
+        gpio.feedback      Arbitrary. Passed on to the interrupt handler.   None
+        gpio.handler       Handling routine reference.                      None
+        =====              =====                                              ======
+        :type paramDict: dictionary
+        :return: none
+        :rtype: None
         """
         if not ("gpio.pinNumbering" in paramDict):
             paramDict["gpio.pinNumbering"] = GPIO.PINNUMBERING_BCM
@@ -244,18 +264,24 @@ class GPIO(Module, Interruptable):
             paramDict["gpio.handler"] = None
         return None
 
-    # Opens a specific instance and sets it in a usable state. Allocates necessary
-    # hardware resources and configures user-adjustable parameters to meaningful defaults.
-    # This function must be called prior to any further usage of the instance.
-    # Involving it in the system ramp-up procedure could be a good choice.
-    # After usage of this instance is finished, the application should call
-    # #module_close.
-    # @param[in] paramDicts The parameters to be used for configuration. If NULL, defaults
-    # are applied. This is a dictionary containing key-value pairs that
-    # configure the instance.
-    # @return An <code>#ErrorCode</code> error code either indicating that this
-    # call was successful or the reason why it failed.
+
     def open(self, paramDict):
+        """Opens the instance and sets it in a usable state.
+
+        Allocate necessary hardware resources and configure
+        user-adjustable parameters to meaningful defaults.
+        This function must be called prior to any further usage of the
+        instance. Involving it in the system ramp-up procedure could be
+        a good choice. After usage of this instance is finished, the
+        application should call :meth:`close`.
+        :param paramDict: This is a dictionary containing key-value
+        pairs that configure the instance. If None, defaults are applied.
+        Refer to :meth:`Params_init' for the list of supported options.
+        :type paramDict: dictionary
+        :return: An error code either indicating that this call was
+        successful or the reason why it failed.
+        :rtype: ErrorCode
+        """
         ret = ErrorCode.errOk
         # Retrieve defaults
         defaults = {}
@@ -276,7 +302,7 @@ class GPIO(Module, Interruptable):
             feedback = paramDict.get("gpio.feedback", defaults["gpio.feedback"])
             handler = paramDict.get("gpio.handler", defaults["gpio.handler"])
         if ret == ErrorCode.errOk:
-            if self._implmod == GPIO._IMPLMOD_RPIGPIO:
+            if self._implpak == GPIO._IMPLPAK_RPIGPIO:
                 self._factory.setmode(self._dictNumScheme[numScheme])
                 if self._direction == GPIO.DIRECTION_OUT:
                     self._factory.setup(
@@ -290,7 +316,7 @@ class GPIO(Module, Interruptable):
                         self._factory.IN,
                         pull_up_down=self._dictPull[pull],
                     )
-            elif self._implmod == GPIO._IMPLMOD_GPIOZERO:
+            elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
                 if numScheme == GPIO.PINNUMBERING_BOARD:
                     self._designator = "BOARD" + str(self._designator)
                 if self._direction == GPIO.DIRECTION_OUT:
@@ -317,7 +343,7 @@ class GPIO(Module, Interruptable):
                             pull_up=self._dictPull[pull],
                             active_state=actState,
                         )
-            elif self._implmod == GPIO._IMPLMOD_PERIPHERY:
+            elif self._implpak == GPIO._IMPLPAK_PERIPHERY:
                 if numScheme == GPIO.PINNUMBERING_BCM:
                     if self._direction == GPIO.DIRECTION_OUT:
                         self.pin = self._factory(
@@ -334,7 +360,7 @@ class GPIO(Module, Interruptable):
                         )
                 else:
                     ret = ErrorCode.errNotSupported
-            elif self._implmod == GPIO._IMPLMOD_SIM:
+            elif self._implpak == GPIO._IMPLPAK_SIM:
                 self._level = level
             else:
                 ret = ErrorCode.errNotImplemented
@@ -345,47 +371,62 @@ class GPIO(Module, Interruptable):
                 )
         return ret
 
-    # Closes this instance and releases associated hardware resources. This is the
-    # counterpart of #open.
-    # Upon return, further usage of this instance is prohibited and may lead to
-    # unexpected results. The instance can be re-activated by calling #open,
-    # again.
-    # @return <code>None</code>
     def close(self):
-        ret = ErrorCode.errOk
+        """Closes this instance and releases associated hardware resources.
+
+        This is the counterpart of :meth:`open`. Upon return, further
+        usage of this instance is prohibited and may lead to unexpected
+        results. The instance can be re-activated by calling :meth:`open`,
+        again.
+        :return: An error code either indicating that this call was
+        successful or the reason why it failed.
+        :rtype: ErrorCode
+        """
         ret = self.registerInterruptHandler(None)
-        if self._implmod == GPIO._IMPLMOD_RPIGPIO:
+        if self._implpak == GPIO._IMPLPAK_RPIGPIO:
             self._factory.cleanup(self._designator)
-        elif self._implmod == GPIO._IMPLMOD_GPIOZERO:
+        elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
             self.pin.close()
-        elif self._implmod == GPIO._IMPLMOD_PERIPHERY:
+        elif self._implpak == GPIO._IMPLPAK_PERIPHERY:
             self._stopWorker()
             self.pin.close()
-        elif self._implmod == GPIO._IMPLMOD_SIM:
+        elif self._implpak == GPIO._IMPLPAK_SIM:
             pass
         else:
             ret = ErrorCode.errNotImplemented
         self.pin = None
         return ret
 
-    # Switches the instance to one of the power-saving modes or recovers from
-    # these modes. Situation-aware deployment of these modes can greatly reduce
-    # the system's total power consumption.
-    # @param[in] level <code>#RunLevel</code> The level to switch to.
-    # @return An <code>#ErrorCode</code> error code either indicating that this
-    # call was successful or the reason why it failed.
     def setRunLevel(self, level):
+        """Select the power-saving operation mode.
+
+        Switches the instance to one of the power-saving modes or
+        recovers from these modes. Situation-aware deployment of these
+        modes can greatly reduce the system's total power consumption.
+        :param level: The level to switch to.
+        :type level: RunLevel
+        :return: An error code either indicating that this call was
+        successful or the reason why it failed.
+        :rtype: ErrorCode
+        """
         return ErrorCode.errNotImplemented
 
-    #
-    #
-    #
     def enableInterrupt(self):
+        """Enables the gpio interrupt for that pin.
+
+        If the pin is configured for input, enables the interrupt for
+        that pin. Depending on the trigger configured during :meth:`open`,
+        an event will be fired the next time when the condition is
+        satisfied.
+        :return: An error code either indicating that this call was
+        successful or the reason why it failed.
+        :rtype: ErrorCode
+        """
         ret = ErrorCode.errOk
         if self._fIntEnabled:
             ret = ErrorCode.errOk
         else:
-            if self._implmod == GPIO._IMPLMOD_RPIGPIO:
+            if self._implpak == GPIO._IMPLPAK_RPIGPIO:
                 if self._bounce > 0:
                     self._factory.add_event_detect(
                         self._designator,
@@ -400,12 +441,12 @@ class GPIO(Module, Interruptable):
                         callback=self._callback,
                     )
                 self._fIntEnabled = True
-            elif self._implmod == GPIO._IMPLMOD_GPIOZERO:
+            elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
                 self.pin.when_activated = self._callback
                 if self._trigger == GPIO.TRIGGER_EDGE_ANY:
                     self.pin.when_deactivated = self._callback
                 self._fIntEnabled = True
-            elif self._implmod == GPIO._IMPLMOD_PERIPHERY:
+            elif self._implpak == GPIO._IMPLPAK_PERIPHERY:
                 self.pin.edge = self._dictTrigger[self._trigger]
                 self._stopWorker()
                 self._worker = Thread(target=self._workerLoop, name="GPIO worker")
@@ -415,16 +456,22 @@ class GPIO(Module, Interruptable):
                 ret = ErrorCode.errNotImplemented
         return ret
 
-    #
-    #
-    #
     def disableInterrupt(self):
+        """Disables the gpio interrupt for that pin.
+
+        Immediately disables the interrupt for that pin. It will not
+        fire an event anymore, unless :meth:`enableInterrupt` is called
+        anew. 
+        :return: An error code either indicating that this call was
+        successful or the reason why it failed.
+        :rtype: ErrorCode
+        """
         ret = ErrorCode.errOk
         if self._fIntEnabled:
-            if self._implmod == GPIO._IMPLMOD_RPIGPIO:
+            if self._implpak == GPIO._IMPLPAK_RPIGPIO:
                 self._factory.remove_event_detect(self._designator)
                 self._fIntEnabled = False
-            elif self._implmod == GPIO._IMPLMOD_GPIOZERO:
+            elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
                 from gpiozero import CallbackSetToNone
 
                 with warnings.catch_warnings():
@@ -432,7 +479,7 @@ class GPIO(Module, Interruptable):
                     self.pin.when_activated = None
                     self.pin.when_deactivated = None
                 self._fIntEnabled = False
-            elif self._implmod == GPIO._IMPLMOD_PERIPHERY:
+            elif self._implpak == GPIO._IMPLPAK_PERIPHERY:
                 self._stopWorker()
                 self.pin.edge = "none"
                 self._fIntEnabled = False
@@ -442,18 +489,23 @@ class GPIO(Module, Interruptable):
             ret = ErrorCode.errOk
         return ret
 
-    #
-    #
-    #
     def get(self):
+        """Retrieve the pin level.
+
+        Gives the pin level, independent of whether the pin direction
+        is set to input or ouput.
+        :return: GPIO.LEVEL_HIGH, if the pin is at high level.
+        Otherwise, GPIO.LEVEL_LOW.
+        :rtype: int
+        """
         level = GPIO.LEVEL_LOW
-        if self._implmod == GPIO._IMPLMOD_RPIGPIO:
+        if self._implpak == GPIO._IMPLPAK_RPIGPIO:
             status = self._factory.input(self._designator)
-        elif self._implmod == GPIO._IMPLMOD_GPIOZERO:
+        elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
             status = self.pin.value
-        elif self._implmod == GPIO._IMPLMOD_PERIPHERY:
+        elif self._implpak == GPIO._IMPLPAK_PERIPHERY:
             status = self.pin.read()
-        elif self._implmod == GPIO._IMPLMOD_SIM:
+        elif self._implpak == GPIO._IMPLPAK_SIM:
             status = self._level
         else:
             status = 0
@@ -464,19 +516,27 @@ class GPIO(Module, Interruptable):
             level = GPIO.LEVEL_LOW
         return level
 
-    #
-    #
-    #
-    def set(self, newStat):
+    def set(self, newLevel):
+        """Sets the pin to the given level.
+
+        Outputs the given level at this pin. Does not work, if this pin
+        is set to input direction.
+        :param newLevel: The new level to set this pin to. Must be one of
+        [GPIO.LEVEL_HIGH|GPIO.LEVEL_LOW].
+        :type newLevel: int
+        :return: An error code either indicating that this call was
+        successful or the reason why it failed.
+        :rtype: ErrorCode
+        """
         ret = ErrorCode.errOk
-        if self._implmod == GPIO._IMPLMOD_RPIGPIO:
-            self._factory.output(self._designator, self._dictLevel[newStat])
-        elif self._implmod == GPIO._IMPLMOD_GPIOZERO:
-            self.pin.value = self._dictLevel[newStat]
-        elif self._implmod == GPIO._IMPLMOD_PERIPHERY:
-            self.pin.write(self._dictLevel[newStat])
-        elif self._implmod == GPIO._IMPLMOD_SIM:
-            if newStat == GPIO.LEVEL_HIGH:
+        if self._implpak == GPIO._IMPLPAK_RPIGPIO:
+            self._factory.output(self._designator, self._dictLevel[newLevel])
+        elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
+            self.pin.value = self._dictLevel[newLevel]
+        elif self._implpak == GPIO._IMPLPAK_PERIPHERY:
+            self.pin.write(self._dictLevel[newLevel])
+        elif self._implpak == GPIO._IMPLPAK_SIM:
+            if newLevel == GPIO.LEVEL_HIGH:
                 self._level = GPIO.LEVEL_HIGH
             else:
                 self._level = GPIO.LEVEL_LOW
