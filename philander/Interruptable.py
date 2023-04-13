@@ -1,3 +1,14 @@
+"""Generic interface to describe the capabilities of an event or interrupt source..
+
+This is an abstract base class to define common methods for enabling and
+disabling events as well as for managing event information. Further,
+helper classes useful for constructing and interpreting event context
+information are part of this module.
+"""
+__author__ = "Oliver Maye"
+__version__ = "0.1"
+__all__ = ["Event, EventContextControl, EventContext, Interruptable"]
+
 from dataclasses import dataclass
 from enum import Enum, auto, unique
 from pymitter import EventEmitter

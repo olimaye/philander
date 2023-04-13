@@ -12,12 +12,12 @@ import logging
 from threading import Thread
 import warnings
 
-from Interruptable import Interruptable
-from Module import Module
+import interruptable
+import module
 from systypes import ErrorCode
 
 
-class GPIO(Module, Interruptable):
+class GPIO(module.Module, interruptable.Interruptable):
     """General-purpose I/O abstraction class.
     
     Provide access to and control over the underlying GPIO hardware. For
@@ -80,7 +80,7 @@ class GPIO(Module, Interruptable):
         self._trigger = GPIO.TRIGGER_EDGE_RISING
         self._bounce = GPIO.BOUNCE_NONE
         self._fIntEnabled = False
-        Interruptable.__init__(self)
+        interruptable.Interruptable.__init__(self)
         self._implpak = self._detectDriverModule()
         self._worker = None
         self._workerDone = False
@@ -225,24 +225,25 @@ class GPIO(Module, Interruptable):
     def Params_init(cls, paramDict):
         """Initialize parameters with their defaults.
 
-        :param paramDict: Dictionary with string keys mapping certain
-        options to their respective values. On entry, this is the
-        parameter structure to be initialized. Should not be None.
+        The given dictionary should not be None, on entry.
         Options not present in the dictionary will be added and set to
-        their defaults on return. The following options are supported.
-        =====              =====                                              ======
-        Key                Range                                              Default
-        =====              =====                                              ======
-        gpio.pinNumbering  [GPIO.PINNUMBERING_BCM|GPIO.PINNUMBERING_BOARD]  GPIO.PINNUMBERING_BCM
-        gpio.direction     [GPIO.DIRECTION_IN|GPIO.DIRECTION_OUT]           GPIO.DIRECTION_OUT
-        gpio.level         [GPIO.LEVEL_LOW|GPIO.LEVEL_HIGH]                 GPIO.LEVEL_LOW
-        gpio.pull          [GPIO.PULL_NONE|GPIO.PULL_UP|GPIO.PULL_DOWN]     GPIO.PULL_NONE
-        gpio.trigger       [GPIO.TRIGGER_EDGE_RISING|GPIO.TRIGGER_EDGE_FALLING|TRIGGER_EDGE_ANY]  GPIO.TRIGGER_EDGE_RISING
-        gpio.bounce        integer number giving delay in milliseconds [ms]  GPIO.BOUNCE_DEFAULT
-        gpio.feedback      Arbitrary. Passed on to the interrupt handler.   None
-        gpio.handler       Handling routine reference.                      None
-        =====              =====                                              ======
-        :type paramDict: dictionary
+        their defaults on return.
+        The following options are supported.
+        
+        =================    ==============================================    =========================
+        Key                  Range                                             Default
+        =================    ==============================================    =========================
+        gpio.pinNumbering    GPIO.PINNUMBERING_[BCM | BOARD]                   GPIO.PINNUMBERING_BCM
+        gpio.direction       GPIO.DIRECTION_[IN | OUT]                         GPIO.DIRECTION_OUT
+        gpio.level           GPIO.LEVEL_[LOW | HIGH]                           GPIO.LEVEL_LOW
+        gpio.pull            GPIO.PULL_[NONE | UP | DOWN]                      GPIO.PULL_NONE
+        gpio.trigger         GPIO.TRIGGER_EDGE_[RISING | FALLING | ANY]        GPIO.TRIGGER_EDGE_RISING
+        gpio.bounce          integer number, delay in milliseconds [ms]        GPIO.BOUNCE_DEFAULT
+        gpio.feedback        Arbitrary. Passed on to the interrupt handler.    None
+        gpio.handler         Handling routine reference.                       None
+        =================    ==============================================    =========================
+        
+        :param dict(str, object) paramDict: Configuration parameters as obtained from :meth:`Params_init`, possibly.
         :return: none
         :rtype: None
         """
@@ -274,12 +275,9 @@ class GPIO(Module, Interruptable):
         instance. Involving it in the system ramp-up procedure could be
         a good choice. After usage of this instance is finished, the
         application should call :meth:`close`.
-        :param paramDict: This is a dictionary containing key-value
-        pairs that configure the instance. If None, defaults are applied.
-        Refer to :meth:`Params_init' for the list of supported options.
-        :type paramDict: dictionary
-        :return: An error code either indicating that this call was
-        successful or the reason why it failed.
+        
+        :param dict(str, object) paramDict: Configuration parameters as obtained from :meth:`Params_init`, possibly.
+        :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
@@ -378,8 +376,8 @@ class GPIO(Module, Interruptable):
         usage of this instance is prohibited and may lead to unexpected
         results. The instance can be re-activated by calling :meth:`open`,
         again.
-        :return: An error code either indicating that this call was
-        successful or the reason why it failed.
+        
+        :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
         ret = self.registerInterruptHandler(None)
@@ -403,12 +401,12 @@ class GPIO(Module, Interruptable):
         Switches the instance to one of the power-saving modes or
         recovers from these modes. Situation-aware deployment of these
         modes can greatly reduce the system's total power consumption.
-        :param level: The level to switch to.
-        :type level: RunLevel
-        :return: An error code either indicating that this call was
-        successful or the reason why it failed.
+        
+        :param RunLevel level: The level to switch to.
+        :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
+        del level
         return ErrorCode.errNotImplemented
 
     def enableInterrupt(self):
@@ -418,8 +416,8 @@ class GPIO(Module, Interruptable):
         that pin. Depending on the trigger configured during :meth:`open`,
         an event will be fired the next time when the condition is
         satisfied.
-        :return: An error code either indicating that this call was
-        successful or the reason why it failed.
+        
+        :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
@@ -461,9 +459,9 @@ class GPIO(Module, Interruptable):
 
         Immediately disables the interrupt for that pin. It will not
         fire an event anymore, unless :meth:`enableInterrupt` is called
-        anew. 
-        :return: An error code either indicating that this call was
-        successful or the reason why it failed.
+        anew.
+        
+        :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
@@ -493,9 +491,9 @@ class GPIO(Module, Interruptable):
         """Retrieve the pin level.
 
         Gives the pin level, independent of whether the pin direction
-        is set to input or ouput.
-        :return: GPIO.LEVEL_HIGH, if the pin is at high level.
-        Otherwise, GPIO.LEVEL_LOW.
+        is set to input or output.
+        
+        :return: GPIO.LEVEL_HIGH, if the pin is at high level. Otherwise, GPIO.LEVEL_LOW.
         :rtype: int
         """
         level = GPIO.LEVEL_LOW
@@ -521,11 +519,9 @@ class GPIO(Module, Interruptable):
 
         Outputs the given level at this pin. Does not work, if this pin
         is set to input direction.
-        :param newLevel: The new level to set this pin to. Must be one of
-        [GPIO.LEVEL_HIGH|GPIO.LEVEL_LOW].
-        :type newLevel: int
-        :return: An error code either indicating that this call was
-        successful or the reason why it failed.
+        
+        :param int newLevel: The new level to set this pin to. Must be one of GPIO.LEVEL_[HIGH | LOW].
+        :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
