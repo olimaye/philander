@@ -1,15 +1,16 @@
-"""Generic interface to describe the capabilities of a module.
-
-This is an abstract base class to define methods for ramp-up, shut-down
-or switch into certain run level, that are common to each class on
-module-level.
-"""
+"""Module to provide the ``Module`` base class."""
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Module"]
 
 class Module:
+    """Generic interface to describe the capabilities of a module.
     
+    This is an abstract base class to define methods for ramp-up, shut-down
+    or switch into certain run level, that are common to each class on
+    module-level.
+    """
+
     @classmethod
     def Params_init(cls, paramDict):
         """Initialize parameters with their defaults.
