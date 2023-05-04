@@ -19,14 +19,15 @@ class Module:
         Options not present in the dictionary will be added and set to
         their defaults on return.
         
-        :param dict(str, object) paramDict: Dictionary mapping option names to their respective values.
+        :param dict(str, object) paramDict: Dictionary mapping option\
+        names to their respective values.
         :returns: none
         :rtype: None
         """
         pass
 
     def open(self, paramDict):
-        """Opens the instance and sets it in a usable state.
+        """Open the instance and set it in a usable state.
 
         Allocate necessary hardware resources and configure
         user-adjustable parameters to meaningful defaults.
@@ -35,14 +36,15 @@ class Module:
         a good choice. After usage of this instance is finished, the
         application should call :meth:`close`.
         
-        :param dict(str, object) paramDict: Configuration parameters as obtained from :meth:`Params_init`, possibly.
+        :param dict(str, object) paramDict: Configuration parameters as\
+        obtained from :meth:`.module.Module.Params_init`, possibly.
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
         pass
 
     def close(self):
-        """Closes this instance and releases associated hardware resources.
+        """Close this instance and release associated hardware resources.
 
         This is the counterpart of :meth:`open`. Upon return, further
         usage of this instance is prohibited and may lead to unexpected
@@ -65,6 +67,5 @@ class Module:
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        del level
         pass
     

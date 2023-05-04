@@ -1,6 +1,6 @@
-from Module import Module
+from module import Module
 from systypes import ErrorCode
-from sbsim import sbsimNull
+from simbus import SimBusNull
 
 class Serial_Bus_Device( Module ):
     DEFAULT_ADDRESS     = 0x21
@@ -369,7 +369,7 @@ class Serial_Bus( Module ):
         return sim
     
     def _sbsim_open( self, paramDict ):
-        self._defaultSim = sbsimNull()
+        self._defaultSim = SimBusNull()
         self._defaultSim.open(paramDict)
     
     def _sbsim_close(self):
