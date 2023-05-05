@@ -911,9 +911,9 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
     #
     def calibrate(self, calib):
         ret = ErrorCode.errOk
-        if (calib.type == CalibType.calibDefault):
+        if (calib.type == CalibrationType.calibDefault):
             ret = ErrorCode.errNotImplemented
-        elif (calib.type == CalibType.calibTrueValue):
+        elif (calib.type == CalibrationType.calibTrueValue):
             ret = ErrorCode.errNotImplemented
         else:
             ret = ErrorCode.errNotSupported
