@@ -81,7 +81,7 @@ class GPIO(module.Module, interruptable.Interruptable):
         self._bounce = GPIO.BOUNCE_NONE
         self._fIntEnabled = False
         interruptable.Interruptable.__init__(self)
-        self._implpak = self._detectDriverModule()
+        self._implpak = self._detectProvider()
         self._worker = None
         self._workerDone = False
 
@@ -97,7 +97,7 @@ class GPIO(module.Module, interruptable.Interruptable):
     # :rtype: int
     # :raise: warning in case that none of the supported packages could
     #        be found.
-    def _detectDriverModule(self):
+    def _detectProvider(self):
         ret = GPIO._IMPLPAK_NONE
         # Check for RPi.GPIO
         if ret == GPIO._IMPLPAK_NONE:

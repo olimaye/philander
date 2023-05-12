@@ -2,6 +2,7 @@
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Module"]
+from systypes import ErrorCode
 
 class Module:
     """Generic interface to describe the capabilities of a module.
@@ -41,7 +42,9 @@ class Module:
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        pass
+        del paramDict
+        return ErrorCode.errOk
+        
 
     def close(self):
         """Close this instance and release associated hardware resources.
@@ -54,7 +57,7 @@ class Module:
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        pass
+        return ErrorCode.errOk
 
     def setRunLevel(self, level):
         """Select the power-saving operation mode.
@@ -67,5 +70,6 @@ class Module:
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        pass
+        del level
+        return ErrorCode.errNotImplemented
     

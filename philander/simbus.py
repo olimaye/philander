@@ -21,7 +21,7 @@ class SimBus( module.Module ):
     avoided!
     """
     
-    def readRegByte( self, aReg ):
+    def readByteRegister( self, aReg ):
         """Read a single byte from a certain register.\
         A sub-class must overwrite this method.
         
@@ -34,7 +34,7 @@ class SimBus( module.Module ):
         """
         pass
 
-    def writeRegByte( self, aReg, data ):
+    def writeByteRegister( self, aReg, data ):
         """Write a single byte value into a certain register.\
         A sub-class must overwrite this method.
         
@@ -47,7 +47,7 @@ class SimBus( module.Module ):
         """
         pass
 
-    def readRegWord( self, aReg ):
+    def readWordRegister( self, aReg ):
         """Read a word from a certain register.
         
         The word is formed from the content of the given register (low)
@@ -58,30 +58,30 @@ class SimBus( module.Module ):
         :returns: The value stored by the given register.
         :rtype: int
         """
-        lo = self.readRegByte(aReg)
-        hi = self.readRegByte(aReg+1)
+        lo = self.readByteRegister(aReg)
+        hi = self.readByteRegister(aReg+1)
         return ((hi << 8) | lo)
 
-    def writeRegWord( self, aReg, data ):
+    def writeWordRegister( self, aReg, data16 ):
         """Write a double-byte (word) value into a certain register.
         
         The method is expected to store the given value to a pair of
-        registers. The low-part of the data item is stored at the given
+        registers. The low-part of the data16 item is stored at the given
         register, while the high-part is put at ``aReg+1``.
         
         :param int aReg: The address of the (low-) register to receive\
         the low-part of the new value.
-        :param int data: The new value to store to that pair of registers.
+        :param int data16: The new value to store to that pair of registers.
         :returns: None
         :rtype: none
         """
-        bVal = data & 0xFF
-        self.writeRegByte(aReg, bVal)
-        bVal = (data >> 8) & 0xFF
-        self.writeRegByte(aReg+1, bVal)
+        bVal = data16 & 0xFF
+        self.writeByteRegister(aReg, bVal)
+        bVal = (data16 >> 8) & 0xFF
+        self.writeByteRegister(aReg+1, bVal)
         return None
 
-    def readRegDWord( self, aReg ):
+    def readDWordRegister( self, aReg ):
         """Read a double word from a certain register.
         
         The dword is formed from the content of the four registers,
@@ -94,12 +94,12 @@ class SimBus( module.Module ):
         :returns: The value stored by the given register.
         :rtype: int
         """
-        L = self.readRegWord( aReg )
-        H = self.readRegWord( aReg+2 )
+        L = self.readWordRegister( aReg )
+        H = self.readWordRegister( aReg+2 )
         ret = (H << 16) + L
         return ret
 
-    def writeRegDWord( self, aReg, data ):
+    def writeDWordRegister( self, aReg, data32 ):
         """Write a double-word (four bytes) value into a certain register.
         
         The method is expected to store the given value to a quadruple of
@@ -110,33 +110,33 @@ class SimBus( module.Module ):
         
         :param int aReg: The address of the first (lowest byte) register\
         to receive part of the new value.
-        :param int data: The new value to store to that quadruple of registers.
+        :param int data32: The new value to store to that quadruple of registers.
         :returns: None
         :rtype: none
         """
-        L = data & 0xFFFF
-        H = (data & 0xFFFF0000) >> 16
-        self.writeRegWord( aReg, L )
-        self.writeRegWord( aReg+2, H )
+        L = data32 & 0xFFFF
+        H = (data32 & 0xFFFF0000) >> 16
+        self.writeWordRegister( aReg, L )
+        self.writeWordRegister( aReg+2, H )
         return None
     
-    def readRegBlock( self, aReg, num ):
+    def readBufferRegister( self, aReg, length ):
         """Read a block of data starting from the given register.
         
-        Starting with the given Register address, ``num`` bytes are
+        Starting with the given Register address, ``length`` bytes are
         read and returned.
         
         :param int aReg: The address of the first register to be read.
-        :param int num: The number of bytes to read.
-        :returns: A list of ``num`` byte values as read from the registers.
+        :param int length: The number of bytes to read.
+        :returns: A list of ``length`` byte values as read from the registers.
         :rtype: list of integers
         """
-        data = [0] * num
-        for idx in range(num):
-            data[idx] = self.readRegByte(aReg+idx)
+        data = [0] * length
+        for idx in range(length):
+            data[idx] = self.readByteRegister(aReg+idx)
         return data
 
-    def writeRegBlock( self, aReg, data ):
+    def writeBufferRegister( self, aReg, data ):
         """Write a block of byte data into registers.
         
         The first byte - at index zero - is stored at the given register
@@ -159,7 +159,7 @@ class SimBus( module.Module ):
         :rtype: none
         """
         for idx in range( len(data) ):
-            self.writeRegByte(aReg+idx, data[idx])
+            self.writeByteRegister(aReg+idx, data[idx])
         return None
 
 
@@ -205,7 +205,7 @@ class SimBusNull( SimBus ):
         self._reading = paramDict["SimBusNull.reading"]
         return systypes.ErrorCode.errOk
             
-    def readRegByte( self, aReg ):
+    def readByteRegister( self, aReg ):
         """Read a single byte.
         
         Independent of the given register, the delivered value will
@@ -220,10 +220,10 @@ class SimBusNull( SimBus ):
         del aReg
         return self._reading
 
-    def writeRegByte( self, aReg, data ):
+    def writeByteRegister( self, aReg, data ):
         """ Write a single byte.
 
-        Actually, does nothing. Also see :meth:`SimBus.writeRegByte`.
+        Actually, does nothing. Also see :meth:`SimBus.writeByteRegister`.
         
         :param int aReg: The address of the register. Ignored.
         :param int data: The new value to store to that register. Ignored.
@@ -282,7 +282,7 @@ class SimBusMemory( SimBus ):
         del paramDict
         return systypes.ErrorCode.errOk
             
-    def readRegByte( self, aReg ):
+    def readByteRegister( self, aReg ):
         """Retrieves a register's content. To also simulate side effects\
         of reading, the following steps are executed in sequence, no
         matter what the memory type of the given register is:
@@ -295,7 +295,7 @@ class SimBusMemory( SimBus ):
         from the register in step #2. It cannot be altered by :meth:`._onPostRead`,
         anymore.
 
-        Also see :meth:`.simbus.SimBus.readRegByte`.
+        Also see :meth:`.simbus.SimBus.readByteRegister`.
         
         :param int aReg: The address of the register to be read.
         :returns: The value stored by the given register.
@@ -310,7 +310,7 @@ class SimBusMemory( SimBus ):
             self._onPostRead( reg )
         return result
 
-    def writeRegByte( self, aReg, data ):
+    def writeByteRegister( self, aReg, data ):
         """Write a single byte value into a certain register.\
         Write attempts to registers with non-writable memory are ignored.\
         For registers with writable memory, the following sequence is\
@@ -340,7 +340,7 @@ class SimBusMemory( SimBus ):
         is read. Can be used by sub-classes to simulate the exact\
         hardware behavior while reading a register. Modifying the
         register content here, would highly affect the return value
-        of the surrounding :meth:`.readRegByte` function.
+        of the surrounding :meth:`.readByteRegister` function.
         
         The current implementation is simply empty.
 
@@ -355,7 +355,7 @@ class SimBusMemory( SimBus ):
         was read. Can be used by sub-classes to simulate the exact\
         hardware behavior while reading a register.
         Any action in this routine will not influence the return value
-        of the (current call of the) surrounding :meth:`.readRegByte`
+        of the (current call of the) surrounding :meth:`.readByteRegister`
         function.
         
         The current implementation increments the register content if

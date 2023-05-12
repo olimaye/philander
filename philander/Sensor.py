@@ -394,6 +394,7 @@ class Sensor(Module):
         Defaults to 1.
         * ``Sensor.dataRate``: Measurement frequency, given in Hz.\
         Default is 1.
+        
         Also see :meth:`.module.Module.Params_init`.
         
         :param dict(str, object) paramDict: Dictionary mapping option\

@@ -4,14 +4,14 @@ from Accelerometer import Accelerometer, Activity, AxesSign, Configuration, Even
 from dictionary import dictionary
 import imath
 from Interruptable import Event, EventContextControl
-from Sensor import ConfigItem, Sensor
-from Serial_Bus import Serial_Bus_Device
+from sensor import ConfigItem, Sensor
+from serialbus import SerialBusDevice
 from systypes import ErrorCode, RunLevel
 import time
 from sbsimBMA456 import SimBusBMA456
 from gpio import GPIO
 
-class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
+class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
     #
     # Protected / private attributes
     #
@@ -131,7 +131,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
         self.regInt2Map    = 0
         self.regIntMapData = 0
         self.sim = SimBusBMA456()
-        Serial_Bus_Device.__init__(self)
+        SerialBusDevice.__init__(self)
         Accelerometer.__init__(self)
 
     #
@@ -175,12 +175,12 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
         if (ret != ErrorCode.errOk):
             ret = ErrorCode.errCorruptData
         else:
-            self.featureBuf, ret = self.read_Reg_Buffer( BMA456.BMA456_REG_FEATURES, length )
+            self.featureBuf, ret = self.readBufferRegister( BMA456.BMA456_REG_FEATURES, length )
         return ret
 
     
     def _writeFeatures( self ):
-        ret = self.write_Reg_Buffer( BMA456.BMA456_REG_FEATURES, self.featureBuf )
+        ret = self.writeBufferRegister( BMA456.BMA456_REG_FEATURES, self.featureBuf )
         return ret
 
     #
@@ -197,35 +197,35 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
             
         # Test address
         if (result == ErrorCode.errOk):
-            val, result = self.read_Reg_Byte( BMA456.BMA456_REG_CHIP_ID )
+            val, result = self.readByteRegister( BMA456.BMA456_REG_CHIP_ID )
         if (result == ErrorCode.errOk):
             if (val != BMA456.BMA456_CNT_CHIP_ID ):
                 result = ErrorCode.errMalfunction
         if (result == ErrorCode.errOk):
             # Initialization sequence for interrupt feature engine
             # Disable advanced power save mode: PWR_CONF.adv_power_save = 0.
-            result = self.write_Reg_Byte( BMA456.BMA456_REG_PWR_CONF, BMA456.BMA456_CNT_PWR_CONF_ADV_PWR_SAVE_DISABLE )
+            result = self.writeByteRegister( BMA456.BMA456_REG_PWR_CONF, BMA456.BMA456_CNT_PWR_CONF_ADV_PWR_SAVE_DISABLE )
         if (result == ErrorCode.errOk):
             # Wait for 450 us.
             time.sleep( 500 / 1000000 )   
             # Write INIT_CTRL.init_ctrl=0x00
-            self.write_Reg_Byte( BMA456.BMA456_REG_INIT_CTRL, BMA456.BMA456_CNT_INIT_CTRL_LOAD_CONFIG_FILE )
+            self.writeByteRegister( BMA456.BMA456_REG_INIT_CTRL, BMA456.BMA456_CNT_INIT_CTRL_LOAD_CONFIG_FILE )
             # Load configuration file
             for idx in range(0, fileSize, BMA456.BMA456_CHUNK_SIZE):
                 chunk = cfgFile[idx : idx+BMA456.BMA456_CHUNK_SIZE]
                 widx = int(idx/2)
-                self.write_Reg_Byte( BMA456.BMA456_REG_DMA_LOW, widx & 0x0F )
-                self.write_Reg_Byte( BMA456.BMA456_REG_DMA_HI, widx >> 4 )
-                self.write_Reg_Buffer( BMA456.BMA456_REG_FEATURES, chunk )
+                self.writeByteRegister( BMA456.BMA456_REG_DMA_LOW, widx & 0x0F )
+                self.writeByteRegister( BMA456.BMA456_REG_DMA_HI, widx >> 4 )
+                self.writeBufferRegister( BMA456.BMA456_REG_FEATURES, chunk )
             # Enable sensor features: write 0x01 into register INIT_CTRL.init_ctrl.
             # This operation must not be performed more than once after POR or softreset.
-            result = self.write_Reg_Byte( BMA456.BMA456_REG_INIT_CTRL, BMA456.BMA456_CNT_INIT_CTRL_START_INIT )
+            result = self.writeByteRegister( BMA456.BMA456_REG_INIT_CTRL, BMA456.BMA456_CNT_INIT_CTRL_START_INIT )
            
         if (result == ErrorCode.errOk):
             # Check status of the interrupt feature engine
             # Wait until Register INTERNAL_STATUS.message contains the value 1. This will happen after at most 140-150 msec.
             time.sleep( 150 / 1000 )   
-            val, result = self.read_Reg_Byte( BMA456.BMA456_REG_INTERNAL_STATUS )
+            val, result = self.readByteRegister( BMA456.BMA456_REG_INTERNAL_STATUS )
             if ( val & BMA456.BMA456_CNT_INTERNAL_STATUS_MSG) != BMA456.BMA456_CNT_INTERNAL_STATUS_MSG_INIT_OK:
                 result = ErrorCode.errFailure
                
@@ -238,7 +238,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
         if (result == ErrorCode.errOk):
             self.dataRange = val
             # Clear por_detect bit: read EVENT register and ignore the result.
-            val, result = self.read_Reg_Byte( BMA456.BMA456_REG_EVENT )
+            val, result = self.readByteRegister( BMA456.BMA456_REG_EVENT )
         
         if (result == ErrorCode.errOk):
             # Read feature parameters
@@ -250,11 +250,11 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
             
         if (result == ErrorCode.errOk):
             # Configure interrupt maps:
-            self.write_Reg_Byte( BMA456.BMA456_REG_INT1_MAP, self.regInt1Map );
-            self.write_Reg_Byte( BMA456.BMA456_REG_INT2_MAP, self.regInt2Map );
-            self.write_Reg_Byte( BMA456.BMA456_REG_INT_MAP_DATA, self.regIntMapData );
+            self.writeByteRegister( BMA456.BMA456_REG_INT1_MAP, self.regInt1Map );
+            self.writeByteRegister( BMA456.BMA456_REG_INT2_MAP, self.regInt2Map );
+            self.writeByteRegister( BMA456.BMA456_REG_INT_MAP_DATA, self.regIntMapData );
             # And latch interrupts
-            self.write_Reg_Byte( BMA456.BMA456_REG_INT_LATCH, BMA456.BMA456_CNT_INT_LATCH_PERM );
+            self.writeByteRegister( BMA456.BMA456_REG_INT_LATCH, BMA456.BMA456_CNT_INT_LATCH_PERM );
         return result
 
     #
@@ -463,19 +463,19 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
     @classmethod
     def Params_init(cls, paramDict):
         # Set defaults, where necessary
-        if not ("Serial_Bus_Device.deviceAddress" in paramDict):
-            paramDict["Serial_Bus_Device.deviceAddress"] = BMA456._ADRESSES_ALLOWED[0]
+        if not ("SerialBusDevice.deviceAddress" in paramDict):
+            paramDict["SerialBusDevice.deviceAddress"] = BMA456._ADRESSES_ALLOWED[0]
         else:
-            da = paramDict["Serial_Bus_Device.deviceAddress"]
+            da = paramDict["SerialBusDevice.deviceAddress"]
             if not (da in BMA456._ADRESSES_ALLOWED):
                 da = BMA456._ADRESSES_ALLOWED[da!=0]   
-                paramDict["Serial_Bus_Device.deviceAddress"] = da
+                paramDict["SerialBusDevice.deviceAddress"] = da
         if not ("Sensor.dataRange" in paramDict):
             paramDict["Sensor.dataRange"], _ = BMA456.dictRange.getValue( _BMA456_Reg.BMA456_CNT_ACC_RANGE_DEFAULT )
         if not ("Sensor.dataRate" in paramDict):
             paramDict["Sensor.dataRate"], _ = BMA456.dictRate.getValue( _BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_DEFAULT )
         Accelerometer.Params_init(paramDict)
-        Serial_Bus_Device.Params_init(paramDict)
+        SerialBusDevice.Params_init(paramDict)
         SimBusBMA456.Params_init(paramDict)
         # Specific configuration options
         if not ("BMA456.INT1_IO_CTRL" in paramDict):
@@ -518,8 +518,8 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
             if not (self.sim is None):
                 result = self.sim.open(paramDict)
             if (result == ErrorCode.errOk):
-                paramDict["Serial_Bus_Device.deviceAddress"] = paramDict.get("Serial_Bus_Device.deviceAddress", BMA456._ADRESSES_ALLOWED[0])
-                result = Serial_Bus_Device.open(self, paramDict)
+                paramDict["SerialBusDevice.deviceAddress"] = paramDict.get("SerialBusDevice.deviceAddress", BMA456._ADRESSES_ALLOWED[0])
+                result = SerialBusDevice.open(self, paramDict)
             if (result == ErrorCode.errOk):
                 # Ramp-up the chip
                 result = self._initialize()
@@ -536,9 +536,9 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
                     self.regInt1IOctrl = paramDict.get ("BMA456.INT1_IO_CTRL", BMA456.BMA456_CNT_INT1_IO_CTRL_DEFAULT)
                     self.regInt1IOctrl &= ~BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT
                     self.regInt1IOctrl |= BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT_DISABLE
-                    self.write_Reg_Byte( BMA456.BMA456_REG_INT1_IO_CTRL, self.regInt1IOctrl )
+                    self.writeByteRegister( BMA456.BMA456_REG_INT1_IO_CTRL, self.regInt1IOctrl )
                     self.regInt1Map = paramDict.get ("BMA456.INT1_MAP", BMA456.BMA456_CNT_INTX_MAP_DEFAULT)
-                    self.write_Reg_Byte( BMA456.BMA456_REG_INT1_MAP, self.regInt1Map )
+                    self.writeByteRegister( BMA456.BMA456_REG_INT1_MAP, self.regInt1Map )
                 if ("BMA456.int2.gpio.pinDesignator" in paramDict):
                     paramDict["BMA456.int2.gpio.direction"] = GPIO.DIRECTION_IN
                     gpioParams = dict( [(k.replace("BMA456.int2.", ""),v) for k,v in paramDict.items() if k.startswith("BMA456.int2.")] )
@@ -547,11 +547,11 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
                     self.regInt2IOctrl = paramDict.get ("BMA456.INT2_IO_CTRL", BMA456.BMA456_CNT_INT2_IO_CTRL_DEFAULT)
                     self.regInt2IOctrl &= ~BMA456.BMA456_CNT_INT2_IO_CTRL_OUTPUT
                     self.regInt2IOctrl |= BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT_DISABLE
-                    self.write_Reg_Byte( BMA456.BMA456_REG_INT2_IO_CTRL, self.regInt2IOctrl )
+                    self.writeByteRegister( BMA456.BMA456_REG_INT2_IO_CTRL, self.regInt2IOctrl )
                     self.regInt2Map = paramDict.get ("BMA456.INT2_MAP", BMA456.BMA456_CNT_INTX_MAP_DEFAULT)
-                    self.write_Reg_Byte( BMA456.BMA456_REG_INT2_MAP, self.regInt2Map )
+                    self.writeByteRegister( BMA456.BMA456_REG_INT2_MAP, self.regInt2Map )
                 self.regIntMapData = paramDict.get ("BMA456.INT_MAP_DATA", BMA456.BMA456_CNT_INT_MAP_DATA_DEFAULT)
-                self.write_Reg_Byte( BMA456.BMA456_REG_INT_MAP_DATA, self.regIntMapData )
+                self.writeByteRegister( BMA456.BMA456_REG_INT_MAP_DATA, self.regIntMapData )
                 self.enableInterrupt()
         return result
 
@@ -559,7 +559,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
     def close(self):
         if (self.isAttached()):
             self.setRunLevel( RunLevel.runLevelShutdown )
-            Serial_Bus_Device.close(self)
+            SerialBusDevice.close(self)
         if not (self.pinInt1 is None):
             self.pinInt1.close()
             self.pinInt1 = None
@@ -608,16 +608,16 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
                 ret = ErrorCode.errNotSupported
             # Apply new register settings
             if( ret == ErrorCode.errOk ):
-                ret = self.write_Reg_Byte( BMA456.BMA456_REG_PWR_CTRL, pwrCtrl )
+                ret = self.writeByteRegister( BMA456.BMA456_REG_PWR_CTRL, pwrCtrl )
                 time.sleep( 450 / 1000000 )   
-                ret = self.write_Reg_Byte( BMA456.BMA456_REG_PWR_CONF, pwrConf )
+                ret = self.writeByteRegister( BMA456.BMA456_REG_PWR_CONF, pwrConf )
                 time.sleep( 450 / 1000000 )   
                 # For ACC_CONF, only copy the PERF_MODE bit:
-                temp, ret = self.read_Reg_Byte( BMA456.BMA456_REG_ACC_CONF )
+                temp, ret = self.readByteRegister( BMA456.BMA456_REG_ACC_CONF )
                 if( (ret == ErrorCode.errOk) and ((temp & BMA456.BMA456_CNT_ACC_CONF_PERF_MODE) != accConf) ):
                     temp &= ~BMA456.BMA456_CNT_ACC_CONF_PERF_MODE
                     accConf |= temp;
-                    ret = self.write_Reg_Byte( BMA456.BMA456_REG_ACC_CONF, accConf )
+                    ret = self.writeByteRegister( BMA456.BMA456_REG_ACC_CONF, accConf )
         else:
             ret = ErrorCode.errResourceConflict
         return ret
@@ -654,18 +654,18 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
         else:
             ret = ErrorCode.errOk
             # Clear interrupt
-            _, ret = self.read_Reg_Word( BMA456.BMA456_REG_INT_STATUS )
+            _, ret = self.readWordRegister( BMA456.BMA456_REG_INT_STATUS )
             # Enable from upper layer down to hardware
             if not (self.pinInt1 is None):
                 ret = self.pinInt1.enableInterrupt()
                 data = self.regInt1IOctrl & ~BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT
                 data |= BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT_ENABLE
-                ret = self.write_Reg_Byte( BMA456.BMA456_REG_INT1_IO_CTRL, data )
+                ret = self.writeByteRegister( BMA456.BMA456_REG_INT1_IO_CTRL, data )
             if not(self.pinInt2 is None):
                 ret = self.pinInt2.enableInterrupt()
                 data = self.regInt2IOctrl & ~BMA456.BMA456_CNT_INT2_IO_CTRL_OUTPUT
                 data |= BMA456.BMA456_CNT_INT2_IO_CTRL_OUTPUT_ENABLE
-                err = self.write_Reg_Byte( BMA456.BMA456_REG_INT2_IO_CTRL, data )
+                err = self.writeByteRegister( BMA456.BMA456_REG_INT2_IO_CTRL, data )
                 if (ret == ErrorCode.errOk):
                     ret = err
         return ret;
@@ -682,12 +682,12 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
             if not(self.pinInt1 is None):
                 data = self.regInt1IOctrl & ~BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT
                 data |= BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT_DISABLE
-                ret = self.write_Reg_Byte( BMA456.BMA456_REG_INT1_IO_CTRL, data )
+                ret = self.writeByteRegister( BMA456.BMA456_REG_INT1_IO_CTRL, data )
                 ret = self.pinInt1.disableInterrupt()
             if not(self.pinInt2 is None):
                 data = self.regInt2IOctrl & ~BMA456.BMA456_CNT_INT2_IO_CTRL_OUTPUT
                 data |= BMA456.BMA456_CNT_INT2_IO_CTRL_OUTPUT_DISABLE
-                err = self.write_Reg_Byte( BMA456.BMA456_REG_INT2_IO_CTRL, data )
+                err = self.writeByteRegister( BMA456.BMA456_REG_INT2_IO_CTRL, data )
                 if (ret == ErrorCode.errOk):
                     ret = err
                 ret = self.pinInt2.disableInterrupt()
@@ -707,16 +707,16 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
             ret = ErrorCode.errOk
             # Retrieving the interrupt status resets all bits in these registers!
             if( context.control == EventContextControl.evtCtxtCtrl_clearAll ):
-                _, ret = self.read_Reg_Word( BMA456.BMA456_REG_INT_STATUS )
+                _, ret = self.readWordRegister( BMA456.BMA456_REG_INT_STATUS )
                 context.remainInt = 0;
                 context.source = EventSource.evtSrcNone
             else:
                 if (context.control == EventContextControl.evtCtxtCtrl_getFirst):
-                    data, ret = self.read_Reg_Word( BMA456.BMA456_REG_INT_STATUS )
+                    data, ret = self.readWordRegister( BMA456.BMA456_REG_INT_STATUS )
                     context.remainInt = data
                     context.control = EventContextControl.evtCtxtCtrl_getNext
                 elif (context.control == EventContextControl.evtCtxtCtrl_getLast):
-                    data, ret = self.read_Reg_Word( BMA456.BMA456_REG_INT_STATUS )
+                    data, ret = self.readWordRegister( BMA456.BMA456_REG_INT_STATUS )
                     context.remainInt = data
                     context.control = EventContextControl.evtCtxtCtrl_getPrevious
                 if (ret == ErrorCode.errOk):
@@ -761,23 +761,23 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
             config.range = BMA456.BMA456_SELFTEST_RANGE
             ret = self.configure( config )
             # Set self-test amplitude to low
-            ret = self.write_Reg_Byte( BMA456.BMA456_REG_SELF_TST,
+            ret = self.writeByteRegister( BMA456.BMA456_REG_SELF_TST,
                                        BMA456.BMA456_CNT_SELF_TST_AMP_LOW | BMA456.BMA456_CNT_SELF_TST_DISABLE )
             # ODR=1600Hz, BWP=norm_avg4, performance mode (continuous)
-            oldRate, ret = self.read_Reg_Byte( BMA456.BMA456_REG_ACC_CONF )
-            ret = self.write_Reg_Byte( BMA456.BMA456_REG_ACC_CONF,
+            oldRate, ret = self.readByteRegister( BMA456.BMA456_REG_ACC_CONF )
+            ret = self.writeByteRegister( BMA456.BMA456_REG_ACC_CONF,
                                         BMA456.BMA456_CNT_ACC_CONF_ODR_1K6 | BMA456.BMA456_CNT_ACC_CONF_MODE_NORM )
             # Wait for min. 2ms
             time.sleep( BMA456.BMA456_SELFTEST_DELAY_CONFIG / 1000000 )
             # Enable self-test and positive test polarity
-            ret = self.write_Reg_Byte( BMA456.BMA456_REG_SELF_TST,
+            ret = self.writeByteRegister( BMA456.BMA456_REG_SELF_TST,
                                         BMA456.BMA456_CNT_SELF_TST_AMP_LOW | BMA456.BMA456_CNT_SELF_TST_SIGN_POS | BMA456.BMA456_CNT_SELF_TST_ENABLE )
             # Wait for min. 50ms
             time.sleep( BMA456.BMA456_SELFTEST_DELAY_MEASURE / 1000000 )
             # Read positive acceleration value
             posData, ret = self.getLatestData()
             # Enable self-test and negative test polarity
-            ret = self.write_Reg_Byte( BMA456.BMA456_REG_SELF_TST,
+            ret = self.writeByteRegister( BMA456.BMA456_REG_SELF_TST,
                                         BMA456.BMA456_CNT_SELF_TST_AMP_LOW | BMA456.BMA456_CNT_SELF_TST_SIGN_NEG | BMA456.BMA456_CNT_SELF_TST_ENABLE )
             # Wait for min. 50ms
             time.sleep( BMA456.BMA456_SELFTEST_DELAY_MEASURE / 1000000 )
@@ -790,10 +790,10 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
                 ((posData.z - negData.z) < BMA456.BMA456_SELFTEST_THRESHOLD)   )):
                 ret = ErrorCode.errFailure
             # Disable self-test
-            self.write_Reg_Byte( BMA456.BMA456_REG_SELF_TST,
+            self.writeByteRegister( BMA456.BMA456_REG_SELF_TST,
                                     BMA456.BMA456_CNT_SELF_TST_AMP_LOW | BMA456.BMA456_CNT_SELF_TST_DISABLE )
             # Restore old configuration
-            self.write_Reg_Byte( BMA456.BMA456_REG_ACC_CONF, oldRate )
+            self.writeByteRegister( BMA456.BMA456_REG_ACC_CONF, oldRate )
             config.type = ConfigItem.cfgRange
             config.range = oldRange
             self.configure( config )
@@ -806,7 +806,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
         ret = ErrorCode.errOk
         # Initiate the soft reset
         try:
-            ret = self.write_Reg_Byte( BMA456.BMA456_REG_CMD, BMA456.BMA456_CNT_CMD_SOFTRESET )
+            ret = self.writeByteRegister( BMA456.BMA456_REG_CMD, BMA456.BMA456_CNT_CMD_SOFTRESET )
         except OSError:
             pass
         # Wait for some time
@@ -816,13 +816,13 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
             ret = self._initialize()
             data = self.regInt1IOctrl & ~BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT
             data |= BMA456.BMA456_CNT_INT1_IO_CTRL_OUTPUT_DISABLE
-            self.write_Reg_Byte( BMA456.BMA456_REG_INT1_IO_CTRL, data )
-            self.write_Reg_Byte( BMA456.BMA456_REG_INT1_MAP, self.regInt1Map )
+            self.writeByteRegister( BMA456.BMA456_REG_INT1_IO_CTRL, data )
+            self.writeByteRegister( BMA456.BMA456_REG_INT1_MAP, self.regInt1Map )
             data = self.regInt2IOctrl & ~BMA456.BMA456_CNT_INT2_IO_CTRL_OUTPUT
             data |= BMA456.BMA456_CNT_INT2_IO_CTRL_OUTPUT_DISABLE
-            self.write_Reg_Byte( BMA456.BMA456_REG_INT2_IO_CTRL, data )
-            self.write_Reg_Byte( BMA456.BMA456_REG_INT2_MAP, self.regInt2Map )
-            self.write_Reg_Byte( BMA456.BMA456_REG_INT_MAP_DATA, self.regIntMapData )
+            self.writeByteRegister( BMA456.BMA456_REG_INT2_IO_CTRL, data )
+            self.writeByteRegister( BMA456.BMA456_REG_INT2_MAP, self.regInt2Map )
+            self.writeByteRegister( BMA456.BMA456_REG_INT_MAP_DATA, self.regIntMapData )
             self.enableInterrupt()
         return ret
 
@@ -852,11 +852,11 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
                 else:
                     data |= BMA456.BMA456_CNT_ACC_CONF_MODE_NORM
             if (ret == ErrorCode.errOk):
-                ret = self.write_Reg_Byte( BMA456.BMA456_REG_ACC_CONF, data )
+                ret = self.writeByteRegister( BMA456.BMA456_REG_ACC_CONF, data )
                 if (ret == ErrorCode.errOk):
                     self.dataRate, _ = self.dictRate.getValue(key)
                     # Check, if configuration is ok
-                    data, ret = self.read_Reg_Byte( BMA456.BMA456_REG_ERROR )
+                    data, ret = self.readByteRegister( BMA456.BMA456_REG_ERROR )
                     if ((data & BMA456.BMA456_CNT_ERROR_CODE) == BMA456.BMA456_CNT_ERROR_CODE_ACC):
                         ret = ErrorCode.errSpecRange
         elif (config.type == ConfigItem.cfgRange):
@@ -864,7 +864,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
             key, ret = self.dictRange.findKey( config.value )
             if (ret == ErrorCode.errOk):
                 data = key
-                ret = self.write_Reg_Byte( BMA456.BMA456_REG_ACC_RANGE, data )
+                ret = self.writeByteRegister( BMA456.BMA456_REG_ACC_RANGE, data )
             if (ret == ErrorCode.errOk):
                 value, ret = self.dictRange.getValue(key)
             if (ret == ErrorCode.errOk):
@@ -877,11 +877,11 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
             if (remainEvt != EventSource.evtSrcNone):
                 ret = ErrorCode.errNotSupported
             else:
-                ret = self.write_Reg_Byte( BMA456.BMA456_REG_INT_MAP_DATA, dataMap )
+                ret = self.writeByteRegister( BMA456.BMA456_REG_INT_MAP_DATA, dataMap )
             if (ret == ErrorCode.errOk):
-                ret = self.write_Reg_Byte( BMA456.BMA456_REG_INT1_MAP, featureMap )
+                ret = self.writeByteRegister( BMA456.BMA456_REG_INT1_MAP, featureMap )
             if (ret == ErrorCode.errOk):
-                ret = self.write_Reg_Byte( BMA456.BMA456_REG_INT2_MAP, featureMap )
+                ret = self.writeByteRegister( BMA456.BMA456_REG_INT2_MAP, featureMap )
         elif (config.type == ConfigItem.cfgEventCondition):
             if (config.eventCondition.event in [EventSource.evtSrcDataRdy, EventSource.evtSrcFifoWM,
                                                         EventSource.evtSrcFifoFull, EventSource.evtSrcError]):
@@ -929,7 +929,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
         info.modelID = self._getFeatureWordAt( BMA456.BMA456_FSWBL_IDX_GENERAL_CONFIG_ID )
         info.validity |= Info.VALID_MODELID
         # Chip ID
-        info.chipID, ret = self.read_Reg_Byte( BMA456.BMA456_REG_CHIP_ID )
+        info.chipID, ret = self.readByteRegister( BMA456.BMA456_REG_CHIP_ID )
         info.validity |= Info.VALID_CHIPID
         return info, ret
 
@@ -942,7 +942,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
     
         if (statID == StatusID.StatusDieTemp):
             # Temperature in degree Celsiusas Q8.8
-            data, ret = self.read_Reg_Byte( BMA456.BMA456_REG_TEMPERATURE )
+            data, ret = self.readByteRegister( BMA456.BMA456_REG_TEMPERATURE )
             if (ret == ErrorCode.errOk):
                 # sign-extend data
                 if (data > 0x7F):
@@ -950,17 +950,17 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
                 status = (data + BMA456.BMA456_TEMPERATURE_SHIFT) << 8
         elif (statID == StatusID.StatusDataReady):
             # Just 0 or 1 to indicate if new data is ready
-            data, ret = self.read_Reg_Byte( BMA456.BMA456_REG_STATUS )
+            data, ret = self.readByteRegister( BMA456.BMA456_REG_STATUS )
             if (ret == ErrorCode.errOk):
                 status = ((data & BMA456.BMA456_CNT_STATUS_DRDY_ACC) != 0)
         elif (statID == StatusID.StatusInterrupt):
             # EventSource mask
-            data, ret = self.read_Reg_Word( BMA456.BMA456_REG_INT_STATUS )
+            data, ret = self.readWordRegister( BMA456.BMA456_REG_INT_STATUS )
             if (ret == ErrorCode.errOk):
                 status = self._bmaInt2accelEvtSrc( data )
         elif (statID == StatusID.StatusFifo):
             # Number of elements in FIFO
-            data, ret = self.read_Reg_Word( BMA456.BMA456_REG_FIFO_LENGTH )
+            data, ret = self.readWordRegister( BMA456.BMA456_REG_FIFO_LENGTH )
             if (ret == ErrorCode.errOk):
                 status = data
         elif (statID == StatusID.StatusError):
@@ -968,24 +968,24 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
             status = 0
             # Copy INTERNAL_ERROR 0x5F (int_err_2, int_err_1)
             if (ret == ErrorCode.errOk):
-                data, ret = self.read_Reg_Byte( BMA456.BMA456_REG_INTERNAL_ERR )
+                data, ret = self.readByteRegister( BMA456.BMA456_REG_INTERNAL_ERR )
                 status = (status << 8) | data
             # Copy INTERNAL_STATUS 0x2A (odr_high_error, odr_50hz_error, axes_remap_error, message)
             if (ret == ErrorCode.errOk):
-                data, ret = self.read_Reg_Byte( BMA456.BMA456_REG_INTERNAL_STATUS )
+                data, ret = self.readByteRegister( BMA456.BMA456_REG_INTERNAL_STATUS )
                 status = (status << 8) | data
             # Copy EVENT 0x1B (por_detected)
             if (ret == ErrorCode.errOk):
-                data, ret = self.read_Reg_Byte( BMA456.BMA456_REG_EVENT )
+                data, ret = self.readByteRegister( BMA456.BMA456_REG_EVENT )
                 status = (status << 8) | data
             # Copy ERR_REG 0x02 (aux_err, fifo_err, error_code, cmd_err, fatal_err)
             if (ret == ErrorCode.errOk):
-                data, ret = self.read_Reg_Byte( BMA456.BMA456_REG_ERROR )
+                data, ret = self.readByteRegister( BMA456.BMA456_REG_ERROR )
                 status = (status << 8) | data
         elif (statID == StatusID.StatusActivity):
             # Activity
             if (self.featureSet in [BMA456.BMA456_FEATURE_SET_WEARABLE, BMA456.BMA456_FEATURE_SET_HEARABLE]):
-                data, ret = self.read_Reg_Byte( BMA456.BMA456_FSWBL_REG_ACTIVITY_TYPE )
+                data, ret = self.readByteRegister( BMA456.BMA456_FSWBL_REG_ACTIVITY_TYPE )
                 if (ret == ErrorCode.errOk):
                     if ((data & BMA456.BMA456_FSWBL_CNT_ACTIVITY_TYPE) == BMA456.BMA456_FSWBL_CNT_ACTIVITY_TYPE_UNKNOWN):
                         status = Activity.actUnknown
@@ -1002,13 +1002,13 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
         elif (statID == StatusID.StatusStepCnt):
             # Step count
             if (self.featureSet in [BMA456.BMA456_FEATURE_SET_WEARABLE, BMA456.BMA456_FEATURE_SET_HEARABLE]):
-                status, ret = self.read_Reg_DWord( BMA456.BMA456_FSWBL_REG_STEP_COUNTER )
+                status, ret = self.readDWordRegister( BMA456.BMA456_FSWBL_REG_STEP_COUNTER )
             else:
                 ret = ErrorCode.errNotSupported
         elif (statID == StatusID.StatusHighG):
             # AxesSign
             if (self.featureSet == BMA456.BMA456_FEATURE_SET_MM):
-                data, ret = self.read_Reg_Byte( BMA456.BMA456_FSMM_REG_HIGH_G_OUTPUT )
+                data, ret = self.readByteRegister( BMA456.BMA456_FSMM_REG_HIGH_G_OUTPUT )
                 if (ret == ErrorCode.errOk):
                     status = AxesSign.axsNone
                     if (data & BMA456.BMA456_FSMM_CNT_HIGH_G_OUTPUT_AXES_X ):
@@ -1026,7 +1026,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
         elif (statID == StatusID.StatusOrientation):
             # accel_Orientation_t mask
             if (self.featureSet == BMA456.BMA456_FEATURE_SET_MM):
-                data, ret = self.read_Reg_Byte( BMA456.BMA456_FSMM_REG_ORIENT_OUTPUT )
+                data, ret = self.readByteRegister( BMA456.BMA456_FSMM_REG_ORIENT_OUTPUT )
                 if (ret == ErrorCode.errOk):
                     if ((data & BMA456.BMA456_FSMM_CNT_ORIENT_OUTPUT_STAND) == BMA456.BMA456_FSMM_CNT_ORIENT_OUTPUT_STAND_PORT_UP):
                         status = Orientation.orientPortUp
@@ -1060,7 +1060,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
                 #
                 status = Tap.tapNone
             elif (self.featureSet == BMA456.BMA456_FEATURE_SET_HEARABLE):
-                data, ret = self.read_Reg_Byte( BMA456.BMA456_FSHBL_REG_FEAT_OUT )
+                data, ret = self.readByteRegister( BMA456.BMA456_FSHBL_REG_FEAT_OUT )
                 if (ret == ErrorCode.errOk):
                     status = Tap.tapNone
                     if (data & BMA456.BMA456_FSHBL_CNT_FEAT_OUT_STAP):
@@ -1070,7 +1070,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
                     if (data & BMA456.BMA456_FSHBL_CNT_FEAT_OUT_TTAP):
                         status |= Tap.tapTriple
             elif (self.featureSet == BMA456.BMA456_FEATURE_SET_MM):
-                data, ret = self.read_Reg_Byte( BMA456.BMA456_FSMM_REG_MULTITAP_OUTPUT )
+                data, ret = self.readByteRegister( BMA456.BMA456_FSMM_REG_MULTITAP_OUTPUT )
                 if (ret == ErrorCode.errOk):
                     status = Tap.tapNone
                     if (data & BMA456.BMA456_FSMM_CNT_MULTITAP_OUTPUT_STAP):
@@ -1083,7 +1083,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
                 ret = ErrorCode.errNotSupported
         elif (statID == StatusID.StatusSensorTime):
             # Sensor time in ms as an unsigned Q24.8
-            status, ret = self.read_Reg_DWord( BMA456.BMA456_REG_SENSOR_TIME )
+            status, ret = self.readDWordRegister( BMA456.BMA456_REG_SENSOR_TIME )
             if (ret == ErrorCode.errOk):
                 # Result's LSB is 625/16 = 39.0625 us (microseconds).
                 # So we look for result * 625/16 * 256/1000 = result * 10.
@@ -1094,7 +1094,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, Serial_Bus_Device, Accelerometer ):
 
 
     def getLatestData(self):
-        buf, ret = self.read_Reg_Buffer( BMA456.BMA456_REG_ACC_X, 6 )
+        buf, ret = self.readBufferRegister( BMA456.BMA456_REG_ACC_X, 6 )
         if (ret == ErrorCode.errOk):
             x = buf[0] | (buf[1] << 8)
             x = self._transfer( x )
