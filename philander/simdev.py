@@ -5,15 +5,15 @@ communication.
 """
 __author__ = "Oliver Maye"
 __version__ = "0.1"
-__all__ = ["SimBus", "SimBusNull", "SimBusMemory", "MemoryType", "Register"]
+__all__ = ["SimDev", "SimDevNull", "SimDevMemory", "MemoryType", "Register"]
 
-import module
 import enum
 import dataclasses
-import systypes
+from module import Module
+from systypes import ErrorCode
 
-class SimBus( module.Module ):
-    """Abstract base class to define the functionality of a simulated serial bus.
+class SimDev():
+    """Abstract base class to define the functionality of a simulated serial device.
     
     A sub class must overwrite at least the methods for reading and writing
     a single byte. Implementation should use as least as possible dependencies
@@ -29,8 +29,9 @@ class SimBus( module.Module ):
         caller.
         
         :param int aReg: The address of the register to be read.
-        :returns: The value stored by the given register.
-        :rtype: int
+        :return: A one-byte integer representing the response of the device\
+        and an error code indicating success or the reason of failure.
+        :rtype: int, ErrorCode
         """
         pass
 
@@ -42,8 +43,8 @@ class SimBus( module.Module ):
         
         :param int aReg: The address of the register to receive the new value.
         :param int data: The new value to store to that register.
-        :returns: None
-        :rtype: none
+        :return: An error code indicating success or the reason of failure.
+        :rtype: ErrorCode
         """
         pass
 
@@ -55,12 +56,14 @@ class SimBus( module.Module ):
         register (high).
         
         :param int aReg: The address of the low-byte register to be read.
-        :returns: The value stored by the given register.
-        :rtype: int
+        :return: A 16-bit integer representing the response of the device\
+        and an error code indicating success or the reason of failure.
+        :rtype: int, ErrorCode
         """
-        lo = self.readByteRegister(aReg)
-        hi = self.readByteRegister(aReg+1)
-        return ((hi << 8) | lo)
+        lo, _ = self.readByteRegister(aReg)
+        hi, err = self.readByteRegister(aReg+1)
+        data = ((hi << 8) | lo)
+        return data, err
 
     def writeWordRegister( self, aReg, data16 ):
         """Write a double-byte (word) value into a certain register.
@@ -72,14 +75,14 @@ class SimBus( module.Module ):
         :param int aReg: The address of the (low-) register to receive\
         the low-part of the new value.
         :param int data16: The new value to store to that pair of registers.
-        :returns: None
-        :rtype: none
+        :return: An error code indicating success or the reason of failure.
+        :rtype: ErrorCode
         """
         bVal = data16 & 0xFF
         self.writeByteRegister(aReg, bVal)
         bVal = (data16 >> 8) & 0xFF
-        self.writeByteRegister(aReg+1, bVal)
-        return None
+        err = self.writeByteRegister(aReg+1, bVal)
+        return err
 
     def readDWordRegister( self, aReg ):
         """Read a double word from a certain register.
@@ -91,13 +94,14 @@ class SimBus( module.Module ):
         ``aReg+3`` (high-byte of the high-word).
         
         :param int aReg: The address of the first (lowest-byte) register to be read.
-        :returns: The value stored by the given register.
-        :rtype: int
+        :return: A 32-bit integer representing the response of the device\
+        and an error code indicating success or the reason of failure.
+        :rtype: int, ErrorCode
         """
-        L = self.readWordRegister( aReg )
-        H = self.readWordRegister( aReg+2 )
-        ret = (H << 16) + L
-        return ret
+        L, _ = self.readWordRegister( aReg )
+        H, err = self.readWordRegister( aReg+2 )
+        data = (H << 16) + L
+        return data, err
 
     def writeDWordRegister( self, aReg, data32 ):
         """Write a double-word (four bytes) value into a certain register.
@@ -111,14 +115,14 @@ class SimBus( module.Module ):
         :param int aReg: The address of the first (lowest byte) register\
         to receive part of the new value.
         :param int data32: The new value to store to that quadruple of registers.
-        :returns: None
-        :rtype: none
+        :return: An error code indicating success or the reason of failure.
+        :rtype: ErrorCode
         """
         L = data32 & 0xFFFF
         H = (data32 & 0xFFFF0000) >> 16
         self.writeWordRegister( aReg, L )
-        self.writeWordRegister( aReg+2, H )
-        return None
+        err = self.writeWordRegister( aReg+2, H )
+        return err
     
     def readBufferRegister( self, aReg, length ):
         """Read a block of data starting from the given register.
@@ -128,13 +132,15 @@ class SimBus( module.Module ):
         
         :param int aReg: The address of the first register to be read.
         :param int length: The number of bytes to read.
-        :returns: A list of ``length`` byte values as read from the registers.
-        :rtype: list of integers
+        :return: A buffer of the indicated length holding the response\
+        and an error code indicating success or the reason of failure.
+        :rtype: list(int), ErrorCode
         """
         data = [0] * length
+        err = ErrorCode.errOk
         for idx in range(length):
-            data[idx] = self.readByteRegister(aReg+idx)
-        return data
+            data[idx], err = self.readByteRegister(aReg+idx)
+        return data, err
 
     def writeBufferRegister( self, aReg, data ):
         """Write a block of byte data into registers.
@@ -155,16 +161,16 @@ class SimBus( module.Module ):
         :param list data: List of bytes to be written. The length of the\
         list determines the number of bytes to werite. So, all values in\
         the list will be transferred to the device.
-        :returns: None
-        :rtype: none
+        :return: An error code indicating success or the reason of failure.
+        :rtype: ErrorCode
         """
+        err = ErrorCode.errOk
         for idx in range( len(data) ):
-            self.writeByteRegister(aReg+idx, data[idx])
-        return None
+            err = self.writeByteRegister(aReg+idx, data[idx])
+        return err
 
-
-class SimBusNull( SimBus ):
-    """Slim line serial bus simulation. Reading retrieves always the same\
+class SimDevNull( SimDev, Module ):
+    """Slim line serial device simulation. Reading retrieves always the same\
     constant value, while writing is simply ignored. 
     """
     
@@ -181,14 +187,14 @@ class SimBusNull( SimBus ):
         ==================    =======    ==========================
         Key                   Range      Default
         ==================    =======    ==========================
-        SimBusNull.reading    integer    SimBusNull.DEFAULT_READING
+        SimDevNull.reading    integer    SimDevNull.DEFAULT_READING
         ==================    =======    ==========================
         
         :param dict(str, object) paramDict: Dictionary mapping option names to their respective values.
         :returns: none
         :rtype: None
         """
-        paramDict["SimBusNull.reading"] = paramDict.get("SimBusNull.reading", SimBusNull.DEFAULT_READING)
+        paramDict["SimDevNull.reading"] = paramDict.get("SimDevNull.reading", SimDevNull.DEFAULT_READING)
         return None
     
     def open( self, paramDict ):
@@ -201,38 +207,38 @@ class SimBusNull( SimBus ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        paramDict["SimBusNull.reading"] = paramDict.get("SimBusNull.reading", SimBusNull.DEFAULT_READING)
-        self._reading = paramDict["SimBusNull.reading"]
-        return systypes.ErrorCode.errOk
+        paramDict["SimDevNull.reading"] = paramDict.get("SimDevNull.reading", SimDevNull.DEFAULT_READING)
+        self._reading = paramDict["SimDevNull.reading"]
+        return ErrorCode.errOk
             
     def readByteRegister( self, aReg ):
         """Read a single byte.
         
         Independent of the given register, the delivered value will
         always be the same. That delivered reading can be configured
-        using the SimBusNull.reading option when calling :meth:`open`.
+        using the SimDevNull.reading option when calling :meth:`open`.
 
         :param int aReg: The address of the register to be read.\
         Actually ignored.
-        :returns: The value stored by the given register.
-        :rtype: int
+        :return: A one-byte integer representing the response of the device\
+        and an error code indicating success or the reason of failure.
+        :rtype: int, ErrorCode
         """
         del aReg
-        return self._reading
+        return self._reading, ErrorCode.errOk
 
     def writeByteRegister( self, aReg, data ):
         """ Write a single byte.
 
-        Actually, does nothing. Also see :meth:`SimBus.writeByteRegister`.
+        Actually, does nothing. Also see :meth:`SimDev.writeByteRegister`.
         
         :param int aReg: The address of the register. Ignored.
         :param int data: The new value to store to that register. Ignored.
-        :returns: None
-        :rtype: none
+        :return: An error code indicating success or the reason of failure.
+        :rtype: ErrorCode
         """
-        pass
-    
-
+        del aReg, data
+        return ErrorCode.errOk
 
 @enum.unique
 class MemoryType(enum.Enum):
@@ -262,10 +268,8 @@ class Register:
         self.address = adr
         self.content = cont
         self.type = typ
-
-
-    
-class SimBusMemory( SimBus ):
+   
+class SimDevMemory( SimDev ):
     """Serial bus implementation to simulate a device that can be accessed\
     through a set of memory-based registers. The list of registers\
     must be provided during instantiation.
@@ -277,11 +281,7 @@ class SimBusMemory( SimBus ):
     def _findReg(self, regAdr):
         reg = next( (r for r in self._regs if r.address==regAdr), None)
         return reg
-    
-    def open( self, paramDict ):
-        del paramDict
-        return systypes.ErrorCode.errOk
-            
+                
     def readByteRegister( self, aReg ):
         """Retrieves a register's content. To also simulate side effects\
         of reading, the following steps are executed in sequence, no
@@ -295,20 +295,22 @@ class SimBusMemory( SimBus ):
         from the register in step #2. It cannot be altered by :meth:`._onPostRead`,
         anymore.
 
-        Also see :meth:`.simbus.SimBus.readByteRegister`.
+        Also see :meth:`.simbus.SimDev.readByteRegister`.
         
         :param int aReg: The address of the register to be read.
-        :returns: The value stored by the given register.
-        :rtype: int
+        :return: A one-byte integer representing the response of the device\
+        and an error code indicating success or the reason of failure.
+        :rtype: int, ErrorCode
         """
         reg = self._findReg( aReg )
         if (reg is None):
-            result = 0
+            data = 0
+            err = ErrorCode.errInvalidParameter
         else:
-            self._onPreRead( reg )
-            result = reg.content
+            err = self._onPreRead( reg )
+            data = reg.content
             self._onPostRead( reg )
-        return result
+        return data, err
 
     def writeByteRegister( self, aReg, data ):
         """Write a single byte value into a certain register.\
@@ -324,16 +326,21 @@ class SimBusMemory( SimBus ):
         
         :param int aReg: The address of the register to receive the new value.
         :param int data: The new value to store to that register.
-        :returns: None
-        :rtype: none
+        :return: An error code indicating success or the reason of failure.
+        :rtype: ErrorCode
         """
         reg = self._findReg( aReg )
-        if not (reg is None):
+        err = ErrorCode.errOk
+        if not reg:
+            err = ErrorCode.errInvalidParameter
+        else:
             if (reg.type == MemoryType.RAM):
                 newContent = self._onPreWrite(reg, data)
                 reg.content = newContent
-                self._onPostWrite(reg)
-        return None
+                err = self._onPostWrite(reg)
+            else:
+                err = ErrorCode.errFailure
+        return err
 
     def _onPreRead(self, reg):
         """Interface function that will be called right before a register\
@@ -342,13 +349,16 @@ class SimBusMemory( SimBus ):
         register content here, would highly affect the return value
         of the surrounding :meth:`.readByteRegister` function.
         
+        The return value is to indicate if the read operation will succeed.
+        
         The current implementation is simply empty.
 
         :param Register reg: The register instance to be read.
-        :returns: None
-        :rtype: none
+        :return: An error code indicating success or the reason of failure.
+        :rtype: ErrorCode
         """
-        pass
+        del reg
+        return ErrorCode.errOk
     
     def _onPostRead(self, reg):
         """Interface function that will be called right after a register\
@@ -392,11 +402,14 @@ class SimBusMemory( SimBus ):
         was written. Can be used by sub-classes to simulate the exact\
         hardware behavior while writing a register.
         
+        The return value is to indicate if the write operation succeeded.        
+        
         The current implementation is simply empty.
 
         :param Register reg: The register instance that was written.
-        :returns: None
-        :rtype: none
+        :return: An error code indicating success or the reason of failure.
+        :rtype: ErrorCode
         """
-        pass
+        del reg
+        return ErrorCode.errOk
     

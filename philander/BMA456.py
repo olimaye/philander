@@ -8,7 +8,7 @@ from sensor import ConfigItem, Sensor
 from serialbus import SerialBusDevice
 from systypes import ErrorCode, RunLevel
 import time
-from sbsimBMA456 import SimBusBMA456
+from simBMA456 import SimDevBMA456
 from gpio import GPIO
 
 class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
@@ -130,7 +130,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
         self.regInt1Map    = 0
         self.regInt2Map    = 0
         self.regIntMapData = 0
-        self.sim = SimBusBMA456()
+        self.sim = SimDevBMA456()
         SerialBusDevice.__init__(self)
         Accelerometer.__init__(self)
 
@@ -476,7 +476,6 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
             paramDict["Sensor.dataRate"], _ = BMA456.dictRate.getValue( _BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_DEFAULT )
         Accelerometer.Params_init(paramDict)
         SerialBusDevice.Params_init(paramDict)
-        SimBusBMA456.Params_init(paramDict)
         # Specific configuration options
         if not ("BMA456.INT1_IO_CTRL" in paramDict):
             paramDict["BMA456.INT1_IO_CTRL"] = BMA456.BMA456_CNT_INT1_IO_CTRL_DEFAULT

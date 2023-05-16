@@ -30,7 +30,7 @@ __all__ = ["SerialBus", "SerialBusDevice", "SerialBusProvider", "SerialBusType"]
 from enum import unique, auto, Enum
 from module import Module
 from systypes import ErrorCode
-from simbus import SimBusNull
+from simdev import SimDevNull
 
 class SerialBusDevice( Module ):
     """Reflect a specific device communicating over a serial bus.
@@ -382,9 +382,10 @@ class _SerialBusIface( Module ):
     """
 
     def __init__(self):
+        self.busDesignator = ""
         self.provider = SerialBusProvider.NONE
         self.type = SerialBusType.I2C
-        self.busDesignator = ""
+        self._attachedDevices = list()
     
     @classmethod
     def Params_init( cls, paramDict ):
@@ -421,6 +422,83 @@ class _SerialBusIface( Module ):
             self.busDesignator = defaults["SerialBus.busDesignator"]
             paramDict["SerialBus.busDesignator"] = self.busDesignator
         return ret
+
+    def close(self):
+        """Shut down this implementation and release associated hardware resources.
+        
+        If this bus has some devices attached, they get detached, before
+        the method returns.
+        
+        Also see: :meth:`.module.Module.close`.
+        
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        ret = ErrorCode.errOk
+        # Detach all devices.
+        for device in self._attachedDevices:
+            device.serialBus = None
+        self._attachedDevices.clear()
+        return ret
+        
+    def attach( self, device ):
+        """Attaches a device to this implementation.
+                
+        :param: SerialBusDevice device: The device to be attached.
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        result = ErrorCode.errOk
+        if not (device in self._attachedDevices):
+            self._attachedDevices.append( device )
+        return result
+            
+    def detach( self, device ):
+        """Detach a device from this serial bus implementation.
+        
+        :param: SerialBusDevice device: The device to be detached.
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        result = ErrorCode.errOk
+        self._attachedDevices.remove( device )
+        return result
+
+    def isAttached( self, device ):
+        """ Determines, if the given device is already attached to this bus.
+        
+        Also see: :meth:`SerialBusDevice.isAttached`.
+        
+        :return: An error code. :attr:`ErrorCode.errOk`, if the device\
+        is already attached to some bus; :attr:`ErrorCode.errUnavailable`,\
+        if it has not been attached before; Any other value to indicate\
+        the failure or reason, why this information could not be retrieved.
+        :rtype: ErrorCode
+        """
+        result = ErrorCode.errOk
+        if (device in self._attachedDevices):
+            result = ErrorCode.errOk
+        else:
+            result = ErrorCode.errUnavailable
+        return result
+
+    def isAnyAttached( self ):
+        """ Determines, if there is any device attached to this bus implementation.
+        
+        :return: An error code. :attr:`ErrorCode.errOk`, if there is at\
+        least one device attached to this bus;\
+        :attr:`ErrorCode.errUnavailable`,\
+        if no device has been attached before;\
+        Any other value to indicate the failure or reason, why this\
+        information could not be retrieved.
+        :rtype: ErrorCode
+        """
+        result = ErrorCode.errOk
+        if ( self._attachedDevices ):
+            result = ErrorCode.errOk
+        else:
+            result = ErrorCode.errUnavailable
+        return result
 
     def readByteRegister( self, devAdr, reg ):
         """Read a single byte from a certain register.\
@@ -819,18 +897,20 @@ class _SerialBus_Sim( _SerialBusIface ):
     """
     
     def _findSim( self, devAdr ):
-        sim = self._defaultSim
+        sim = None
         for dev in self._attachedDevices:
             if (dev.deviceAddress == devAdr):
                 if (hasattr(dev, 'sim')):
                     sim = dev.sim
+                else:
+                    sim = self._defaultSim
                 break
         return sim
     
     def open( self, paramDict ):
         # Scan the parameters
         ret = super().open(paramDict)
-        self._defaultSim = SimBusNull()
+        self._defaultSim = SimDevNull()
         self._defaultSim.open(paramDict)
         return ret
     
@@ -841,35 +921,71 @@ class _SerialBus_Sim( _SerialBusIface ):
         
     def readByteRegister( self, devAdr, reg ):
         sim = self._findSim(devAdr)
-        return sim.readByteRegister( reg )
+        if (sim):
+            data, err = sim.readByteRegister( reg )
+        else:
+            data = 0
+            err = ErrorCode.errFailure
+        return data, err
 
     def writeByteRegister( self, devAdr, reg, data ):
         sim = self._findSim(devAdr)
-        return sim.writeByteRegister( reg, data )
+        if (sim):
+            err = sim.writeByteRegister( reg, data )
+        else:
+            err = ErrorCode.errFailure
+        return err
 
     def readWordRegister( self, devAdr, reg ):
         sim = self._findSim(devAdr)
-        return sim.readWordRegister( reg )
+        if (sim):
+            data, err = sim.readWordRegister( reg )
+        else:
+            data = 0
+            err = ErrorCode.errFailure
+        return data, err
 
     def writeWordRegister( self, devAdr, reg, data16 ):
         sim = self._findSim(devAdr)
-        return sim.writeWordRegister( reg, data16 )
+        if (sim):
+            err = sim.writeWordRegister( reg, data16 )
+        else:
+            err = ErrorCode.errFailure
+        return err
 
     def readDWordRegister( self, devAdr, reg ):
         sim = self._findSim(devAdr)
-        return sim.readDWordRegister( reg )
+        if (sim):
+            data, err = sim.readDWordRegister( reg )
+        else:
+            data = 0
+            err = ErrorCode.errFailure
+        return data, err
 
     def writeDWordRegister( self, devAdr, reg, data32 ):
         sim = self._findSim(devAdr)
-        return sim.writeDWordRegister( reg, data32 )
+        if (sim):
+            err = sim.writeDWordRegister( reg, data32 )
+        else:
+            err = ErrorCode.errFailure
+        return err
     
     def readBufferRegister( self, devAdr, reg, length ):
         sim = self._findSim(devAdr)
-        return sim.readBufferRegister( reg, length )
+        if (sim):
+            data, err = sim.readBufferRegister( reg, length )
+        else:
+            data = 0
+            err = ErrorCode.errFailure
+        return data, err
 
     def writeBufferRegister( self, devAdr, reg, data ):
         sim = self._findSim(devAdr)
-        return sim.writeBufferRegister( reg, data )
+        if (sim):
+            err = sim.writeBufferRegister( reg, data )
+        else:
+            err = ErrorCode.errFailure
+        return err
 
     def readBuffer( self, devAdr, length ):
         pass
@@ -879,7 +995,6 @@ class _SerialBus_Sim( _SerialBusIface ):
     
     def readWriteBuffer( self, devAdr, inLength, outBuffer ):
         pass
-
 
 class SerialBus( _SerialBusIface ):
     """Convergence layer to abstract from multiple implementations of\
@@ -896,7 +1011,7 @@ class SerialBus( _SerialBusIface ):
     * smbus2
     * smbus
     * periphery
-    * philander.simbus
+    * simulated devices
     
     """
     
@@ -908,7 +1023,6 @@ class SerialBus( _SerialBusIface ):
     #
     
     def __init__(self):
-        self._attachedDevices = list()
         self._status = SerialBus._STATUS_FREE
         self._impl = None
         
@@ -979,9 +1093,9 @@ class SerialBus( _SerialBusIface ):
             self.Params_init( defaults )
             # Scan parameters
             if "SerialBus.provider" in paramDict:
-                provider = paramDict["SerialBus.busType"]
+                provider = paramDict["SerialBus.provider"]
             else:
-                provider = defaults["SerialBus.busType"]
+                provider = defaults["SerialBus.provider"]
             if (provider == SerialBusProvider.AUTO):
                 if "SerialBus.busType" in paramDict:
                     busType = paramDict["SerialBus.busType"]
@@ -1010,7 +1124,7 @@ class SerialBus( _SerialBusIface ):
     def close(self):
         """Shut down this bus and release associated hardware resources.
         
-        If this instance is attached to some bus, it gets detached, before
+        If this bus has some devices attached, they get detached, before
         the method returns.
         
         Also see: :meth:`.module.Module.close`.
@@ -1018,15 +1132,10 @@ class SerialBus( _SerialBusIface ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        ret = ErrorCode.errOk
-        # Detach all devices.
-        for device in self._attachedDevices:
-            if (device.serialBus == self):
-                device.serialBus = None
-        self._attachedDevices.clear()
         # Actually close the bus
         if (self._status != SerialBus._STATUS_FREE):
             if not self._impl is None:
+                # Detach all devices.
                 ret = self._impl.close()
                 self._impl = None
             self._status = SerialBus._STATUS_FREE
@@ -1083,11 +1192,12 @@ class SerialBus( _SerialBusIface ):
                 params = {}
                 self.Params_init(params)
                 result = self.open(params)
+            # Attach it to the implementation
+            if (result == ErrorCode.errOk):
+                result = self._impl.attach( device )
             if (result == ErrorCode.errOk):
                 # Mark the device as being attached
                 device.serialBus = self
-                if not (device in self._attachedDevices):
-                    self._attachedDevices.append( device )
         return result
             
     def detach( self, device ):
@@ -1103,8 +1213,8 @@ class SerialBus( _SerialBusIface ):
         result = ErrorCode.errOk
         if (device.serialBus == self):
             device.serialBus = None
-            self._attachedDevices.remove( device )
-            if ( len(self._attachedDevices) < 1 ):
+            result = self._impl.detach( device )
+            if ( self._impl.isAnyAttached() == ErrorCode.errUnavailable ):
                 result = self.close()
         else:
             result = ErrorCode.errResourceConflict
@@ -1121,12 +1231,7 @@ class SerialBus( _SerialBusIface ):
         the failure or reason, why this information could not be retrieved.
         :rtype: ErrorCode
         """
-        result = ErrorCode.errOk
-        if (device in self.attachedDevices):
-            result = ErrorCode.errOk
-        else:
-            result = ErrorCode.errUnavailable
-        return result
+        return self._impl.isAttached(device)
             
     def readByteRegister( self, device, reg ):
         """This method provides 8 bit register read access to a device.
