@@ -25,18 +25,18 @@ class ConfigItem(Enum):
     ==================    ==============================================================
     Item                  Meaning
     ==================    ==============================================================
-    cfgRate               Data rate as a frequency in Hz.
-    cfgRange              Data measurement range, depending on the physical dimension.
-    cfgFifo               Fifo low/hogh water marks, empty signals etc.
-    cfgEventArm           Arming the event machine, enabling interrupt(s).
-    cfgEventCondition     Thresholds and counts to define event conditions.
+    rate               Data rate as a frequency in Hz.
+    range              Data measurement range, depending on the physical dimension.
+    fifo               Fifo low/hogh water marks, empty signals etc.
+    eventArm           Arming the event machine, enabling interrupt(s).
+    eventCondition     Thresholds and counts to define event conditions.
     ==================    ==============================================================
     """
-    cfgRate                 = auto()
-    cfgRange                = auto()
-    cfgFifo                 = auto()
-    cfgEventArm             = auto()
-    cfgEventCondition       = auto()
+    rate                 = auto()
+    range                = auto()
+    fifo                 = auto()
+    eventArm             = auto()
+    eventCondition       = auto()
 
 @dataclass
 class Configuration():
@@ -56,37 +56,37 @@ class CalibrationType(Enum):
     This is part of the information to be passed to a sensor when calling
     its :meth:`Sensor.calibrate` method.
     """
-    calibDefault            = auto()
+    default            = auto()
     """Default calibration procedure. This may be a special
     procedure of the sensor hardware, or simply the use of hard-coded
     default calibration parameters. Depends on the sensor hardware
     and/or driver implementation.
     """
-    calibZero               = auto()
+    zero               = auto()
     """Single fix point *zero* calibration. No further calibration data
     is needed. The current sensory exposure should map to exactly zero
     (0) measurement units. May also be interpreted as *nothing detected*
     or 0%.
     """
-    calibOne                = auto()
+    one                = auto()
     """Single fix point *one* calibration. No further calibration data
     needed. The current sensory exposure should map to exactly one (1)
     measurement unit. For binary sensors, may also be interpreted as
     *something detected*.
     """
-    calibHundred            = auto()
+    hundred            = auto()
     """Single fix point *hundred* calibration. No further calibration
     data is needed. The current sensory exposure should map to exactly
     hundred (100) measurement units. For qualitative sensors, may also
     be interpreted as *everything detected* or 100%.
     """
-    calibTrueValue          = auto()
+    trueValue          = auto()
     """Single point calibration. The true measurement value of the
     current exposure must be given as part of the calibration data
     structure. The current sensory exposure should map to exactly the
     value given in the calibration data and meant as measurement units.
     """
-    calibExpose1            = auto()
+    expose1            = auto()
     """The first point in a two- or three point calibration, depending
     on what the sensor implementation actually supports. The true
     measurement value at this point is either given implicitly or
@@ -95,7 +95,7 @@ class CalibrationType(Enum):
     driver's calibration routine should expect to be called again with
     one of the other ``calibExpose`` calibration types.
     """
-    calibExpose2            = auto()
+    expose2            = auto()
     """The second point in a two- or three point calibration, depending
     on what the sensor implementation actually supports. The true
     measurement value at this point is either given implicitly or
@@ -103,27 +103,27 @@ class CalibrationType(Enum):
     two-point calibration finishes at this point, while a 3-point
     calibration should expect to be called once more.
     """
-    calibExpose3            = auto()
+    expose3            = auto()
     """The last point in a three point calibration. The true measurement
     value at this point is either given implicitly or explicitly by
     further data of the calibration data structure.
     """
-    calibOffset             = auto()
+    offset             = auto()
     """Provides the new, total offset, given in either analogue,
     digitized or measurement units as part of the calibration data
     structure.
     """
-    calibShiftOffset        = auto()
+    shiftOffset        = auto()
     """The current offset is corrected by the shift given in analogue,
     digitised or measurement units as part of the calibration data
     structure. The shift adds to the current offset.
     """
-    calibLinear             = auto()
+    linear             = auto()
     """Provides a new pair of total offset and sensitivity/skew for
     translating raw (analogue) values into measurement units. These
     parameters must be given as part of the calibration data structure.
     """
-    calibLinearRel          = auto()
+    linearRel          = auto()
     """Gives a pair of relative correctives to the current offset and
     skew/sensitivity. This data must be part of the calibration data
     structure. Note that the offset corrective must be given in either
@@ -133,51 +133,51 @@ class CalibrationType(Enum):
     with) the current sensitivity. This is to allow the current sensitivity
     being, e.g. increased by 3% or 5% and alike.
     """
-    calibParam              = auto()
+    param              = auto()
     """Generic calibration type to allow for a transfer of calibration
     parameters. With this, the current parameters are no longer in
     effect, but will be replaced by the data provided in the calibration
     data structure.
     """
-    calibParamRel           = auto()
+    paramRel           = auto()
     """Shift or skew the current calibration parameters by the correctives
     provided in the calibration data structure.
     """
-    calibTrueMeasurement    = auto()
+    trueMeasurement    = auto()
     """Provide a pair of ``(m,v)`` measured and true value to calculate
     necessary corrections. This is a calibration with one fix point
-    similar to :attr:`calibTrueValue`. The difference is, that the
+    similar to :attr:`trueValue`. The difference is, that the
     measured value is not implicitly given by the current exposure, but
     can be provided explicitly as part of the calibration data structure.
     """
-    calibTrueMeasurement2   = auto()
+    trueMeasurement2   = auto()
     """Provides two pairs of ``(m,v)`` measured and true values to
     calculate necessary corrections. This is a two-point calibration
     and both points are given in the calibration data structure.
     """
-    calibKnownMeasurement   = auto()
-    """In contrast to :attr:`calibTrueMeasurement`, calibration uses one
+    knownMeasurement   = auto()
+    """In contrast to :attr:`trueMeasurement`, calibration uses one
     or more points ``(r,v)`` on the transfer function, where ``r`` is the
     analogue or digitized raw value or voltage equivalent and ``v`` is
-    the true, resulting data. This is similar to :attr:`calibExpose3`
+    the true, resulting data. This is similar to :attr:`expose3`
     etc. except, the primary measure is not given implicitly by the
     current exposure, but is provided explicitly, instead. All this data
     must be part of the calibration data structure. This is a generic
     mnemonics. The actual number of points is given implicitly / at the
     discretion of the implementation.
     """
-    calibKnownMeasurement1  = auto()
-    """The same as :attr:`calibKnownMeasurement`. One data point is used.
+    knownMeasurement1  = auto()
+    """The same as :attr:`knownMeasurement`. One data point is used.
     """
-    calibKnonwMeasurement2  = auto()
-    """The same as :attr:`calibKnownMeasurement`. Two data points are
+    knonwMeasurement2  = auto()
+    """The same as :attr:`knownMeasurement`. Two data points are
     used.
     """
-    calibKnonwMeasurement3  = auto()
-    """The same as :attr:`calibKnownMeasurement`. Three data points are
+    knonwMeasurement3  = auto()
+    """The same as :attr:`knownMeasurement`. Three data points are
     used.
     """
-    calibTemperature        = auto()
+    temperature        = auto()
     """Re-calibrate the temperature measurement, e.g. for sensors
     involving temperature compensation.
     """
@@ -225,52 +225,52 @@ class CalibrationData:
     trueValue:          object = None
     """True measurement value related to the current exposure. Should
     be used with
-    :attr:`CalibrationType.calibTrueValue`,
-    :attr:`CalibrationType.calibExpose1`,
-    :attr:`CalibrationType.calibExpose2` and
-    :attr:`CalibrationType.calibExpose3`.
+    :attr:`CalibrationType.trueValue`,
+    :attr:`CalibrationType.expose1`,
+    :attr:`CalibrationType.expose2` and
+    :attr:`CalibrationType.expose3`.
     """
     offset:             object = None
     """Either a new absolute offset, or the shift to correct the current
     offset, given in measurement units. To be used with 
-    :attr:`CalibrationType.calibOffset` and
-    :attr:`CalibrationType.calibShiftOffset`.
+    :attr:`CalibrationType.offset` and
+    :attr:`CalibrationType.shiftOffset`.
     """
     iOffset:            int = 0
     """Either a new absolute offset, or the shift to correct the current
     offset, given in analogue, digitised or abstract integer units. To be
-    used with :attr:`CalibrationType.calibOffset` and
-    :attr:`CalibrationType.calibShiftOffset`.
+    used with :attr:`CalibrationType.offset` and
+    :attr:`CalibrationType.shiftOffset`.
     """
     linear:             _CalibrationData_linear = _CalibrationData_linear()
     """Either new linear calibration parameters to replace the current
     ones, or corrective numbers to adjust the calibration parameters in
     effect, both given in measurement units. To be used with
-    :attr:`CalibrationType.calibLinear` and
-    :attr:`CalibrationType.calibLinearRel`.
+    :attr:`CalibrationType.linear` and
+    :attr:`CalibrationType.linearRel`.
     """
     iLinear:            _CalibrationData_iLinear= _CalibrationData_iLinear()
     """Either new linear calibration parameters to replace the current
     ones, or corrective numbers to adjust the calibration parameters in
     effect, both given in abstract integer units. To be used with
-    :attr:`CalibrationType.calibLinear` and
-    :attr:`CalibrationType.calibLinearRel`.
+    :attr:`CalibrationType.linear` and
+    :attr:`CalibrationType.linearRel`.
     """
     param:              object = None
     """Generic set of parameters, stored separately. To be used with
-    :attr:`CalibrationType.calibParam` and
-    :attr:`CalibrationType.calibParamRel`.
+    :attr:`CalibrationType.param` and
+    :attr:`CalibrationType.paramRel`.
     """
     trueMeasurement:    _CalibrationData_trueMeasurement = _CalibrationData_trueMeasurement()
     """ Pair of measured and true value to support a one-point-calibration.
     Both values are given in measurement units. Note that the values do
     not relate to the current exposure. To be used with
-    :attr:`CalibrationType.calibTrueMeasurement`.
+    :attr:`CalibrationType.trueMeasurement`.
     """
     trueMeasurement2:   _CalibrationData_trueMeasurement = _CalibrationData_trueMeasurement()
     """Two pairs of measured and true value to support a two-point-
     calibration. All values are given in measurement units. To be used
-    with :attr:`CalibrationType.calibTrueMeasurement2`.
+    with :attr:`CalibrationType.trueMeasurement2`.
     """
     knownMeasurement:   List[_CalibrationData_knownMeasurement] = field( default_factory=lambda :
                                                                   [_CalibrationData_knownMeasurement(),
@@ -282,14 +282,14 @@ class CalibrationData:
     real/imaginary etc.).
     The target (y)- values *trueValue* are given in measurement units.
     To be used with
-    :attr:`CalibrationType.calibKnownMeasurement`,
-    :attr:`CalibrationType.calibKnownMeasurement1`,
+    :attr:`CalibrationType.knownMeasurement`,
+    :attr:`CalibrationType.knownMeasurement1`,
     :attr:`CalibrationType.calibKnownMeasurement2`,
     :attr:`CalibrationType.calibKnownMeasuremen3`.
     """
     temp:               _CalibrationData_iLinear = _CalibrationData_iLinear()
     """Temperature calibration data. To be used with
-    :attr:`CalibrationType.calibTemperature`.
+    :attr:`CalibrationType.temperature`.
     """
 
 @dataclass
@@ -300,33 +300,33 @@ class Calibration:
     The interpretation of the data particles depends on the type of the
     calibration as follows.
     
-    ======================    =========================
-    CalibrationType           CalibrationData particle
-    ======================    =========================
-    calibDefault              *none* 
-    calibZero                 *none*
-    calibOne                  *none*
-    calibHundred              *none*
-    calibTrueValue            trueValue
-    calibExpose1              trueValue
-    calibExpose2              trueValue
-    calibExpose3              trueValue
-    calibOffset               offset, iOffset
-    calibShiftOffset          offset, iOffset
-    calibLinear               linear, iLinear
-    calibLinearRel            linear, iLinear
-    calibParam                param
-    calibParamRel             param
-    calibTrueMeasurement      trueMeasurement
-    calibTrueMeasurement2     trueMeasurement2
-    calibKnownMeasurement     knownMeasurement
-    calibKnownMeasurement1    knownMeasurement
-    calibKnonwMeasurement2    knownMeasurement
-    calibKnonwMeasurement3    knownMeasurement
-    calibTemperature          temp
-    ======================    =========================    
+    =================    =========================
+    CalibrationType      CalibrationData particle
+    =================    =========================
+    default              *none* 
+    zero                 *none*
+    one                  *none*
+    hundred              *none*
+    trueValue            trueValue
+    expose1              trueValue
+    expose2              trueValue
+    expose3              trueValue
+    offset               offset, iOffset
+    shiftOffset          offset, iOffset
+    linear               linear, iLinear
+    linearRel            linear, iLinear
+    param                param
+    paramRel             param
+    trueMeasurement      trueMeasurement
+    trueMeasurement2     trueMeasurement2
+    knownMeasurement     knownMeasurement
+    knownMeasurement1    knownMeasurement
+    knonwMeasurement2    knownMeasurement
+    knonwMeasurement3    knownMeasurement
+    temperature          temp
+    =================    =========================    
     """
-    type:       CalibrationType = CalibrationType.calibDefault
+    type:       CalibrationType = CalibrationType.default
     data:       CalibrationData = CalibrationData()
         
 @unique
@@ -426,12 +426,12 @@ class Sensor(Module):
         self.Params_init( defaults )
         ret = ErrorCode.errOk
         if ("Sensor.dataRange" in paramDict):
-            cfg = Configuration( ConfigItem.cfgRange, value=paramDict["Sensor.dataRange"])
+            cfg = Configuration( ConfigItem.range, value=paramDict["Sensor.dataRange"])
             ret = self.configure( cfg )
         else:
             paramDict["Sensor.dataRange"] = defaults["Sensor.dataRange"]
         if ("Sensor.dataRate" in paramDict):
-            cfg = Configuration( ConfigItem.cfgRate, value=paramDict["Sensor.dataRate"])
+            cfg = Configuration( ConfigItem.rate, value=paramDict["Sensor.dataRate"])
             ret = self.configure( cfg )
         else:
             paramDict["Sensor.dataRate"] = defaults["Sensor.dataRate"]
@@ -503,9 +503,9 @@ class Sensor(Module):
         :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
-        if (configData.type == ConfigItem.cfgRange):
+        if (configData.type == ConfigItem.range):
             self.dataRange = configData.value
-        elif (configData.type == ConfigItem.cfgRate):
+        elif (configData.type == ConfigItem.rate):
             self.dataRate = configData.value
         else:
             ret = ErrorCode.errNotSupported

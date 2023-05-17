@@ -1,89 +1,122 @@
+"""Abstract interface for accelerometer sensors accessible via serial communication.
+
+Provide an API to abstract from acceleration measurement devices.
+"""
+__author__ = "Oliver Maye"
+__version__ = "0.1"
+__all__ = ["Activity", "AxesSign", "Orientation", "Tap",\
+           "SamplingMode", \
+           "EventSource", "EventContext", "Configuration", "StatusID", "Data",\
+           "Accelerometer"]
 from dataclasses import dataclass
 from enum import Enum, Flag, unique, auto
-from Interruptable import Interruptable, Event, EventContext as InterruptableEventContext
-import Sensor
+from interruptable import Interruptable, EventContext as IntEventContext
+from sensor import Configuration as sensorConfiguration, Sensor
 
 @unique
 class Activity(Enum):
-    actUnknown      = auto()
-    actStill        = auto()
-    actWalking      = auto()
-    actRunning      = auto()
+    """Identifies general types of human walking activities, that an\
+    accelerometer is possibly able to detect or distinguish.
+    """
+    unknown      = auto()
+    still        = auto()
+    walking      = auto()
+    running      = auto()
 
 class AxesSign(Flag):
-    axsX            = auto()
-    axsY            = auto()
-    axsZ            = auto()
-    axsSign         = auto()
-    axsSignPos      = 0
-    axsSignNeg      = axsSign
-    axsNone         = 0
-    axsAll          = (axsX | axsY | axsZ)
+    """Data class to name coordinate axes along with their positive or\
+    negative sign.
+    """
+    x            = auto()
+    y            = auto()
+    z            = auto()
+    sign         = auto()
+    signPos      = 0
+    signNeg      = sign
+    none         = 0
+    all          = (x | y | z)
 
 class Orientation(Enum):
-    orientStandMask = 0x03
-    orientPortUp    = 0x00
-    orientPortDown  = 0x01
-    orientLandLeft  = 0x02
-    orientLandRight = 0x03
-    orientFaceMask  = 0x04
-    orientFaceUp    = 0
-    orientFaceDown  = orientFaceMask
-    orientTiltMask  = 0x08
-    orientTiltStand = 0
-    orientTiltFlat  = orientTiltMask
-    orientInvalidMask   = 0xF0
-    orientInvalidStand  = 0x10
-    orientInvalidFace   = 0x20
-    orientInvalidTilt   = 0x40
-    orientUnknown       = 0xFF
+    """Data class to enumerate orientations that the device carrying the\
+    accelerometer may be in.
+    """
+    standMask     = 0x03
+    portraitUp    = 0x00
+    portraitDown  = 0x01
+    landscapeLeft = 0x02
+    landscapeRight= 0x03
+    faceMask      = 0x04
+    faceUp        = 0
+    faceDown      = faceMask
+    tiltMask      = 0x08
+    tiltStand     = 0
+    tiltFlat      = tiltMask
+    invalidMask   = 0xF0
+    invalidStand  = 0x10
+    invalidFace   = 0x20
+    invalidTilt   = 0x40
+    unknown       = 0xFF
 
 @unique    
 class Tap(Flag):
-    tapNone         = 0
-    tapSingle       = auto()
-    tapDouble       = auto()
-    tapTriple       = auto()
+    """Data class to identify different types of tap.
+    
+    A tap should be understood as a quick finger tip onto some touch
+    screen to simulate the click of a mouse. 
+    """
+    none         = 0
+    single       = auto()
+    double       = auto()
+    triple       = auto()
     
 @unique
 class SamplingMode(Enum):
-    smplAverage     = auto()
-    smplNormal      = auto()
-    smplOSR2        = auto()
-    smplOSR4        = auto()
+    """Mnemonic type to identify different types of sampling techniques,\
+    such as averaging, normal or over-sampling.
+    """
+    average     = auto()
+    normal      = auto()
+    OSR2        = auto()
+    OSR4        = auto()
 
 @unique    
 class EventSource(Flag):
-    evtSrcNone      = 0
-    evtSrcDataRdy   = auto()
-    evtSrcFifoWM    = auto()
-    evtSrcFifoFull  = auto()
-    evtSrcLowG      = auto()
-    evtSrcLowGTime  = auto()
-    evtSrcHighG     = auto()
-    evtSrcHighGTime = auto()
-    evtSrcLowSlope  = auto()
-    evtSrcLowSlopeTime = auto()
-    evtSrcHighSlope = auto()
-    evtSrcHighSlopeTime = auto()
-    evtSrcSigMotion = auto()
-    evtSrcTap       = auto()
-    evtSrcStep      = auto()
-    evtSrcGesture   = auto()
-    evtSrcActivity  = auto()
-    evtSrcLyingFlat = auto()
-    evtSrcOrientation = auto()
-    evtSrcError     = auto()
-    evtSrcAll       = 0xFFFFFFFF
-
+    """Data class to hold known event (interrupt) sources.
+    """
+    none                = 0
+    dataReady           = auto()
+    fifoWatermark       = auto()
+    fifoFull            = auto()
+    lowG                = auto()
+    lowGTime            = auto()
+    highG               = auto()
+    highGTime           = auto()
+    lowSlope            = auto()
+    lowSlopeTime        = auto()
+    highSlope           = auto()
+    highSlopeTime       = auto()
+    significantMotion   = auto()
+    tap                 = auto()
+    step                = auto()
+    gesture             = auto()
+    activity            = auto()
+    lyingFlat           = auto()
+    orientation         = auto()
+    error               = auto()
+    all                 = 0xFFFFFFFF
 
 @dataclass
-class Configuration( Sensor.Configuration ):
+class Configuration( sensorConfiguration ):
+    """Data class to describe common configuration settings.
+    
+    Use the parental class :attr:`sensor.Configuration.type` attribute
+    to de-multiplex the inner data types.
+    """
         
     @dataclass
     class CfgRateMode():
         mValue: int = 2
-        control: SamplingMode = SamplingMode.smplNormal
+        control: SamplingMode = SamplingMode.normal
 
     @dataclass
     class CfgFifo():
@@ -95,50 +128,61 @@ class Configuration( Sensor.Configuration ):
         delay:      int = 10
         thrshld:    int = 1500
         hysteresis: int = 200
-        axes:       AxesSign = AxesSign.axsZ
-        event:      EventSource = EventSource.evtSrcDataRdy
+        axes:       AxesSign = AxesSign.z
+        event:      EventSource = EventSource.dataReady
         
     rateMode:   CfgRateMode = None
     fifo:       CfgFifo = None
-    armedEvents:    EventSource = EventSource.evtSrcNone
+    armedEvents:    EventSource = EventSource.none
     eventCondition: CfgInterrupt = None
-    
-    
         
 @unique
 class StatusID(Enum):
-    StatusDieTemp   = auto()
-    StatusDataReady = auto()
-    StatusInterrupt = auto()
-    StatusFifo      = auto()
-    StatusError     = auto()
-    StatusActivity  = auto()
-    StatusStepCnt   = auto()
-    StatusHighG     = auto()
-    StatusHighSlope = auto()
-    StatusOrientation = auto()
-    StatusTap       = auto()
-    StatusNVM       = auto()
-    StatusSensorTime = auto()
+    """Data class to comprise different types of status information.
+    """
+    dieTemp     = auto()
+    dataReady   = auto()
+    interrupt   = auto()
+    fifo        = auto()
+    error       = auto()
+    activity    = auto()
+    stepCount   = auto()
+    highG       = auto()
+    highSlope   = auto()
+    orientation = auto()
+    tap         = auto()
+    NVM         = auto()
+    sensorTime  = auto()
 
 @dataclass
 class Data:
+    """Container type to wrap an accelerometer's primary measurement result.
+    
+    Measurement data should always be expressed as a signed value in
+    per-mille of the standard gravity milli-g [mg] along the three axes.
+    Of course::
+    
+        1000 mg = 1 g = 9,80665 m/s^2
+        
+    """
     x:  int
     y:  int
     z:  int
 
 @dataclass
-class EventContext( InterruptableEventContext ):
-    source:     EventSource = EventSource.evtSrcNone
+class EventContext( IntEventContext ):
+    """Data class holding the context information of an event (interrupt).
+    
+    Use the :attr:`source` attribute to de-multiplex the inner data items.
+    """
+    source:     EventSource = EventSource.none
     data:       Data = (0,0,0)
     status:     int = 0
     
     def __init__(self):
         super().__init__()
-
-#
-#
-#        
-class Accelerometer(Interruptable, Sensor.Sensor):
+        
+class Accelerometer(Interruptable, Sensor):
+    """Abstract base class for digital accelerometers.
+    """
     pass    
-   

@@ -1,10 +1,10 @@
 from _BMA456_Reg import _BMA456_Reg
 from _BMA456_Feature import _BMA456_Feature
-from Accelerometer import Accelerometer, Activity, AxesSign, Configuration, EventSource, Orientation, SamplingMode, StatusID, Tap
+from accelerometer import Accelerometer, Activity, AxesSign, Configuration, EventSource, Orientation, SamplingMode, StatusID, Tap
 from dictionary import dictionary
 import imath
-from Interruptable import Event, EventContextControl
-from sensor import ConfigItem, Sensor
+from interruptable import Event, EventContextControl
+from sensor import CalibrationType, ConfigItem, Info, SelfTest
 from serialbus import SerialBusDevice
 from systypes import ErrorCode, RunLevel
 import time
@@ -262,68 +262,68 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
     # Accelerometer.EventSource
     #
     def _bmaInt2accelEvtSrc( self, intID ):
-        ret = EventSource.evtSrcNone
+        ret = EventSource.none
     
         # INT_STATUS_1, high-byte
         if( intID & BMA456.BMA456_CNT_INT_STATUS_ACC_DRDY ):
-            ret |= EventSource.evtSrcDataRdy;
+            ret |= EventSource.dataReady;
         if( intID & BMA456.BMA456_CNT_INT_STATUS_AUX_DRDY ):
-            ret |= EventSource.evtSrcNone
+            ret |= EventSource.none
         if( intID & BMA456.BMA456_CNT_INT_STATUS_FIFO_WM ):
-            ret |= EventSource.evtSrcFifoWM
+            ret |= EventSource.fifoWatermark
         if( intID & BMA456.BMA456_CNT_INT_STATUS_FIFO_FULL ):
-            ret |= EventSource.evtSrcFifoFull
+            ret |= EventSource.fifoFull
         # INT_STATUS_0, low-byte
         if( intID & BMA456.BMA456_CNT_INT_STATUS_ERROR ):
-            ret |= EventSource.evtSrcError
+            ret |= EventSource.error
         # Interpretation of the rest of the low-byte INT_STATUS_0 depends
         # on the feature set.
         if (self.featureSet == BMA456.BMA456_FEATURE_SET_WEARABLE):
             if( intID & BMA456.BMA456_FSWBL_CNT_INT_STATUS_NO_MOTION ):
-                ret |= EventSource.evtSrcLowSlopeTime
+                ret |= EventSource.lowSlopeTime
             if( intID & BMA456.BMA456_FSWBL_CNT_INT_STATUS_ANY_MOTION ):
-                ret |= EventSource.evtSrcHighSlopeTime
+                ret |= EventSource.highSlopeTime
             if( intID & BMA456.BMA456_FSWBL_CNT_INT_STATUS_DBL_TAP ):
-                ret |= EventSource.evtSrcTap
+                ret |= EventSource.tap
             if( intID & BMA456.BMA456_FSWBL_CNT_INT_STATUS_WRIST_WKUP ):
-                ret |= EventSource.evtSrcGesture
+                ret |= EventSource.gesture
             if( intID & BMA456.BMA456_FSWBL_CNT_INT_STATUS_ACTIVITY ):
-                ret |= EventSource.evtSrcActivity
+                ret |= EventSource.activity
             if( intID & BMA456.BMA456_FSWBL_CNT_INT_STATUS_STEP_COUNT ):
-                ret |= EventSource.evtSrcStep
+                ret |= EventSource.step
             if( intID & BMA456.BMA456_FSWBL_CNT_INT_STATUS_TAP_DETECT ):
-                ret |= EventSource.evtSrcTap
+                ret |= EventSource.tap
         elif (self.featureSet == BMA456.BMA456_FEATURE_SET_HEARABLE):
             if( intID & BMA456.BMA456_FSHBL_CNT_INT_STATUS_NO_MOTION ):
-                ret |= EventSource.evtSrcLowSlopeTime
+                ret |= EventSource.lowSlopeTime
             if( intID & BMA456.BMA456_FSHBL_CNT_INT_STATUS_ANY_MOTION ):
-                ret |= EventSource.evtSrcHighSlopeTime
+                ret |= EventSource.highSlopeTime
             if( intID & BMA456.BMA456_FSHBL_CNT_INT_STATUS_ACTIVITY ):
-                ret |= EventSource.evtSrcActivity
+                ret |= EventSource.activity
             if( intID & BMA456.BMA456_FSHBL_CNT_INT_STATUS_STEP_COUNT ):
-                ret |= EventSource.evtSrcStep
+                ret |= EventSource.step
             if( intID & BMA456.BMA456_FSHBL_CNT_INT_STATUS_TAP_DETECT ):
-                ret |= EventSource.evtSrcTap
+                ret |= EventSource.tap
         elif (self.featureSet == BMA456.BMA456_FEATURE_SET_MM):
             if( intID & BMA456.BMA456_FSMM_CNT_INT_STATUS_NO_MOTION ):
-                ret |= EventSource.evtSrcLowSlopeTime
+                ret |= EventSource.lowSlopeTime
             if( intID & BMA456.BMA456_FSMM_CNT_INT_STATUS_ANY_MOTION ):
-                ret |= EventSource.evtSrcHighSlopeTime
+                ret |= EventSource.highSlopeTime
             if( intID & BMA456.BMA456_FSMM_CNT_INT_STATUS_SIG_MOTION ):
-                ret |= EventSource.evtSrcSigMotion
+                ret |= EventSource.significantMotion
             if( intID & BMA456.BMA456_FSMM_CNT_INT_STATUS_HIGH_G ):
-                ret |= EventSource.evtSrcHighGTime
+                ret |= EventSource.highGTime
             if( intID & BMA456.BMA456_FSMM_CNT_INT_STATUS_LOW_G ):
-                ret |= EventSource.evtSrcLowGTime
+                ret |= EventSource.lowGTime
             if( intID & BMA456.BMA456_FSMM_CNT_INT_STATUS_ORIENT ):
-                ret |= EventSource.evtSrcOrientation
+                ret |= EventSource.orientation
             if( intID & BMA456.BMA456_FSMM_CNT_INT_STATUS_TAP_DETECT ):
-                ret |= EventSource.evtSrcTap
+                ret |= EventSource.tap
         elif (self.featureSet == BMA456.BMA456_FEATURE_SET_AN):
             if( intID & BMA456.BMA456_FSAN_CNT_INT_STATUS_NO_MOTION ):
-                ret |= EventSource.evtSrcLowSlopeTime
+                ret |= EventSource.lowSlopeTime
             if( intID & BMA456.BMA456_FSAN_CNT_INT_STATUS_ANY_MOTION ):
-                ret |= EventSource.evtSrcHighSlopeTime
+                ret |= EventSource.highSlopeTime
 
         return ret;
     
@@ -337,29 +337,29 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
         # Map BMA interrupt source to API event source
         context.source = self._bmaInt2accelEvtSrc( singleIntID )
         # Now, depending on the event source, get additional information.
-        if (context.source == EventSource.evtSrcDataRdy):
+        if (context.source == EventSource.dataReady):
             context.data, ret = self.getLatestData()
-        elif (context.source == EventSource.evtSrcFifoWM) or (context.source == EventSource.evtSrcFifoFull):
-            context.status, ret = self.getStatus( StatusID.StatusFifo )
-        elif (context.source == EventSource.evtSrcActivity):
-            context.status, ret = self.getStatus( StatusID.StatusActivity )
-        elif (context.source == EventSource.evtSrcStep):
-            context.status, ret = self.getStatus( StatusID.StatusStepCnt )
-        elif (context.source == EventSource.evtSrcHighGTime):
-            context.status, ret = self.getStatus( StatusID.StatusHighG )
-        elif (context.source == EventSource.evtSrcOrientation):
-            context.status, ret = self.getStatus( StatusID.StatusOrientation )
-        elif (context.source == EventSource.evtSrcTap):
+        elif (context.source == EventSource.fifoWatermark) or (context.source == EventSource.fifoFull):
+            context.status, ret = self.getStatus( StatusID.fifo )
+        elif (context.source == EventSource.activity):
+            context.status, ret = self.getStatus( StatusID.activity )
+        elif (context.source == EventSource.step):
+            context.status, ret = self.getStatus( StatusID.stepCount )
+        elif (context.source == EventSource.highGTime):
+            context.status, ret = self.getStatus( StatusID.highG )
+        elif (context.source == EventSource.orientation):
+            context.status, ret = self.getStatus( StatusID.orientation )
+        elif (context.source == EventSource.tap):
             if( self.featureSet == BMA456.BMA456_FEATURE_SET_WEARABLE ):
                 if( singleIntID == BMA456.BMA456_FSWBL_CNT_INT_STATUS_TAP_DETECT ):
-                    context.status = Tap.tapSingle
+                    context.status = Tap.single
                 elif( singleIntID == BMA456.BMA456_FSWBL_CNT_INT_STATUS_DBL_TAP ):
-                    context.status = Tap.tapDouble
+                    context.status = Tap.double
                 else:
-                    context.status = Tap.tapNone
+                    context.status = Tap.none
             else:
                 # Multi-tap concept.
-                context.status, ret = self.getStatus( StatusID.StatusTap )
+                context.status, ret = self.getStatus( StatusID.tap )
     
         return ret
 
@@ -372,88 +372,88 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
     
         # Set INT_MAP_DATA, first
         dataMap = BMA456.BMA456_CNT_INTX_MAP_NONE
-        if( evtSrc & EventSource.evtSrcDataRdy ):
+        if( evtSrc & EventSource.dataReady ):
             dataMap |= (BMA456.BMA456_CNT_INT_MAP_DATA_INT1_DRDY | BMA456.BMA456_CNT_INT_MAP_DATA_INT2_DRDY)
-            remainder &= ~EventSource.evtSrcDataRdy
-        if( evtSrc & EventSource.evtSrcFifoWM ):
+            remainder &= ~EventSource.dataReady
+        if( evtSrc & EventSource.fifoWatermark ):
             dataMap |= (BMA456.BMA456_CNT_INT_MAP_DATA_INT1_FIFO_WM | BMA456.BMA456_CNT_INT_MAP_DATA_INT2_FIFO_WM)
-            remainder &= ~EventSource.evtSrcFifoWM
-        if( evtSrc & EventSource.evtSrcFifoFull ):
+            remainder &= ~EventSource.fifoWatermark
+        if( evtSrc & EventSource.fifoFull ):
             dataMap |= (BMA456.BMA456_CNT_INT_MAP_DATA_INT1_FIFO_FULL | BMA456.BMA456_CNT_INT_MAP_DATA_INT2_FIFO_FULL)
-            remainder &= ~EventSource.evtSrcFifoFull
+            remainder &= ~EventSource.fifoFull
     
         # Now, set INT1_MAP
         featMap = BMA456.BMA456_CNT_INTX_MAP_NONE
-        if( evtSrc & EventSource.evtSrcError ):
+        if( evtSrc & EventSource.error ):
             featMap |= BMA456.BMA456_CNT_INTX_MAP_ERROR
-            remainder &= ~EventSource.evtSrcError
+            remainder &= ~EventSource.error
         
         # Interpretation of INTx_MAP depends on the feature set.
         if (self.featureSet == BMA456.BMA456_FEATURE_SET_WEARABLE):
-            if( evtSrc & EventSource.evtSrcLowSlopeTime ):
+            if( evtSrc & EventSource.lowSlopeTime ):
                 featMap |= BMA456.BMA456_FSWBL_CNT_INTX_MAP_NO_MOTION
-                remainder &= ~EventSource.evtSrcLowSlopeTime
-            if( evtSrc & EventSource.evtSrcHighSlopeTime ):
+                remainder &= ~EventSource.lowSlopeTime
+            if( evtSrc & EventSource.highSlopeTime ):
                 featMap |= BMA456.BMA456_FSWBL_CNT_INTX_MAP_ANY_MOTION
-                remainder &= ~EventSource.evtSrcHighSlopeTime
+                remainder &= ~EventSource.highSlopeTime
             # Double tap must be treated by the caller
-            if( evtSrc & EventSource.evtSrcGesture):
+            if( evtSrc & EventSource.gesture):
                 featMap |= BMA456.BMA456_FSWBL_CNT_INTX_MAP_WRIST_WKUP
-                remainder &= ~EventSource.evtSrcGesture
-            if( evtSrc & EventSource.evtSrcActivity):
+                remainder &= ~EventSource.gesture
+            if( evtSrc & EventSource.activity):
                 featMap |= BMA456.BMA456_FSWBL_CNT_INTX_MAP_ACTIVITY
-                remainder &= ~EventSource.evtSrcActivity
-            if( evtSrc & EventSource.evtSrcStep ):
+                remainder &= ~EventSource.activity
+            if( evtSrc & EventSource.step ):
                 featMap |= BMA456.BMA456_FSWBL_CNT_INTX_MAP_STEP_CNT
-                remainder &= ~EventSource.evtSrcStep
-            if( evtSrc & EventSource.evtSrcTap):
+                remainder &= ~EventSource.step
+            if( evtSrc & EventSource.tap):
                 featMap |= BMA456.BMA456_FSWBL_CNT_INTX_MAP_STAP
-                remainder &= ~EventSource.evtSrcTap
+                remainder &= ~EventSource.tap
         elif (self.featureSet == BMA456.BMA456_FEATURE_SET_HEARABLE):
-            if( evtSrc & EventSource.evtSrcLowSlopeTime):
+            if( evtSrc & EventSource.lowSlopeTime):
                 featMap |= BMA456.BMA456_FSHBL_CNT_INTX_MAP_NO_MOTION
-                remainder &= ~EventSource.evtSrcLowSlopeTime
-            if( evtSrc & EventSource.evtSrcHighSlopeTime):
+                remainder &= ~EventSource.lowSlopeTime
+            if( evtSrc & EventSource.highSlopeTime):
                 featMap |= BMA456.BMA456_FSHBL_CNT_INTX_MAP_ANY_MOTION
-                remainder &= ~EventSource.evtSrcHighSlopeTime
-            if( evtSrc & EventSource.evtSrcActivity):
+                remainder &= ~EventSource.highSlopeTime
+            if( evtSrc & EventSource.activity):
                 featMap |= BMA456.BMA456_FSHBL_CNT_INTX_MAP_ACTIVITY
-                remainder &= ~EventSource.evtSrcActivity
-            if( evtSrc & EventSource.evtSrcStep):
+                remainder &= ~EventSource.activity
+            if( evtSrc & EventSource.step):
                 featMap |= BMA456.BMA456_FSHBL_CNT_INTX_MAP_STEP_CNT
-                remainder &= ~EventSource.evtSrcStep
-            if( evtSrc & EventSource.evtSrcTap):
+                remainder &= ~EventSource.step
+            if( evtSrc & EventSource.tap):
                 featMap |= BMA456.BMA456_FSHBL_CNT_INTX_MAP_TAP
-                remainder &= ~EventSource.evtSrcTap
+                remainder &= ~EventSource.tap
         elif (self.featureSet == BMA456.BMA456_FEATURE_SET_MM):
-            if( evtSrc & EventSource.evtSrcLowSlopeTime):
+            if( evtSrc & EventSource.lowSlopeTime):
                 featMap |= BMA456.BMA456_FSMM_CNT_INTX_MAP_NO_MOTION
-                remainder &= ~EventSource.evtSrcLowSlopeTime
-            if( evtSrc & EventSource.evtSrcHighSlopeTime):
+                remainder &= ~EventSource.lowSlopeTime
+            if( evtSrc & EventSource.highSlopeTime):
                 featMap |= BMA456.BMA456_FSMM_CNT_INTX_MAP_ANY_MOTION
-                remainder &= ~EventSource.evtSrcHighSlopeTime
-            if( evtSrc & EventSource.evtSrcSigMotion):
+                remainder &= ~EventSource.highSlopeTime
+            if( evtSrc & EventSource.significantMotion):
                 featMap |= BMA456.BMA456_FSMM_CNT_INTX_MAP_SIG_MOTION
-                remainder &= ~EventSource.evtSrcSigMotion
-            if( evtSrc & EventSource.evtSrcHighGTime):
+                remainder &= ~EventSource.significantMotion
+            if( evtSrc & EventSource.highGTime):
                 featMap |= BMA456.BMA456_FSMM_CNT_INTX_MAP_HIGH_G
-                remainder &= ~EventSource.evtSrcHighGTime
-            if( evtSrc & EventSource.evtSrcLowGTime):
+                remainder &= ~EventSource.highGTime
+            if( evtSrc & EventSource.lowGTime):
                 featMap |= BMA456.BMA456_FSMM_CNT_INTX_MAP_LOW_G
-                remainder &= ~EventSource.evtSrcLowGTime
-            if( evtSrc & EventSource.evtSrcOrientation):
+                remainder &= ~EventSource.lowGTime
+            if( evtSrc & EventSource.orientation):
                 featMap |= BMA456.BMA456_FSMM_CNT_INTX_MAP_ORIENT
-                remainder &= ~EventSource.evtSrcOrientation
-            if( evtSrc & EventSource.evtSrcTap):
+                remainder &= ~EventSource.orientation
+            if( evtSrc & EventSource.tap):
                 featMap |= BMA456.BMA456_FSMM_CNT_INTX_MAP_TAP
-                remainder &= ~EventSource.evtSrcTap
+                remainder &= ~EventSource.tap
         elif (self.featureSet == BMA456.BMA456_FEATURE_SET_AN):
-            if( evtSrc & EventSource.evtSrcLowSlopeTime):
+            if( evtSrc & EventSource.lowSlopeTime):
                 featMap |= BMA456.BMA456_FSAN_CNT_INTX_MAP_NO_MOTION
-                remainder &= ~EventSource.evtSrcLowSlopeTime
-            if( evtSrc & EventSource.evtSrcHighSlopeTime ):
+                remainder &= ~EventSource.lowSlopeTime
+            if( evtSrc & EventSource.highSlopeTime ):
                 featMap |= BMA456.BMA456_FSAN_CNT_INTX_MAP_ANY_MOTION
-                remainder &= ~EventSource.evtSrcHighSlopeTime
+                remainder &= ~EventSource.highSlopeTime
         return remainder, dataMap, featMap
 
     #
@@ -708,7 +708,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
             if( context.control == EventContextControl.evtCtxtCtrl_clearAll ):
                 _, ret = self.readWordRegister( BMA456.BMA456_REG_INT_STATUS )
                 context.remainInt = 0;
-                context.source = EventSource.evtSrcNone
+                context.source = EventSource.none
             else:
                 if (context.control == EventContextControl.evtCtxtCtrl_getFirst):
                     data, ret = self.readWordRegister( BMA456.BMA456_REG_INT_STATUS )
@@ -756,7 +756,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
             # Set +-8g range
             oldRange = self.dataRange
             config = Configuration()
-            config.type = ConfigItem.cfgRange
+            config.type = ConfigItem.range
             config.range = BMA456.BMA456_SELFTEST_RANGE
             ret = self.configure( config )
             # Set self-test amplitude to low
@@ -793,7 +793,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
                                     BMA456.BMA456_CNT_SELF_TST_AMP_LOW | BMA456.BMA456_CNT_SELF_TST_DISABLE )
             # Restore old configuration
             self.writeByteRegister( BMA456.BMA456_REG_ACC_CONF, oldRate )
-            config.type = ConfigItem.cfgRange
+            config.type = ConfigItem.range
             config.range = oldRange
             self.configure( config )
         return ret
@@ -831,20 +831,20 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
     def configure(self, config):
         ret = ErrorCode.errOk
     
-        if (config.type == ConfigItem.cfgRate):
+        if (config.type == ConfigItem.rate):
             # Construct ACC_CONF register content
             key, ret = self.dictRate.findKey( config.value )
             if (ret == ErrorCode.errOk):
                 data = key
                 if (isinstance( config, Configuration)):
-                    if (config.rateMode.control == SamplingMode.smplAverage):
+                    if (config.rateMode.control == SamplingMode.average):
                         key, ret = self.dictAverage.findKey( config.rateMode.mValue )
                         data |= key
-                    elif (config.rateMode.control == SamplingMode.smplNormal):
+                    elif (config.rateMode.control == SamplingMode.normal):
                         data |= BMA456.BMA456_CNT_ACC_CONF_MODE_NORM
-                    elif (config.rateMode.control == SamplingMode.smplOSR2):
+                    elif (config.rateMode.control == SamplingMode.OSR2):
                         data |= BMA456.BMA456_CNT_ACC_CONF_MODE_OSR2
-                    elif (config.rateMode.control == SamplingMode.smplOSR4):
+                    elif (config.rateMode.control == SamplingMode.OSR4):
                         data |= BMA456.BMA456_CNT_ACC_CONF_MODE_OSR4
                     else:
                         ret = ErrorCode.errNotSupported
@@ -858,7 +858,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
                     data, ret = self.readByteRegister( BMA456.BMA456_REG_ERROR )
                     if ((data & BMA456.BMA456_CNT_ERROR_CODE) == BMA456.BMA456_CNT_ERROR_CODE_ACC):
                         ret = ErrorCode.errSpecRange
-        elif (config.type == ConfigItem.cfgRange):
+        elif (config.type == ConfigItem.range):
             # Construct ACC_RANGE register content
             key, ret = self.dictRange.findKey( config.value )
             if (ret == ErrorCode.errOk):
@@ -868,12 +868,12 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
                 value, ret = self.dictRange.getValue(key)
             if (ret == ErrorCode.errOk):
                 self.dataRange = value
-        elif (config.type == ConfigItem.cfgFifo):
+        elif (config.type == ConfigItem.fifo):
             ret = ErrorCode.errNotImplemented
-        elif (config.type == ConfigItem.cfgEventArm):
+        elif (config.type == ConfigItem.eventArm):
             # Translate accel_EventSource_t into INTxMAP and INT_MAT_DATA bit masks
             remainEvt, dataMap, featureMap = self._accelEvtSrc2bmaMap( config.armedEvents )
-            if (remainEvt != EventSource.evtSrcNone):
+            if (remainEvt != EventSource.none):
                 ret = ErrorCode.errNotSupported
             else:
                 ret = self.writeByteRegister( BMA456.BMA456_REG_INT_MAP_DATA, dataMap )
@@ -881,17 +881,17 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
                 ret = self.writeByteRegister( BMA456.BMA456_REG_INT1_MAP, featureMap )
             if (ret == ErrorCode.errOk):
                 ret = self.writeByteRegister( BMA456.BMA456_REG_INT2_MAP, featureMap )
-        elif (config.type == ConfigItem.cfgEventCondition):
-            if (config.eventCondition.event in [EventSource.evtSrcDataRdy, EventSource.evtSrcFifoWM,
-                                                        EventSource.evtSrcFifoFull, EventSource.evtSrcError]):
+        elif (config.type == ConfigItem.eventCondition):
+            if (config.eventCondition.event in [EventSource.dataReady, EventSource.fifoWatermark,
+                                                        EventSource.fifoFull, EventSource.error]):
                 # Nothing to condition, already done.
                 ret = ErrorCode.errOk
-            elif (config.eventCondition.event in [EventSource.evtSrcLowGTime, EventSource.evtSrcHighGTime,
-                                                          EventSource.evtSrcLowSlopeTime, EventSource.evtSrcHighSlopeTime,
-                                                          EventSource.evtSrcSigMotion, EventSource.evtSrcTap,
-                                                          EventSource.evtSrcStep, EventSource.evtSrcGesture,
-                                                          EventSource.evtSrcActivity, EventSource.evtSrcLyingFlat,
-                                                          EventSource.evtSrcOrientation]):
+            elif (config.eventCondition.event in [EventSource.lowGTime, EventSource.highGTime,
+                                                          EventSource.lowSlopeTime, EventSource.highSlopeTime,
+                                                          EventSource.significantMotion, EventSource.tap,
+                                                          EventSource.step, EventSource.gesture,
+                                                          EventSource.activity, EventSource.lyingFlat,
+                                                          EventSource.orientation]):
                 # Conditions are part of the feature configuration.
                 # Changing that, is not implemented.
                 ret = ErrorCode.errNotImplemented
@@ -910,9 +910,9 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
     #
     def calibrate(self, calib):
         ret = ErrorCode.errOk
-        if (calib.type == CalibrationType.calibDefault):
+        if (calib.type == CalibrationType.default):
             ret = ErrorCode.errNotImplemented
-        elif (calib.type == CalibrationType.calibTrueValue):
+        elif (calib.type == CalibrationType.trueValue):
             ret = ErrorCode.errNotImplemented
         else:
             ret = ErrorCode.errNotSupported
@@ -939,7 +939,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
         ret = ErrorCode.errOk
         status = 0
     
-        if (statID == StatusID.StatusDieTemp):
+        if (statID == StatusID.dieTemp):
             # Temperature in degree Celsiusas Q8.8
             data, ret = self.readByteRegister( BMA456.BMA456_REG_TEMPERATURE )
             if (ret == ErrorCode.errOk):
@@ -947,22 +947,22 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
                 if (data > 0x7F):
                     data = data - 0x100
                 status = (data + BMA456.BMA456_TEMPERATURE_SHIFT) << 8
-        elif (statID == StatusID.StatusDataReady):
+        elif (statID == StatusID.dataReady):
             # Just 0 or 1 to indicate if new data is ready
             data, ret = self.readByteRegister( BMA456.BMA456_REG_STATUS )
             if (ret == ErrorCode.errOk):
                 status = ((data & BMA456.BMA456_CNT_STATUS_DRDY_ACC) != 0)
-        elif (statID == StatusID.StatusInterrupt):
+        elif (statID == StatusID.interrupt):
             # EventSource mask
             data, ret = self.readWordRegister( BMA456.BMA456_REG_INT_STATUS )
             if (ret == ErrorCode.errOk):
                 status = self._bmaInt2accelEvtSrc( data )
-        elif (statID == StatusID.StatusFifo):
+        elif (statID == StatusID.fifo):
             # Number of elements in FIFO
             data, ret = self.readWordRegister( BMA456.BMA456_REG_FIFO_LENGTH )
             if (ret == ErrorCode.errOk):
                 status = data
-        elif (statID == StatusID.StatusError):
+        elif (statID == StatusID.error):
             # Implementation-specific error/health code
             status = 0
             # Copy INTERNAL_ERROR 0x5F (int_err_2, int_err_1)
@@ -981,72 +981,72 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
             if (ret == ErrorCode.errOk):
                 data, ret = self.readByteRegister( BMA456.BMA456_REG_ERROR )
                 status = (status << 8) | data
-        elif (statID == StatusID.StatusActivity):
+        elif (statID == StatusID.activity):
             # Activity
             if (self.featureSet in [BMA456.BMA456_FEATURE_SET_WEARABLE, BMA456.BMA456_FEATURE_SET_HEARABLE]):
                 data, ret = self.readByteRegister( BMA456.BMA456_FSWBL_REG_ACTIVITY_TYPE )
                 if (ret == ErrorCode.errOk):
                     if ((data & BMA456.BMA456_FSWBL_CNT_ACTIVITY_TYPE) == BMA456.BMA456_FSWBL_CNT_ACTIVITY_TYPE_UNKNOWN):
-                        status = Activity.actUnknown
+                        status = Activity.unknown
                     elif ((data & BMA456.BMA456_FSWBL_CNT_ACTIVITY_TYPE) == BMA456.BMA456_FSWBL_CNT_ACTIVITY_TYPE_STILL):
-                        status = Activity.actStill
+                        status = Activity.still
                     elif ((data & BMA456.BMA456_FSWBL_CNT_ACTIVITY_TYPE) == BMA456.BMA456_FSWBL_CNT_ACTIVITY_TYPE_WALK):
-                        status = Activity.actWalking
+                        status = Activity.walking
                     elif ((data & BMA456.BMA456_FSWBL_CNT_ACTIVITY_TYPE) == BMA456.BMA456_FSWBL_CNT_ACTIVITY_TYPE_RUN):
-                        status = Activity.actRunning
+                        status = Activity.running
                     else:
                         ret = ErrorCode.errCorruptData
             else:
                 ret = ErrorCode.errNotSupported
-        elif (statID == StatusID.StatusStepCnt):
+        elif (statID == StatusID.stepCount):
             # Step count
             if (self.featureSet in [BMA456.BMA456_FEATURE_SET_WEARABLE, BMA456.BMA456_FEATURE_SET_HEARABLE]):
                 status, ret = self.readDWordRegister( BMA456.BMA456_FSWBL_REG_STEP_COUNTER )
             else:
                 ret = ErrorCode.errNotSupported
-        elif (statID == StatusID.StatusHighG):
+        elif (statID == StatusID.highG):
             # AxesSign
             if (self.featureSet == BMA456.BMA456_FEATURE_SET_MM):
                 data, ret = self.readByteRegister( BMA456.BMA456_FSMM_REG_HIGH_G_OUTPUT )
                 if (ret == ErrorCode.errOk):
-                    status = AxesSign.axsNone
+                    status = AxesSign.none
                     if (data & BMA456.BMA456_FSMM_CNT_HIGH_G_OUTPUT_AXES_X ):
-                        status |= AxesSign.axsX
+                        status |= AxesSign.x
                     if (data & BMA456.BMA456_FSMM_CNT_HIGH_G_OUTPUT_AXES_Y ):
-                        status |= AxesSign.axsY
+                        status |= AxesSign.y
                     if (data & BMA456.BMA456_FSMM_CNT_HIGH_G_OUTPUT_AXES_Z ):
-                        status |= AxesSign.axsZ
+                        status |= AxesSign.z
                     if ((data & BMA456.BMA456_FSMM_CNT_HIGH_G_OUTPUT_SIGN) == BMA456.BMA456_FSMM_CNT_HIGH_G_OUTPUT_SIGN_POS ):
-                        status |= AxesSign.axsSignPos
+                        status |= AxesSign.signPos
                     else:
-                        status |= AxesSign.axsSignNeg
+                        status |= AxesSign.signNeg
             else:
                 ret = ErrorCode.errNotSupported
-        elif (statID == StatusID.StatusOrientation):
+        elif (statID == StatusID.orientation):
             # accel_Orientation_t mask
             if (self.featureSet == BMA456.BMA456_FEATURE_SET_MM):
                 data, ret = self.readByteRegister( BMA456.BMA456_FSMM_REG_ORIENT_OUTPUT )
                 if (ret == ErrorCode.errOk):
                     if ((data & BMA456.BMA456_FSMM_CNT_ORIENT_OUTPUT_STAND) == BMA456.BMA456_FSMM_CNT_ORIENT_OUTPUT_STAND_PORT_UP):
-                        status = Orientation.orientPortUp
+                        status = Orientation.portraitUp
                     elif ((data & BMA456.BMA456_FSMM_CNT_ORIENT_OUTPUT_STAND) == BMA456.BMA456_FSMM_CNT_ORIENT_OUTPUT_STAND_PORT_DOWNUP):
-                        status = Orientation.orientPortDown
+                        status = Orientation.portraitDown
                     elif ((data & BMA456.BMA456_FSMM_CNT_ORIENT_OUTPUT_STAND) == BMA456.BMA456_FSMM_CNT_ORIENT_OUTPUT_STAND_LAND_LEFT):
-                        status = Orientation.orientLandLeft
+                        status = Orientation.landscapeLeft
                     elif ((data & BMA456.BMA456_FSMM_CNT_ORIENT_OUTPUT_STAND) == BMA456.BMA456_FSMM_CNT_ORIENT_OUTPUT_STAND_LAND_RIGHT):
-                        status = Orientation.orientLandRight
+                        status = Orientation.landscapeRight
                     else:
                         # Should never reach here.
-                        status = Orientation.orientPortUp
+                        status = Orientation.portraitUp
                     # face up/down info
                     if ((data & BMA456.BMA456_FSMM_CNT_ORIENT_OUTPUT_FACE) == BMA456.BMA456_FSMM_CNT_ORIENT_OUTPUT_FACE_UP):
-                        status |= Orientation.orientFaceUp
+                        status |= Orientation.faceUp
                     else:
-                        status |= Orientation.orientFaceDown
-                    status |= Orientation.orientInvalidTilt
+                        status |= Orientation.faceDown
+                    status |= Orientation.invalidTilt
             else:
                 ret = ErrorCode.errNotSupported
-        elif (statID == StatusID.StatusTap):
+        elif (statID == StatusID.tap):
             # Number of taps detected as an Tap type
             if (self.featureSet == BMA456.BMA456_FEATURE_SET_WEARABLE):
                 #
@@ -1057,30 +1057,30 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
                 # from this and cannot report more than NONE, at this
                 # point.
                 #
-                status = Tap.tapNone
+                status = Tap.none
             elif (self.featureSet == BMA456.BMA456_FEATURE_SET_HEARABLE):
                 data, ret = self.readByteRegister( BMA456.BMA456_FSHBL_REG_FEAT_OUT )
                 if (ret == ErrorCode.errOk):
-                    status = Tap.tapNone
+                    status = Tap.none
                     if (data & BMA456.BMA456_FSHBL_CNT_FEAT_OUT_STAP):
-                        status |= Tap.tapSingle
+                        status |= Tap.single
                     if (data & BMA456.BMA456_FSHBL_CNT_FEAT_OUT_DTAP):
-                        status |= Tap.tapDouble
+                        status |= Tap.double
                     if (data & BMA456.BMA456_FSHBL_CNT_FEAT_OUT_TTAP):
-                        status |= Tap.tapTriple
+                        status |= Tap.triple
             elif (self.featureSet == BMA456.BMA456_FEATURE_SET_MM):
                 data, ret = self.readByteRegister( BMA456.BMA456_FSMM_REG_MULTITAP_OUTPUT )
                 if (ret == ErrorCode.errOk):
-                    status = Tap.tapNone
+                    status = Tap.none
                     if (data & BMA456.BMA456_FSMM_CNT_MULTITAP_OUTPUT_STAP):
-                        status |= Tap.tapSingle
+                        status |= Tap.single
                     if (data & BMA456.BMA456_FSMM_CNT_MULTITAP_OUTPUT_DTAP):
-                        status |= Tap.tapDouble
+                        status |= Tap.double
                     if (data & BMA456.BMA456_FSMM_CNT_MULTITAP_OUTPUT_TTAP):
-                        status |= Tap.tapTriple
+                        status |= Tap.triple
             else:
                 ret = ErrorCode.errNotSupported
-        elif (statID == StatusID.StatusSensorTime):
+        elif (statID == StatusID.sensorTime):
             # Sensor time in ms as an unsigned Q24.8
             status, ret = self.readDWordRegister( BMA456.BMA456_REG_SENSOR_TIME )
             if (ret == ErrorCode.errOk):
@@ -1110,7 +1110,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
     def getNextData(self):
         done = False
         while( not done ):
-            stat, err = self.getStatus( StatusID.StatusDataReady )
+            stat, err = self.getStatus( StatusID.dataReady )
             done = (stat != 0) or (err != ErrorCode.errOk)
         if (err == ErrorCode.errOk):
             data, err = self.getLatestData()
