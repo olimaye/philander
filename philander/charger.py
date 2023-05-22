@@ -4,13 +4,13 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["ChargerStatus", "DCStatus", "PowerSrc", "TemperatureRating",\
            "ChargerError", "EventSource", "Charger"]
-from battery import BatteryStatus
+from battery import Status as BatStatus
 from dataclasses import dataclass
 from enum import unique, auto, Enum, Flag
 from systypes import ErrorCode, Info
 
 @unique
-class ChargerStatus(Enum):
+class Status(Enum):
     """Data class to describe the status or mode of a charging circuitry.\
     This is mainly specified by the phase of a charging cycle.
     """
@@ -246,7 +246,7 @@ class Charger():
         :return: The battery state.
         :rtype: BatteryStatus
         """
-        return BatteryStatus.unknown
+        return BatStatus.unknown
     
     def getChgStatus(self):
         """Retrieves the charging phase or status.
@@ -254,7 +254,7 @@ class Charger():
         :return: A charger status code to indicate the current charger status.
         :rtype: ChargerStatus
         """
-        return ChargerStatus.unknown
+        return Status.unknown
     
     def getDCStatus(self):
         """Retrieves the DC supply status.

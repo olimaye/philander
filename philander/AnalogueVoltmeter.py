@@ -1,4 +1,4 @@
-class AnalogueVoltmeter( Configurable, FuelGauge ):
+class AnalogueVoltmeter( Configurable, GasGauge ):
     
     #
     # Configurable API
@@ -56,14 +56,14 @@ class AnalogueVoltmeter( Configurable, FuelGauge ):
  
     
     #
-    # FuelGauge API
+    # GasGauge API
     #
     
     #
     # Retrieves the remaining capacity as a continous
     # value in [0, ..., 100].
     #
-    def getRemainingCapacity( self ):
+    def getStateOfCharge( self ):
         # Guess a dummy value, replace with serious code!
         return 50
     

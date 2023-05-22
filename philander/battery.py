@@ -1,15 +1,14 @@
 """A module t reflect capabilities and properties of re-chargeable batteries.
 """
-from numpy.distutils.log import good
 __author__ = "Oliver Maye"
 __version__ = "0.1"
-__all__ = ["BatteryLevel", "BatteryCapacity", "BatteryStatus"]
+__all__ = ["Level", "Capacity", "Status"]
 
 from dataclasses import dataclass
 from primitives import Percentage
 
 @dataclass
-class BatteryLevel():
+class Level():
     """Level of a battery in [0...100]%
     """
     min       = 0
@@ -21,14 +20,25 @@ class BatteryLevel():
     max       = 100
     deepDischarge   = min
     invalid         = Percentage.invalid
+
+    toStr = {
+        min     : 'minimum',
+        empty   : 'empty',
+        low     : 'low',
+        medium  : 'medium',
+        good    : 'good',
+        full    : 'full',
+        max     : 'maximum',
+        invalid : 'invalid',
+    }
     
-class BatteryCapacity(int):
+class Capacity(int):
     """Absolute capacity of a battery in mAh
     """
     invalid = 0xFFFF
 
 @dataclass
-class BatteryStatus:
+class Status:
     """Container class to reflect the battery status
     """
     normal               = 0x0000
