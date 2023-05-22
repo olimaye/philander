@@ -1,10 +1,10 @@
-from SerialDevice import SerialDevice
-from BatteryCharger import BatteryCharger
+from serialbus import SerialBusDevice
+from charger import Charger
 from Watchdog import Watchdog
 
-class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
+class MAX77960( SerialBusDevice, Charger, Watchdog ):
     #
-    # Protectd / private attributes
+    # Protected / private attributes
     #
     
     #
@@ -818,29 +818,29 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     # Configurable API
     #
     
-    CFG_COMM_MODE = 'BatteryCharger.Comm.Mode'
+    CFG_COMM_MODE = 'Charger.Comm.Mode'
     CFG_COMM_MODE_AUTO = _COMM_MODE_AUTO
     CFG_COMM_MODE_I2C  = _COMM_MODE_I2C
-    CFG_DISIBS = 'BatteryCharger.DisIBS'
+    CFG_DISIBS = 'Charger.DisIBS'
     CFG_DISIBS_FET_PPSM = _DISIBS_FET_PPSM
     CFG_DISIBS_FET_OFF  = _DISIBS_FET_OFF
-    CFG_MODE = 'BatteryCharger.Mode'
+    CFG_MODE = 'Charger.Mode'
     CFG_MODE_ALL_OFF   = _MODE_ALL_OFF
     CFG_MODE_CHRG_DCDC = _MODE_CHRG_DCDC
     CFG_MODE_DCDC_ONLY = _MODE_DCDC_ONLY
     CFG_MODE_OTG_ONLY  = _MODE_OTG_ONLY
-    CFG_PQEN = 'BatteryCharger.Prequal'
+    CFG_PQEN = 'Charger.Prequal'
     CFG_PQEN_ON  = _PQEN_ON
     CFG_PQEN_OFF = _PQEN_OFF
-    CFG_CHG_RSTRT = 'BatteryCharger.Restart'
+    CFG_CHG_RSTRT = 'Charger.Restart'
     CFG_CHG_RSTRT_100 = _CHG_RSTRT_100
     CFG_CHG_RSTRT_150 = _CHG_RSTRT_150
     CFG_CHG_RSTRT_200 = _CHG_RSTRT_200
     CFG_CHG_RSTRT_DISABLED = _CHG_RSTRT_DISABLED
-    CFG_STAT_EN = 'BatteryCharger.Stat'
+    CFG_STAT_EN = 'Charger.Stat'
     CFG_STAT_EN_ON  = _STAT_EN_ON
     CFG_STAT_EN_OFF = _STAT_EN_OFF
-    CFG_FCHGTIME = 'BatteryCharger.Timer.FastCharge'
+    CFG_FCHGTIME = 'Charger.Timer.FastCharge'
     CFG_FCHGTIME_DISABLED = _FCHGTIME_DISABLED
     CFG_FCHGTIME_3H = _FCHGTIME_3H
     CFG_FCHGTIME_4H = _FCHGTIME_4H
@@ -849,7 +849,7 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     CFG_FCHGTIME_7H = _FCHGTIME_7H
     CFG_FCHGTIME_8H = _FCHGTIME_8H
     CFG_FCHGTIME_10H= _FCHGTIME_10H
-    CFG_CHGCC = 'BatteryCharger.Current.FastCharge'
+    CFG_CHGCC = 'Charger.Current.FastCharge'
     CFG_CHGCC_100  = _CHGCC_100
     CFG_CHGCC_150  = _CHGCC_150
     CFG_CHGCC_200  = _CHGCC_200
@@ -914,7 +914,7 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     CFG_CHGCC_5800  = _CHGCC_5800
     CFG_CHGCC_5900  = _CHGCC_5900
     CFG_CHGCC_6000  = _CHGCC_6000
-    CFG_TO_TIME = 'BatteryCharger.Timer.Topoff'
+    CFG_TO_TIME = 'Charger.Timer.Topoff'
     CFG_TO_TIME_30_SEC = _TO_TIME_30_SEC
     CFG_TO_TIME_10_MIN = _TO_TIME_10_MIN
     CFG_TO_TIME_20_MIN = _TO_TIME_20_MIN
@@ -923,14 +923,14 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     CFG_TO_TIME_50_MIN = _TO_TIME_50_MIN
     CFG_TO_TIME_60_MIN = _TO_TIME_60_MIN
     CFG_TO_TIME_70_MIN = _TO_TIME_70_MIN
-    CFG_TO_ITH = 'BatteryCharger.Current.Topoff'
+    CFG_TO_ITH = 'Charger.Current.Topoff'
     CFG_TO_ITH_100 = _TO_ITH_100
     CFG_TO_ITH_200 = _TO_ITH_200
     CFG_TO_ITH_300 = _TO_ITH_300
     CFG_TO_ITH_400 = _TO_ITH_400
     CFG_TO_ITH_500 = _TO_ITH_500
     CFG_TO_ITH_600 = _TO_ITH_600
-    CFG_CHG_CV_PRM = 'BatteryCharger.Voltage.ChargeTermination'
+    CFG_CHG_CV_PRM = 'Charger.Voltage.ChargeTermination'
     CFG_CHG_CV_PRM_2C_8000 = _CHG_CV_PRM_2C_8000
     CFG_CHG_CV_PRM_2C_8020 = _CHG_CV_PRM_2C_8020
     CFG_CHG_CV_PRM_2C_8040 = _CHG_CV_PRM_2C_8040
@@ -1031,12 +1031,12 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     CFG_CHG_CV_PRM_3C_12990 = _CHG_CV_PRM_3C_12990
     CFG_CHG_CV_PRM_3C_13020 = _CHG_CV_PRM_3C_13020
     CFG_CHG_CV_PRM_3C_13050 = _CHG_CV_PRM_3C_13050
-    CFG_ITRICKLE = 'BatteryCharger.Current.Trickle'
+    CFG_ITRICKLE = 'Charger.Current.Trickle'
     CFG_ITRICKLE_100 = _ITRICKLE_100
     CFG_ITRICKLE_200 = _ITRICKLE_200
     CFG_ITRICKLE_300 = _ITRICKLE_300
     CFG_ITRICKLE_400 = _ITRICKLE_400
-    CFG_B2SOVRC = 'BatteryCharger.Current.Batt2Sys'
+    CFG_B2SOVRC = 'Charger.Current.Batt2Sys'
     CFG_B2SOVRC_DISABLED = _B2SOVRC_DISABLED
     CFG_B2SOVRC_3000 = _B2SOVRC_3000
     CFG_B2SOVRC_3500 = _B2SOVRC_3500
@@ -1053,10 +1053,10 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     CFG_B2SOVRC_9000 = _B2SOVRC_9000
     CFG_B2SOVRC_9500 = _B2SOVRC_9500
     CFG_B2SOVRC_10000= _B2SOVRC_10000
-    CFG_JEITA_EN = 'BatteryCharger.Jeita'
+    CFG_JEITA_EN = 'Charger.Jeita'
     CFG_JEITA_EN_ON  = _JEITA_EN_ON
     CFG_JEITA_EN_OFF = _JEITA_EN_OFF
-    CFG_REGTEMP = 'BatteryCharger.Temp.Reg'
+    CFG_REGTEMP = 'Charger.Temp.Reg'
     CFG_REGTEMP_85  = _REGTEMP_85
     CFG_REGTEMP_90  = _REGTEMP_90
     CFG_REGTEMP_95  = _REGTEMP_95
@@ -1067,14 +1067,14 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     CFG_REGTEMP_120 = _REGTEMP_120
     CFG_REGTEMP_125 = _REGTEMP_125
     CFG_REGTEMP_130 = _REGTEMP_130
-    CFG_VCHGCV_COOL = 'BatteryCharger.Voltage.Jeita.Term'
+    CFG_VCHGCV_COOL = 'Charger.Voltage.Jeita.Term'
     CFG_VCHGCV_COOL_NORMAL  = _VCHGCV_COOL_NORMAL
     CFG_VCHGCV_COOL_REDUCED = _VCHGCV_COOL_REDUCED
-    CFG_ICHGCC_COOL = 'BatteryCharger.Current.Jeita.FastCharge'
+    CFG_ICHGCC_COOL = 'Charger.Current.Jeita.FastCharge'
     CFG_ICHGCC_COOL_NORMAL  = _ICHGCC_COOL_NORMAL
     CFG_ICHGCC_COOL_REDUCED = _ICHGCC_COOL_REDUCED
-    CFG_CHGIN_ILIM = 'BatteryCharger.Current.Input'
-    CFG_OTG_ILIM = 'BatteryCharger.Current.OTG'
+    CFG_CHGIN_ILIM = 'Charger.Current.Input'
+    CFG_OTG_ILIM = 'Charger.Current.OTG'
     CFG_OTG_ILIM_500 = _OTG_ILIM_500
     CFG_OTG_ILIM_900 = _OTG_ILIM_900
     CFG_OTG_ILIM_1200= _OTG_ILIM_1200
@@ -1083,7 +1083,7 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     CFG_OTG_ILIM_2250= _OTG_ILIM_2250
     CFG_OTG_ILIM_2500= _OTG_ILIM_2500
     CFG_OTG_ILIM_3000= _OTG_ILIM_3000
-    CFG_MINVSYS = 'BatteryCharger.Voltage.MinVSys'
+    CFG_MINVSYS = 'Charger.Voltage.MinVSys'
     CFG_MINVSYS_2C_5535 = _MINVSYS_2C_5535
     CFG_MINVSYS_2C_5740 = _MINVSYS_2C_5740
     CFG_MINVSYS_2C_5945 = _MINVSYS_2C_5945
@@ -1100,7 +1100,7 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     CFG_MINVSYS_3C_9840 = _MINVSYS_3C_9840
     CFG_MINVSYS_3C_10148= _MINVSYS_3C_10148
     CFG_MINVSYS_3C_10455= _MINVSYS_3C_10455
-    CFG_VCHGIN_REG = 'BatteryCharger.Voltage.ChargeIn'
+    CFG_VCHGIN_REG = 'Charger.Voltage.ChargeIn'
     CFG_VCHGIN_REG_4025 = _VCHGIN_REG_4025
     CFG_VCHGIN_REG_4200 = _VCHGIN_REG_4200
     CFG_VCHGIN_REG_4375 = _VCHGIN_REG_4375
@@ -1280,7 +1280,7 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     # As with the constructor, the only parameter is the configuration dictionary.
     #
     def configure(self, paramDict):
-        BatteryCharger.configure( self, paramDict )
+        Charger.configure( self, paramDict )
         Watchdog.configure( self, paramDict )
         # self.setReg( MAX77960._REG_CHG_CNFG_00,
         #              MAX77960._COMM_MODE_I2C |
@@ -1336,7 +1336,7 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
         self.getID()
 
     #
-    # BatteryCharger API
+    # Charger API
     #
     
     #
@@ -1372,23 +1372,23 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     def getBatStatus(self):
         data = self.getReg( MAX77960._REG_CHG_DETAILS_01 )
         ds = data & MAX77960._BAT_DTLS
-        ret = BatteryCharger.BAT_STATE_UNKNOWN
+        ret = Charger.BAT_STATE_UNKNOWN
         if ds == MAX77960._BAT_DTLS_REMOVAL:
-            ret = BatteryCharger.BAT_STATE_REMOVED
+            ret = Charger.BAT_STATE_REMOVED
         elif ds == MAX77960._BAT_DTLS_BELOW_PREQ:
-            ret = BatteryCharger.BAT_STATE_EMPTY
+            ret = Charger.BAT_STATE_EMPTY
         elif ds == MAX77960._BAT_DTLS_TIME_OUT:
-            ret = BatteryCharger.BAT_STATE_TIME
+            ret = Charger.BAT_STATE_TIME
         elif ds == MAX77960._BAT_DTLS_OK:
-            ret = BatteryCharger.BAT_STATE_NORMAL
+            ret = Charger.BAT_STATE_NORMAL
         elif ds == MAX77960._BAT_DTLS_LOW_VOLT:
-            ret = BatteryCharger.BAT_STATE_LOW
+            ret = Charger.BAT_STATE_LOW
         elif ds == MAX77960._BAT_DTLS_OVR_VOLT:
-            ret = BatteryCharger.BAT_STATE_OVERVOLTAGE
+            ret = Charger.BAT_STATE_OVERVOLTAGE
         elif ds == MAX77960._BAT_DTLS_OVR_CURR:
-            ret = BatteryCharger.BAT_STATE_OVERCURRENT
+            ret = Charger.BAT_STATE_OVERCURRENT
         else:
-            ret = BatteryCharger.BAT_STATE_UNKNOWN
+            ret = Charger.BAT_STATE_UNKNOWN
         return ret
     
     #
@@ -1399,23 +1399,23 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     def getChgStatus(self):
         data = self.getReg( MAX77960._REG_CHG_DETAILS_01 )
         cd = data & MAX77960._CHG_DTLS
-        ret = BatteryCharger.CHG_STATE_OFF
+        ret = Charger.CHG_STATE_OFF
         if cd == MAX77960._CHG_DTLS_PRECHRG:
             bd = data & MAX77960._BAT_DTLS
             if bd == MAX77960._BAT_DTLS_BELOW_PREQ:
-                ret = BatteryCharger.CHG_STATE_PRECHARGE
+                ret = Charger.CHG_STATE_PRECHARGE
             else:
-                ret = BatteryCharger.CHG_STATE_TRICKLE
+                ret = Charger.CHG_STATE_TRICKLE
         elif cd == MAX77960._CHG_DTLS_FAST_CURR:
-            ret = BatteryCharger.CHG_STATE_FAST_CC
+            ret = Charger.CHG_STATE_FAST_CC
         elif cd == MAX77960._CHG_DTLS_FAST_VOLT:
-            ret = BatteryCharger.CHG_STATE_FAST_CV
+            ret = Charger.CHG_STATE_FAST_CV
         elif cd == MAX77960._CHG_DTLS_TOP_OFF:
-            ret = BatteryCharger.CHG_STATE_TOP_OFF
+            ret = Charger.CHG_STATE_TOP_OFF
         elif cd == MAX77960._CHG_DTLS_DONE:
-            ret = BatteryCharger.CHG_STATE_DONE
+            ret = Charger.CHG_STATE_DONE
         else:
-            ret = BatteryCharger.CHG_STATE_OFF
+            ret = Charger.CHG_STATE_OFF
         return ret
     
     #
@@ -1425,15 +1425,15 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     def getDCStatus(self):
         data = self.getReg( MAX77960._REG_CHG_DETAILS_00 )
         ds = data & MAX77960._CHGIN_DTLS
-        ret = BatteryCharger.DC_STATE_OFF
+        ret = Charger.DC_STATE_OFF
         if ds == MAX77960._CHGIN_DTLS_GOOD:
-            ret = BatteryCharger.DC_STATE_VALID
+            ret = Charger.DC_STATE_VALID
         elif ds == MAX77960._CHGIN_DTLS_TOO_LOW:
-            ret = BatteryCharger.DC_STATE_UNDERVOLTAGE
+            ret = Charger.DC_STATE_UNDERVOLTAGE
         elif ds == MAX77960._CHGIN_DTLS_TOO_HIGH:
-            ret = BatteryCharger.DC_STATE_OVERVOLTAGE
+            ret = Charger.DC_STATE_OVERVOLTAGE
         else:
-            ret = BatteryCharger.CHG_STATE_OFF
+            ret = Charger.CHG_STATE_OFF
         return ret
       
     #
@@ -1442,15 +1442,15 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     # Raises RuntimeError in case the information cannot be determined.
     #
     def getPowerSrc(self):
-        ret = BatteryCharger.PWR_SRC_NONE
+        ret = Charger.PWR_SRC_NONE
         dtls0 = self.getReg( MAX77960._REG_CHG_DETAILS_00 )
         chgin = dtls0 & MAX77960._CHGIN_DTLS
         qbat = dtls0 & MAX77960._QB_DTLS
         if chgin == MAX77960._CHGIN_DTLS_GOOD:
             # Valid CHGIN, so external power is the primary source
-            ret = ret | BatteryCharger.PWR_SRC_DC
+            ret = ret | Charger.PWR_SRC_DC
         if qbat:
-            ret = ret | BatteryCharger.PWR_SRC_BAT
+            ret = ret | Charger.PWR_SRC_BAT
         return ret
 
     #
@@ -1458,18 +1458,18 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     # Returns one of the TEMP_xxx values to indicate the temperature status.
     # Raises RuntimeError in case the information cannot be determined.
     #
-    def getChargerTempState(self):
-        ret = BatteryCharger.TEMP_OK
+    def getChargerTempStatus(self):
+        ret = Charger.TEMP_OK
         dtls1 = self.getReg( MAX77960._REG_CHG_DETAILS_01 )
         chg = dtls1 & MAX77960._CHG_DTLS
         if chg == MAX77960._CHG_DTLS_OFF_TEMP:
-            ret = BatteryCharger.TEMP_HOT
+            ret = Charger.TEMP_HOT
         else:
             treg = dtls1 & MAX77960._TREG
             if treg:
-                ret = BatteryCharger.TEMP_WARM
+                ret = Charger.TEMP_WARM
             else:
-                ret = BatteryCharger.TEMP_OK
+                ret = Charger.TEMP_OK
         return ret
 
     #
@@ -1477,20 +1477,20 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     # Returns one of the TEMP_xxx values to indicate the temperature status.
     # Raises RuntimeError in case the information cannot be determined.
     #
-    def getBatteryTempState(self):
-        ret = BatteryCharger.TEMP_COLD
+    def getBatteryTempStatus(self):
+        ret = Charger.TEMP_COLD
         dtls2 = self.getReg( MAX77960._REG_CHG_DETAILS_02 )
         thm = dtls2 & MAX77960._THM_DTLS
         if thm == MAX77960._THM_DTLS_COLD:
-            ret = BatteryCharger.TEMP_COLD
+            ret = Charger.TEMP_COLD
         elif thm == MAX77960._THM_DTLS_COOL:
-            ret = BatteryCharger.TEMP_COOL
+            ret = Charger.TEMP_COOL
         elif thm == MAX77960._THM_DTLS_NORMAL:
-            ret = BatteryCharger.TEMP_OK
+            ret = Charger.TEMP_OK
         elif thm == MAX77960._THM_DTLS_WARM:
-            ret = BatteryCharger.TEMP_WARM
+            ret = Charger.TEMP_WARM
         elif thm == MAX77960._THM_DTLS_HOT:
-            ret = BatteryCharger.TEMP_HOT
+            ret = Charger.TEMP_HOT
         else:
             raise RuntimeError('Thermistor disabled or battery removed.')
         return ret
@@ -1501,34 +1501,34 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     # Raises RuntimeError in case the information cannot be determined.
     #
     def getError(self):
-        ret = BatteryCharger.ERR_OK
+        ret = Charger.ERR_OK
         dtls1 = self.getReg( MAX77960._REG_CHG_DETAILS_01 )
         chg = dtls1 & MAX77960._CHG_DTLS
         if chg == MAX77960._CHG_DTLS_OFF_RESIST:
-            ret = BatteryCharger.ERR_CONFIG
+            ret = Charger.ERR_CONFIG
         elif chg == MAX77960._CHG_DTLS_E_TIMER:
-            ret = BatteryCharger.ERR_TIMER
+            ret = Charger.ERR_TIMER
         elif chg == MAX77960._CHG_DTLS_SUSP_QBAT:
-            ret = BatteryCharger.ERR_BAT_BROKEN
+            ret = Charger.ERR_BAT_BROKEN
         elif chg == MAX77960._CHG_DTLS_OFF_CHGIN:
             dtls0 = self.getReg( MAX77960._REG_CHG_DETAILS_00 )
             chgin = dtls0 & MAX77960._CHG_DTLS
             if chgin == MAX77960._CHGIN_DTLS_TOO_HIGH:
-                ret = BatteryCharger.ERR_DC_HIGH
+                ret = Charger.ERR_DC_HIGH
             elif chgin == MAX77960._CHGIN_DTLS_TOO_LOW:
-                ret = BatteryCharger.ERR_DC_LOW
+                ret = Charger.ERR_DC_LOW
             else:
-                ret = BatteryCharger.ERR_DC
+                ret = Charger.ERR_DC
         elif chg == MAX77960._CHG_DTLS_OFF_TEMP:
-            ret = BatteryCharger.ERR_TEMP_CHG
+            ret = Charger.ERR_TEMP_CHG
         elif chg == MAX77960._CHG_DTLS_OFF_WDOG:
-            ret = BatteryCharger.ERR_CONFIG
+            ret = Charger.ERR_CONFIG
         elif chg == MAX77960._CHG_DTLS_SUSP_JEITA:
-            ret = BatteryCharger.ERR_TEMP_BAT
+            ret = Charger.ERR_TEMP_BAT
         elif chg == MAX77960._CHG_DTLS_SUSP_NOBAT:
-            ret = BatteryCharger.ERR_BAT_REMOVED
+            ret = Charger.ERR_BAT_REMOVED
         else:
-            ret = BatteryCharger.ERR_OK
+            ret = Charger.ERR_OK
         return ret
 
     #
@@ -1577,28 +1577,28 @@ class MAX77960( SerialDevice, BatteryCharger, Watchdog ):
     def registerInterruptHandler(self, apiMask, handler=None ):
         # Register handler
         if handler:
-            if apiMask & BatteryCharger.INT_OTG_BUCK_BOOST:
-                self.eventEmitter.on( BatteryCharger.INT_OTG_BUCK_BOOST, handler )
-            if apiMask & BatteryCharger.INT_CHARGER_ONOFF:
-                self.eventEmitter.on( BatteryCharger.INT_CHARGER_ONOFF, handler )
-            if apiMask & BatteryCharger.INT_INPUT_CURRENT_LIMIT:
-                self.eventEmitter.on( BatteryCharger.INT_INPUT_CURRENT_LIMIT, handler )
-            if apiMask & BatteryCharger.INT_BATTERY_TEMPERATURE:
-                self.eventEmitter.on( BatteryCharger.INT_BATTERY_TEMPERATURE, handler )
-            if apiMask & BatteryCharger.INT_STATE_CHANGED:
-                self.eventEmitter.on( BatteryCharger.INT_STATE_CHANGED, handler )
-            if apiMask & BatteryCharger.INT_BATTERY_OVERCURRENT:
-                self.eventEmitter.on( BatteryCharger.INT_BATTERY_OVERCURRENT, handler )
-            if apiMask & BatteryCharger.INT_CHARGER_INPUT:
-                self.eventEmitter.on( BatteryCharger.INT_CHARGER_INPUT, handler )
-            if apiMask & BatteryCharger.INT_INCURR_LIM_BY_SRC:
-                self.eventEmitter.on( BatteryCharger.INT_INCURR_LIM_BY_SRC, handler )
-            if apiMask & BatteryCharger.INT_SYSTEM_UNDERVOLTAGE:
-                self.eventEmitter.on( BatteryCharger.INT_SYSTEM_UNDERVOLTAGE, handler )
-            if apiMask & BatteryCharger.INT_SYSTEM_OVERVOLTAGE:
-                self.eventEmitter.on( BatteryCharger.INT_SYSTEM_OVERVOLTAGE, handler )
-            if apiMask & BatteryCharger.INT_THERMAL_SHUTDOWN:
-                self.eventEmitter.on( BatteryCharger.INT_THERMAL_SHUTDOWN, handler )
+            if apiMask & Charger.INT_OTG_BUCK_BOOST:
+                self.eventEmitter.on( Charger.INT_OTG_BUCK_BOOST, handler )
+            if apiMask & Charger.INT_CHARGER_ONOFF:
+                self.eventEmitter.on( Charger.INT_CHARGER_ONOFF, handler )
+            if apiMask & Charger.INT_INPUT_CURRENT_LIMIT:
+                self.eventEmitter.on( Charger.INT_INPUT_CURRENT_LIMIT, handler )
+            if apiMask & Charger.INT_BATTERY_TEMPERATURE:
+                self.eventEmitter.on( Charger.INT_BATTERY_TEMPERATURE, handler )
+            if apiMask & Charger.INT_STATE_CHANGED:
+                self.eventEmitter.on( Charger.INT_STATE_CHANGED, handler )
+            if apiMask & Charger.INT_BATTERY_OVERCURRENT:
+                self.eventEmitter.on( Charger.INT_BATTERY_OVERCURRENT, handler )
+            if apiMask & Charger.INT_CHARGER_INPUT:
+                self.eventEmitter.on( Charger.INT_CHARGER_INPUT, handler )
+            if apiMask & Charger.INT_INCURR_LIM_BY_SRC:
+                self.eventEmitter.on( Charger.INT_INCURR_LIM_BY_SRC, handler )
+            if apiMask & Charger.INT_SYSTEM_UNDERVOLTAGE:
+                self.eventEmitter.on( Charger.INT_SYSTEM_UNDERVOLTAGE, handler )
+            if apiMask & Charger.INT_SYSTEM_OVERVOLTAGE:
+                self.eventEmitter.on( Charger.INT_SYSTEM_OVERVOLTAGE, handler )
+            if apiMask & Charger.INT_THERMAL_SHUTDOWN:
+                self.eventEmitter.on( Charger.INT_THERMAL_SHUTDOWN, handler )
         # Clear current interrupts
         self.getInt()
         # Unmask specified interrupts

@@ -246,7 +246,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
 
         if (result == ErrorCode.errOk):
             # Configure power mode:
-            result = self.setRunLevel( RunLevel.runLevelActive )
+            result = self.setRunLevel( RunLevel.active )
             
         if (result == ErrorCode.errOk):
             # Configure interrupt maps:
@@ -557,7 +557,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
 
     def close(self):
         if (self.isAttached()):
-            self.setRunLevel( RunLevel.runLevelShutdown )
+            self.setRunLevel( RunLevel.shutdown )
             SerialBusDevice.close(self)
         if not (self.pinInt1 is None):
             self.pinInt1.close()
@@ -577,28 +577,28 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
         accConf = 0
         if( self.isAttached()):
             # Map run levels to register configurations
-            if (level == RunLevel.runLevelActive):  # High performance operating mode
+            if (level == RunLevel.active):  # High performance operating mode
                 pwrCtrl = BMA456.BMA456_CNT_PWR_CTRL_ACC_ENABLE | BMA456.BMA456_CNT_PWR_CTRL_AUX_DISABLE
                 pwrConf = BMA456.BMA456_CNT_PWR_CONF_ADV_PWR_SAVE_DISABLE
                 accConf = BMA456.BMA456_CNT_ACC_CONF_PERF_MODE_CONT
                 ret = ErrorCode.errOk
-            elif (level == RunLevel.runLevelIdle):  # Averaging operating mode
+            elif (level == RunLevel.idle):  # Averaging operating mode
                 pwrCtrl = BMA456.BMA456_CNT_PWR_CTRL_ACC_ENABLE | BMA456.BMA456_CNT_PWR_CTRL_AUX_DISABLE
                 pwrConf = BMA456.BMA456_CNT_PWR_CONF_ADV_PWR_SAVE_DISABLE
                 accConf = BMA456.BMA456_CNT_ACC_CONF_PERF_MODE_AVG
                 ret = ErrorCode.errOk
-            elif (level == RunLevel.runLevelRelax): # Low power mode, still operating, automatic FIFO wakeup
+            elif (level == RunLevel.relax): # Low power mode, still operating, automatic FIFO wakeup
                 pwrCtrl = BMA456.BMA456_CNT_PWR_CTRL_ACC_ENABLE | BMA456.BMA456_CNT_PWR_CTRL_AUX_DISABLE
                 pwrConf = BMA456.BMA456_CNT_PWR_CONF_ADV_PWR_SAVE_ENABLE | BMA456.BMA456_CNT_PWR_CONF_FIFO_WKUP_ENABLE
                 accConf = BMA456.BMA456_CNT_ACC_CONF_PERF_MODE_AVG
                 ret = ErrorCode.errOk
-            elif (level == RunLevel.runLevelSnooze):    # Lowest power mode, still operating, no FIFO wakeup
+            elif (level == RunLevel.snooze):    # Lowest power mode, still operating, no FIFO wakeup
                 pwrCtrl = BMA456.BMA456_CNT_PWR_CTRL_ACC_ENABLE | BMA456.BMA456_CNT_PWR_CTRL_AUX_DISABLE
                 pwrConf = BMA456.BMA456_CNT_PWR_CONF_ADV_PWR_SAVE_ENABLE | BMA456.BMA456_CNT_PWR_CONF_FIFO_WKUP_DISABLE
                 accConf = BMA456.BMA456_CNT_ACC_CONF_PERF_MODE_AVG
                 ret = ErrorCode.errOk
             # Suspend mode, no operation.
-            elif (level == RunLevel.runLevelNap) or (level == RunLevel.runLevelSleep) or (level == RunLevel.runLevelDeepSleep) or (level == RunLevel.runLevelShutdown):
+            elif (level == RunLevel.nap) or (level == RunLevel.sleep) or (level == RunLevel.deepSleep) or (level == RunLevel.shutdown):
                 pwrCtrl = BMA456.BMA456_CNT_PWR_CTRL_ACC_DISABLE | BMA456.BMA456_CNT_PWR_CTRL_AUX_DISABLE
                 pwrConf = BMA456.BMA456_CNT_PWR_CONF_ADV_PWR_SAVE_ENABLE | BMA456.BMA456_CNT_PWR_CONF_FIFO_WKUP_DISABLE
                 accConf = BMA456.BMA456_CNT_ACC_CONF_PERF_MODE_AVG
@@ -926,10 +926,10 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
         
         # Model ID
         info.modelID = self._getFeatureWordAt( BMA456.BMA456_FSWBL_IDX_GENERAL_CONFIG_ID )
-        info.validity |= Info.VALID_MODELID
+        info.validity |= Info.validModelID
         # Chip ID
         info.chipID, ret = self.readByteRegister( BMA456.BMA456_REG_CHIP_ID )
-        info.validity |= Info.VALID_CHIPID
+        info.validity |= Info.validChipID
         return info, ret
 
     #

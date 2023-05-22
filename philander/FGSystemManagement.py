@@ -2,7 +2,7 @@ from pymitter import EventEmitter
 from threading import Thread, Lock
 from Configurable import Configurable
 from MAX77960 import MAX77960 as Charger
-from BatteryCharger import BatteryCharger
+from charger import Charger
 from ActorUnit import ActorUnit
 from SmartButton import SmartButton
 from SmartLED import SmartLED
@@ -51,7 +51,7 @@ class FGSystemManagement( Configurable, EventEmitter ):
     _SYSJOB_AU_COUPLE = 0x01
     _SYSJOB_ANY       = 0xFFFF
     
-    _CRITICAL_TEMPERATURES = (BatteryCharger.TEMP_COLD, BatteryCharger.TEMP_HOT)
+    _CRITICAL_TEMPERATURES = (Charger.TEMP_COLD, Charger.TEMP_HOT)
     
     #
     # The Configurable API
@@ -301,9 +301,9 @@ class FGSystemManagement( Configurable, EventEmitter ):
                     batStatus = val
                     self._displayStatusChange( FGSystemManagement._INFOCAT_BAT_STATE, batStatus )
                 
-                val = self.charger.getChargerTempState()
-                if batStatus != BatteryCharger.BAT_STATE_REMOVED:
-                    val1 = self.charger.getBatteryTempState()
+                val = self.charger.getChargerTempStatus()
+                if batStatus != Charger.BAT_STATE_REMOVED:
+                    val1 = self.charger.getBatteryTempStatus()
                     val = self._combineTempStatus( val, val1 )
                 if val != tmpStatus:
                     oldStatus = tmpStatus
@@ -318,7 +318,7 @@ class FGSystemManagement( Configurable, EventEmitter ):
                 if val != dcStatus:
                     dcStatus = val
                     self._displayStatusChange( FGSystemManagement._INFOCAT_DC_SUPPLY, dcStatus )
-                    if dcStatus == BatteryCharger.DC_STATE_VALID:
+                    if dcStatus == Charger.DC_STATE_VALID:
                         self.emit( FGSystemManagement.EVT_DC_PLUGGED )
                     else:
                         startTime = time.time()
@@ -339,23 +339,23 @@ class FGSystemManagement( Configurable, EventEmitter ):
                         else:
                             self.emit( FGSystemManagement.EVT_POWER_NORMAL )
 
-                if dcStatus != BatteryCharger.DC_STATE_VALID:   # Battery only
+                if dcStatus != Charger.DC_STATE_VALID:   # Battery only
                     now = time.time()
                     dur = now - startTime 
-                    if batTimeStatus == BatteryCharger.BAT_STATE_EMPTY:
-                        val = BatteryCharger.BAT_STATE_EMPTY
-                    elif batTimeStatus == BatteryCharger.BAT_STATE_LOW:
+                    if batTimeStatus == Charger.BAT_STATE_EMPTY:
+                        val = Charger.BAT_STATE_EMPTY
+                    elif batTimeStatus == Charger.BAT_STATE_LOW:
                         if dur >= FGSystemManagement.BAT_WARN_TIME_LOW2EMPTY:
-                            val = BatteryCharger.BAT_STATE_EMPTY
+                            val = Charger.BAT_STATE_EMPTY
                             startTime = now
                         else:
-                            val = BatteryCharger.BAT_STATE_LOW
+                            val = Charger.BAT_STATE_LOW
                     else:
                         if dur >= FGSystemManagement.BAT_WARN_TIME_FULL2LOW:
-                            val = BatteryCharger.BAT_STATE_LOW
+                            val = Charger.BAT_STATE_LOW
                             startTime = now
                         else:
-                            val = BatteryCharger.BAT_STATE_NORMAL
+                            val = Charger.BAT_STATE_NORMAL
                 else:
                     val = batStatus       # while charging
                 if val != batTimeStatus:
@@ -376,14 +376,14 @@ class FGSystemManagement( Configurable, EventEmitter ):
         else:
             high = tempStatus1
             low = tempStatus2
-        ret = BatteryCharger.TEMP_OK
-        if high == BatteryCharger.TEMP_HOT:
+        ret = Charger.TEMP_OK
+        if high == Charger.TEMP_HOT:
             ret = high
-        elif low==BatteryCharger.TEMP_COLD:
+        elif low==Charger.TEMP_COLD:
             ret = low
-        elif high == BatteryCharger.TEMP_WARM:
+        elif high == Charger.TEMP_WARM:
             ret = high
-        elif low==BatteryCharger.TEMP_COOL:
+        elif low==Charger.TEMP_COOL:
             ret = low
         else:
             ret = high
@@ -398,16 +398,16 @@ class FGSystemManagement( Configurable, EventEmitter ):
             
     def _displayStatusChange( self, infoCat, newStatus ):
         if infoCat == FGSystemManagement._INFOCAT_TEMP:
-            logging.info('TMP state: %s', BatteryCharger.temp2Str.get( newStatus, 'UNKNOWN' ))
+            logging.info('TMP state: %s', Charger.temp2Str.get( newStatus, 'UNKNOWN' ))
             if self.tmpLED:
-                if newStatus == BatteryCharger.TEMP_OK:
+                if newStatus == Charger.TEMP_OK:
                     self.tmpLED.off()
-                elif (newStatus==BatteryCharger.TEMP_WARM) or (newStatus==BatteryCharger.TEMP_COOL):
+                elif (newStatus==Charger.TEMP_WARM) or (newStatus==Charger.TEMP_COOL):
                     self.tmpLED.blink()
                 else:
                     self.tmpLED.on()
         elif infoCat == FGSystemManagement._INFOCAT_BAT_STATE:
-            logging.info('BAT state: %s', BatteryCharger.batState2Str.get( newStatus, 'UNKNOWN' ))
+            logging.info('BAT state: %s', Charger.batState2Str.get( newStatus, 'UNKNOWN' ))
         elif infoCat == FGSystemManagement._INFOCAT_BLE:
             logging.info('BLE state: %s', ActorUnit.connState2Str.get( newStatus, 'UNKNOWN'))
             if self.bleLED:
@@ -418,22 +418,22 @@ class FGSystemManagement( Configurable, EventEmitter ):
                 else:
                     self.bleLED.off()
         elif infoCat == FGSystemManagement._INFOCAT_DC_SUPPLY:
-            logging.info(' DC state: %s', BatteryCharger.dcState2Str.get( newStatus, 'UNKNOWN' ))
+            logging.info(' DC state: %s', Charger.dcState2Str.get( newStatus, 'UNKNOWN' ))
             if self.dcLED:
-                if newStatus == BatteryCharger.DC_STATE_VALID:
+                if newStatus == Charger.DC_STATE_VALID:
                     self.dcLED.on()
-                elif newStatus == BatteryCharger.DC_STATE_OFF:
+                elif newStatus == Charger.DC_STATE_OFF:
                     self.dcLED.off()
                 else:
                     self.dcLED.blink()
         elif infoCat == FGSystemManagement._INFOCAT_CHG_STATE:
-            logging.info('CHG state: %s', BatteryCharger.chgState2Str.get( newStatus, 'UNKNOWN' ))
+            logging.info('CHG state: %s', Charger.chgState2Str.get( newStatus, 'UNKNOWN' ))
             if self.chgLED:
-                if newStatus in {BatteryCharger.CHG_STATE_DONE, BatteryCharger.CHG_STATE_TOP_OFF}:
+                if newStatus in {Charger.CHG_STATE_DONE, Charger.CHG_STATE_TOP_OFF}:
                     self.chgLED.on()
-                elif newStatus in {BatteryCharger.CHG_STATE_FASTCHARGE, BatteryCharger.CHG_STATE_FAST_CC, BatteryCharger.CHG_STATE_FAST_CV}:
+                elif newStatus in {Charger.CHG_STATE_FASTCHARGE, Charger.CHG_STATE_FAST_CC, Charger.CHG_STATE_FAST_CV}:
                     self.chgLED.blink( cycle_length=SmartLED.CYCLEN_FAST )
-                elif newStatus in {BatteryCharger.CHG_STATE_PRECHARGE, BatteryCharger.CHG_STATE_TRICKLE}:
+                elif newStatus in {Charger.CHG_STATE_PRECHARGE, Charger.CHG_STATE_TRICKLE}:
                     self.chgLED.blink()
                 else:
                     self.chgLED.off()
@@ -441,13 +441,13 @@ class FGSystemManagement( Configurable, EventEmitter ):
             logging.info('LDO state: %s', newStatus)
 
         elif infoCat == FGSystemManagement._INFOCAT_RUN_TIME:
-            logging.info('BAT estimated by runtime: %s', BatteryCharger.batState2Str.get( newStatus, 'UNKNOWN' ))
+            logging.info('BAT estimated by runtime: %s', Charger.batState2Str.get( newStatus, 'UNKNOWN' ))
             if self.batLED:
-                if newStatus == BatteryCharger.BAT_STATE_EMPTY:
+                if newStatus == Charger.BAT_STATE_EMPTY:
                     self.batLED.blink( cycle_length=SmartLED.CYCLEN_FAST )
-                elif newStatus == BatteryCharger.BAT_STATE_LOW:
+                elif newStatus == Charger.BAT_STATE_LOW:
                     self.batLED.blink( cycle_length=SmartLED.CYCLEN_SLOW )
-                elif newStatus == BatteryCharger.BAT_STATE_NORMAL:
+                elif newStatus == Charger.BAT_STATE_NORMAL:
                     self.batLED.off()
                 else:   # Errors
                     self.batLED.on()

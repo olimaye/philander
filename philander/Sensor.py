@@ -13,7 +13,7 @@ __all__ = ["Calibration", "CalibrationData", "CalibrationType", \
 from dataclasses import dataclass, field
 from enum import Enum, unique, auto
 from module import Module
-from systypes import ErrorCode
+from systypes import ErrorCode, Info
 from typing import List
 
 @unique
@@ -343,32 +343,6 @@ class SelfTest(Enum):
     """All possible self tests.
     """
     
-class Info:
-    """Container type to wrap chip information data as retrieved from\
-    calls of :meth:`Sensor.getInfo`.
-    
-    This is rather static information not changing too much over time.
-    """
-    
-    VALID_CHIPID    = 0x01  # The chipID is valid
-    VALID_REVMAJOR  = 0x02  # Major revision is valid.
-    VALID_REVMINOR  = 0x04  # Minor revision is valid.
-    VALID_MODELID   = 0x08  # Valid module identification.
-    VALID_MANUFACID = 0x10  # Valid manufacturer ID
-    VALID_SERIALNUM = 0x20  # Serial number is valid.
-    VALID_NOTHING   = 0x00  # No attribute valid.
-    VALID_ANYTHING  = 0xFF  # All attributes are valid.
-
-    def __init__(self):
-        self.validity = Info.VALID_NOTHING
-        self.chipID = 0
-        self.revMajor = 0
-        self.revMinor = 0
-        self.modelID = 0
-        self.manufacturerID = 0
-        self.serialNumber = 0
-
-
 class Sensor(Module):
     """
     This class is meant to be sub-classed to define interfaces for
