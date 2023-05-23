@@ -1,8 +1,14 @@
+"""Feature configuration data for the BMA456 accelerometer.
+    
+    Externalized, just for clarity of the source code.
+"""
+__author__ = "Oliver Maye"
+__version__ = "0.1"
+#__all__ = ["_BMA456_Feature"]
 
 class _BMA456_Feature():
-
-    # Feature configuration data for the BMA456 accelerometer.
-    # Externalized, just for clarity of the source code.
+    """Feature configuration data for the BMA456 accelerometer.
+    """
 
     #
     # WEARABLE feature set configuration file

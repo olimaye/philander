@@ -2,7 +2,8 @@
 """
 __author__ = "Oliver Maye"
 __version__ = "0.1"
-__all__ = ["GasGauge",]
+__all__ = ["GasGauge","SOCChangeRate", "EventSource", "EventContext",\
+           "StatusID",]
 from dataclasses import dataclass
 from enum import unique, Enum, auto
 from battery import Status as BatStatus, Level as BatLevel
