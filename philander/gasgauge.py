@@ -1,3 +1,4 @@
+# -*- coding: utf-8 -*-
 """A module to provide base classes and data types for gas gauge driver implementations.
 """
 __author__ = "Oliver Maye"
@@ -176,7 +177,7 @@ class GasGauge():
         
         See also: :meth:`getBatteryCurrentAvg`
         
-        :return: A on-negative integer value [µA] or :attr:`Current.invalid`\
+        :return: A on-negative integer value [ÂµA] or :attr:`Current.invalid`\
         to indicate that this information could not be retrieved.
         :rtype: Current
         """
@@ -191,7 +192,7 @@ class GasGauge():
         
         See also: :meth:`getBatteryCurrent`
         
-        :return: A on-negative integer value [µA] or :attr:`Current.invalid`\
+        :return: A on-negative integer value [ï¿½A] or :attr:`Current.invalid`\
         to indicate that this information could not be retrieved.
         :rtype: Current
         """

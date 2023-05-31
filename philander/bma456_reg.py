@@ -1,7 +1,17 @@
+"""Register definition for the BMA456 accelerometer.
+    
+    Definition of registers, content masks and default values for the
+    above mentioined chip.
+    Externalized, just for clarity of the source code.
+"""
+__author__ = "Oliver Maye"
+__version__ = "0.1"
+__all__ = ["BMA456_Reg"]
+
 from dataclasses import dataclass
 
 @dataclass
-class _BMA456_Reg:
+class BMA456_Reg:
 
     #
     # Definitions of known feature sets

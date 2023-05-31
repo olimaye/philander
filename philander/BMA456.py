@@ -1,5 +1,16 @@
-from _BMA456_Reg import _BMA456_Reg
-from _BMA456_Feature import _BMA456_Feature
+# -*- coding: utf-8 -*-
+"""Driver implementation for the BMA456 3-axis digital acceleromter.
+
+More information on the functionality of the chip can be found at
+the Bosch-Sensortec site:
+https://www.bosch-sensortec.com/products/motion-sensors/accelerometers/bma456/#documents
+"""
+__author__ = "Oliver Maye"
+__version__ = "0.1"
+__all__ = ["BMA456"]
+
+from bma456_reg import BMA456_Reg
+from _bma456_feature import _BMA456_Feature
 from accelerometer import Accelerometer, Activity, AxesSign, Configuration, EventSource, Orientation, SamplingMode, StatusID, Tap
 from dictionary import dictionary
 import imath
@@ -11,114 +22,103 @@ import time
 from simBMA456 import SimDevBMA456
 from gpio import GPIO
 
-class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
-    #
-    # Protected / private attributes
-    #
+class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
+    """BMA456 driver implementation.
+    """
     
-    #
-    # Default address is 0x18 assuming that SDO is set/tied to GND.
-    # Alternatively, the address can be 0x19 by pulling SDO high (VDDIO).
-    _ADRESSES_ALLOWED = [0x18, 0x19]
+    ADRESSES_ALLOWED = [0x18, 0x19]
+    """Default address is 0x18 assuming that SDO is set/tied to GND.
     
-    # No. of bytes that can be written at once
+    Alternatively, the address can be 0x19 by pulling SDO high (VDDIO).
+    """
+
     BMA456_CHUNK_SIZE     = 8
+    """No. of bytes that can be written at once."""
+    
     BMA456_FEATUREBUF_HEADER_IDX    = 0
     BMA456_FEATUREBUF_HEADER_SIZE   = 1
     BMA456_FEATUREBUF_CONTENT_IDX   = BMA456_FEATUREBUF_HEADER_SIZE
-    BMA456_FEATUREBUF_TOTAL_SIZE    = (BMA456_FEATUREBUF_HEADER_SIZE + _BMA456_Reg.BMA456_FEATURE_MAX_SIZE)
+    BMA456_FEATUREBUF_TOTAL_SIZE    = (BMA456_FEATUREBUF_HEADER_SIZE + BMA456_Reg.BMA456_FEATURE_MAX_SIZE)
 
-
-    # Public attributes
-    
-    #
-    # The dictionary to map range setting bits into the corresponding
-    # range value, meant in milli-g.
-    #
     dictRange = dictionary( 
         myMap = {
-            _BMA456_Reg.BMA456_CNT_ACC_RANGE_2G         :   2000,
-            _BMA456_Reg.BMA456_CNT_ACC_RANGE_4G         :   4000,
-            _BMA456_Reg.BMA456_CNT_ACC_RANGE_8G         :   8000,
-            _BMA456_Reg.BMA456_CNT_ACC_RANGE_16G        :   16000
+            BMA456_Reg.BMA456_CNT_ACC_RANGE_2G         :   2000,
+            BMA456_Reg.BMA456_CNT_ACC_RANGE_4G         :   4000,
+            BMA456_Reg.BMA456_CNT_ACC_RANGE_8G         :   8000,
+            BMA456_Reg.BMA456_CNT_ACC_RANGE_16G        :   16000
         },
         mode = dictionary.DICT_STDMODE_UP )
+    """The dictionary to map range setting bits into the corresponding\
+    range value, meant in milli-g.
+    """
     
-    #
-    # The dictionary to map data rate setting bits into the corresponding
-    # data rates, meant in Hz.
-    #
     dictRate = dictionary( 
         myMap = {
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_0P78    :   1,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_1P5     :   2,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_3P1     :   3,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_6P25    :   6,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_12P5    :   12,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_25      :   25,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_50      :   50,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_100     :   100,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_200     :   200,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_400     :   400,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_800     :   800,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_1K6     :   1600,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_3K2     :   3200,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_6K4     :   6400,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_12K8    :   12800
+            BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_0P78    :   1,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_1P5     :   2,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_3P1     :   3,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_6P25    :   6,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_12P5    :   12,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_25      :   25,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_50      :   50,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_100     :   100,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_200     :   200,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_400     :   400,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_800     :   800,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_1K6     :   1600,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_3K2     :   3200,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_6K4     :   6400,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_12K8    :   12800
         },
         mode = dictionary.DICT_STDMODE_UP )
-
-    #
-    # The dictionary to map config mode settings into averaging window size,
-    # i.e. the number of samples to average.
-    #
+    """Dictionary to map data rate setting bits into the corresponding\
+    data rates, meant in Hz.
+    """
+    
     dictAverage = dictionary(
         myMap = {
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG1   :   1,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG2   :   2,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG4   :   4,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG8   :   8,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG16  :   16,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG32  :   32,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG64  :   64,
-            _BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG128 :   128
+            BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG1   :   1,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG2   :   2,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG4   :   4,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG8   :   8,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG16  :   16,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG32  :   32,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG64  :   64,
+            BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG128 :   128
         },
         mode = dictionary.DICT_STDMODE_NORMAL )
-
-    #
+    """Dictionary to map config mode settings into averaging window size,\
+    i.e. the number of samples to average.
+    """
+    
     dictFeatureSetLength = dictionary(
         myMap = {
-        _BMA456_Reg.BMA456_FEATURE_SET_WEARABLE  : _BMA456_Reg.BMA456_FSWBL_TOTAL_SIZE,
-        _BMA456_Reg.BMA456_FEATURE_SET_HEARABLE  : _BMA456_Reg.BMA456_FSHBL_TOTAL_SIZE,
-        _BMA456_Reg.BMA456_FEATURE_SET_MM        : _BMA456_Reg.BMA456_FSMM_TOTAL_SIZE,
-        _BMA456_Reg.BMA456_FEATURE_SET_AN        : _BMA456_Reg.BMA456_FSAN_TOTAL_SIZE,
+        BMA456_Reg.BMA456_FEATURE_SET_WEARABLE  : BMA456_Reg.BMA456_FSWBL_TOTAL_SIZE,
+        BMA456_Reg.BMA456_FEATURE_SET_HEARABLE  : BMA456_Reg.BMA456_FSHBL_TOTAL_SIZE,
+        BMA456_Reg.BMA456_FEATURE_SET_MM        : BMA456_Reg.BMA456_FSMM_TOTAL_SIZE,
+        BMA456_Reg.BMA456_FEATURE_SET_AN        : BMA456_Reg.BMA456_FSAN_TOTAL_SIZE,
         },
         mode = dictionary.DICT_STDMODE_STRICT )
 
-    #    
     dictConfigLength = dictionary(
         myMap = {
-        _BMA456_Reg.BMA456_FEATURE_SET_WEARABLE  : _BMA456_Feature.bma456_wbl_configFileSize,
-        _BMA456_Reg.BMA456_FEATURE_SET_HEARABLE  : _BMA456_Feature.bma456_hbl_configFileSize,
-        _BMA456_Reg.BMA456_FEATURE_SET_MM        : _BMA456_Feature.bma456_mm_configFileSize,
-        _BMA456_Reg.BMA456_FEATURE_SET_AN        : _BMA456_Feature.bma456_an_configFileSize,
+        BMA456_Reg.BMA456_FEATURE_SET_WEARABLE  : _BMA456_Feature.bma456_wbl_configFileSize,
+        BMA456_Reg.BMA456_FEATURE_SET_HEARABLE  : _BMA456_Feature.bma456_hbl_configFileSize,
+        BMA456_Reg.BMA456_FEATURE_SET_MM        : _BMA456_Feature.bma456_mm_configFileSize,
+        BMA456_Reg.BMA456_FEATURE_SET_AN        : _BMA456_Feature.bma456_an_configFileSize,
         },
         mode = dictionary.DICT_STDMODE_STRICT )
     
-    #    
     dictConfigData = dictionary(
         myMap = {
-        _BMA456_Reg.BMA456_FEATURE_SET_WEARABLE  : _BMA456_Feature.bma456_wbl_configFile,
-        _BMA456_Reg.BMA456_FEATURE_SET_HEARABLE  : _BMA456_Feature.bma456_hbl_configFile,
-        _BMA456_Reg.BMA456_FEATURE_SET_MM        : _BMA456_Feature.bma456_mm_configFile,
-        _BMA456_Reg.BMA456_FEATURE_SET_AN        : _BMA456_Feature.bma456_an_configFile,
+        BMA456_Reg.BMA456_FEATURE_SET_WEARABLE  : _BMA456_Feature.bma456_wbl_configFile,
+        BMA456_Reg.BMA456_FEATURE_SET_HEARABLE  : _BMA456_Feature.bma456_hbl_configFile,
+        BMA456_Reg.BMA456_FEATURE_SET_MM        : _BMA456_Feature.bma456_mm_configFile,
+        BMA456_Reg.BMA456_FEATURE_SET_AN        : _BMA456_Feature.bma456_an_configFile,
         },
         mode = dictionary.DICT_STDMODE_STRICT )
     
     
-    #
-    # Constructor
-    #
     def __init__(self):
         # Create instance attributes
         self.featureSet = BMA456.BMA456_DEFAULT_FEATURE_SET
@@ -135,7 +135,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
         Accelerometer.__init__(self)
 
     #
-    # Sensor-specific ("public") helper functions
+    # Sensor-specific helper functions
     #
 
     def _getFeatureByteAt(self, idx):
@@ -155,12 +155,15 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
         self._putFeatureByteAt(idx+1, data & 0xFF)
         return None
             
-    #
-    # Transfer function to translate digital measurement reading into
-    # physical dimension value.
-    # return: acceleration in milli-g
-    #
     def _transfer( self, reading ):
+        """Transfer function.
+        
+        Translate digital measurement reading into physical dimension
+        value.
+        
+        :return: Acceleration in milli-g
+        :rtype: 16 bit signed int
+        """
         ret = reading
         if reading > 0x7FFF:
             ret = reading - 0x10000
@@ -183,10 +186,9 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
         ret = self.writeBufferRegister( BMA456.BMA456_REG_FEATURES, self.featureBuf )
         return ret
 
-    #
-    # Start-up the chip and fill/restore configuration registers
-    #
     def _initialize( self ):
+        """Start-up the chip and fill/restore configuration registers.
+        """
         result = ErrorCode.errOk
         
         # Retrieve config file and file size
@@ -257,11 +259,16 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
             self.writeByteRegister( BMA456.BMA456_REG_INT_LATCH, BMA456.BMA456_CNT_INT_LATCH_PERM );
         return result
 
-    #
-    # Convert a single interrupt as indicated in the INT_STATUS0+1 word to an
-    # Accelerometer.EventSource
-    #
     def _bmaInt2accelEvtSrc( self, intID ):
+        """Convert a single interrupt as indicated in the INT_STATUS0+1\
+        word to an :class:`EventSource`.
+        
+        The exact mapping is documented at :meth:`getStatus`.
+        
+        :param int intID: Interrupt indicator as read from INT_STATUS0+1 register.
+        :returns: Event source flag
+        :rtype: EventSource
+        """
         ret = EventSource.none
     
         # INT_STATUS_1, high-byte
@@ -327,11 +334,12 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
 
         return ret;
     
-    #
-    # Given a single interrupt identifier, fills the event context structure,
-    # i.e. the source and detail attributes, appropriately.
-    #
     def _fillEventContext( self, singleIntID, context ):
+        """Given a single interrupt identifier, fill the event context\
+        structure, i.e. the source and detail attributes, appropriately.
+        
+        The mapping is detailed at :meth:`getEventContext`.
+        """
         ret = ErrorCode.errOk
         
         # Map BMA interrupt source to API event source
@@ -363,11 +371,14 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
     
         return ret
 
-    #
-    # Convert an API accel_EventSource_t to a BMA interrupt-map bit mask
-    # compatible to the INTx_MAP and INT_MAP_DATA register content.
-    #
     def _accelEvtSrc2bmaMap( self, evtSrc ):
+        """For a given event source, get the corresponding interrupt map.
+        
+        Convert an :class:`EventSource` to a BMA interrupt-map bit mask
+        compatible to the INTx_MAP and INT_MAP_DATA register content.
+        The translation is described in detail at :meth:`configure`
+        when arming events.
+        """
         remainder = evtSrc
     
         # Set INT_MAP_DATA, first
@@ -462,18 +473,49 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
 
     @classmethod
     def Params_init(cls, paramDict):
+        """Initializes configuration parameters with defaults.
+        
+        The following settings are supported:
+        
+        =============================    ==========================================================================================================
+        Key name                         Value type, meaning and default
+        =============================    ==========================================================================================================
+        SerialBusDevice.deviceAddress    ``int`` I2C serial device address, one of :attr:`ADRESSES_ALLOWED`; default is :attr:`ADRESSES_ALLOWED` ``[0]``.
+        Sensor.dataRange                 ``int`` Measurement range in milli-g; default corresponds to :attr:`.BMA456_CNT_ACC_RANGE_DEFAULT`.
+        Sensor.dataRate                  ``int`` Data rate in Hz; default corresponds to :attr:`.BMA456_CNT_ACC_CONF_ODR_DEFAULT`.
+        BMA456.INT1_IO_CTRL              ``int`` Content of the INT1_IO_CTRL register; default is :attr:`.BMA456_CNT_INT1_IO_CTRL_DEFAULT`.
+        BMA456.INT2_IO_CTRL              ``int`` Content of the INT2_IO_CTRL register; default is :attr:`.BMA456_CNT_INT2_IO_CTRL_DEFAULT`.
+        BMA456.INT1_MAP                  ``int`` Content of the INT1_MAP register; default is :attr:`.BMA456_CNT_INTX_MAP_DEFAULT`.
+        BMA456.INT2_MAP                  ``int`` Content of the INT2_MAP register; default is :attr:`.BMA456_CNT_INTX_MAP_DEFAULT`.
+        BMA456.INT_MAP_DATA              ``int`` Content of the INT_MAP_DATA register; default is :attr:`.BMA456_CNT_INT_MAP_DATA_DEFAULT`.
+        BMA456.int1.gpio.direction       see :meth:`.GPIO.Params_init`; default is :attr:`.GPIO.DIRECTION_IN`.
+        BMA456.int2.gpio.direction       see :meth:`.GPIO.Params_init`; default is :attr:`.GPIO.DIRECTION_IN`.
+        BMA456.int1.gpio.trigger         see :meth:`.GPIO.Params_init`; default is :attr:`.GPIO.TRIGGER_EDGE_FALLING`.
+        BMA456.int2.gpio.trigger         see :meth:`.GPIO.Params_init`; default is :attr:`.GPIO.TRIGGER_EDGE_FALLING`.
+        BMA456.int1.gpio.bounce          see :meth:`.GPIO.Params_init`; default is :attr:`.GPIO.BOUNCE_NONE`.
+        BMA456.int2.gpio.bounce          see :meth:`.GPIO.Params_init`; default is :attr:`.GPIO.BOUNCE_NONE`.
+        All other BMA456.int1.gpio.* and BMA456.int1.gpio.* settings as documented at :meth:`.GPIO.Params_init`.
+        ===========================================================================================================================================
+        
+        For the ``SerialBusDevice.deviceAddress`` value, also 0 or 1
+        can be specified alternatively to the absolute addresses to reflect
+        the level of the ``SDO`` pin. In this case, 0 will be mapped to
+        0x18, while 1 maps to 0x19.
+        
+        Also see: :meth:`.Sensor.Params_init`, :meth:`.SerialBusDevice.Params_init`, :meth:`.GPIO.Params_init`. 
+        """
         # Set defaults, where necessary
         if not ("SerialBusDevice.deviceAddress" in paramDict):
-            paramDict["SerialBusDevice.deviceAddress"] = BMA456._ADRESSES_ALLOWED[0]
+            paramDict["SerialBusDevice.deviceAddress"] = BMA456.ADRESSES_ALLOWED[0]
         else:
             da = paramDict["SerialBusDevice.deviceAddress"]
-            if not (da in BMA456._ADRESSES_ALLOWED):
-                da = BMA456._ADRESSES_ALLOWED[da!=0]   
+            if not (da in BMA456.ADRESSES_ALLOWED):
+                da = BMA456.ADRESSES_ALLOWED[da!=0]   
                 paramDict["SerialBusDevice.deviceAddress"] = da
         if not ("Sensor.dataRange" in paramDict):
-            paramDict["Sensor.dataRange"], _ = BMA456.dictRange.getValue( _BMA456_Reg.BMA456_CNT_ACC_RANGE_DEFAULT )
+            paramDict["Sensor.dataRange"], _ = BMA456.dictRange.getValue( BMA456_Reg.BMA456_CNT_ACC_RANGE_DEFAULT )
         if not ("Sensor.dataRate" in paramDict):
-            paramDict["Sensor.dataRate"], _ = BMA456.dictRate.getValue( _BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_DEFAULT )
+            paramDict["Sensor.dataRate"], _ = BMA456.dictRate.getValue( BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_DEFAULT )
         Accelerometer.Params_init(paramDict)
         SerialBusDevice.Params_init(paramDict)
         # Specific configuration options
@@ -506,9 +548,30 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
         for key, value in gp1.items():
             if not( key in paramDict):
                 paramDict[key] = value
-
+        return None
 
     def open(self, paramDict):
+        """Set up serial communication and initialize the chip.
+        
+        Must be called once, before the device can be used.
+        Carry out the following steps:
+        
+        * establish serial communication, attach device to bus, if necessary.
+        * execute the device initialization procedure, see chapter 4.2 of the data sheet for more information.
+        * adjust data rate and measurement range
+        * set up interrupt GPIO pins - direction, trigger etc.
+        * set up interrupt behavior - registers IOCTRL, INT1_MAP etc.
+        * enable interrupts
+        
+        Additionally to the defaults generated by :meth:`.Params_init`,
+        additional configuration parameters are supported - as documented
+        at :meth:`.GPIO.open`:
+        
+        * BMA456.int1.gpio.pinDesignator
+        * BMA456.int2.gpio.pinDesignator
+        
+        Also see :meth:`.Sensor.open`, :meth:`.close`. 
+        """
         result = ErrorCode.errOk
         
         if (self.isAttached()):
@@ -517,7 +580,7 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
             if not (self.sim is None):
                 result = self.sim.open(paramDict)
             if (result == ErrorCode.errOk):
-                paramDict["SerialBusDevice.deviceAddress"] = paramDict.get("SerialBusDevice.deviceAddress", BMA456._ADRESSES_ALLOWED[0])
+                paramDict["SerialBusDevice.deviceAddress"] = paramDict.get("SerialBusDevice.deviceAddress", BMA456.ADRESSES_ALLOWED[0])
                 result = SerialBusDevice.open(self, paramDict)
             if (result == ErrorCode.errOk):
                 # Ramp-up the chip
@@ -556,21 +619,62 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
 
 
     def close(self):
+        """Shut down the device after usage.
+        
+        This method should be called when the device is not used, anymore,
+        e.g. as part of the application exit procedure.
+        The following steps are executed:
+        
+        * shut down the device by switching to :attr:`.RunLevel.shutdown`
+        * close serial communication, detach from bus.
+        * close GPIO pins for int1 and int2
+        
+        After return, the device can still be re-used, by calling
+        :meth:`.open` again.
+        
+        Also see: :meth:`.SerialBusDevice.close`, :meth:`.GPIO.close`,
+        :meth:`.Module.close`.
+        """
+        result = ErrorCode.errOk
         if (self.isAttached()):
-            self.setRunLevel( RunLevel.shutdown )
-            SerialBusDevice.close(self)
+            result = self.setRunLevel( RunLevel.shutdown )
+            result = SerialBusDevice.close(self)
         if not (self.pinInt1 is None):
-            self.pinInt1.close()
+            result = self.pinInt1.close()
             self.pinInt1 = None
         if not (self.pinInt2 is None):
-            self.pinInt2.close()
+            result = self.pinInt2.close()
             self.pinInt2 = None
-        return None
+        return result
     
-    #
-    #
-    #
     def setRunLevel(self, level):
+        """Switches the device to the desired power-save mode.
+        
+        The given run level affects the hardware registers
+        :attr:`.BMA456_REG_PWR_CTRL`,
+        :attr:`.BMA456_REG_PWR_CONF` and
+        :attr:`.BMA456_REG_ACC_CONF`
+        and, thus, chip behavior as follows:
+
+        ==============   =======   =======    ================    ==============    =============
+        RunLevel         ACC_EN    AUX_EN     FIFO_SELF_WAKEUP    ADV_POWER_SAVE    ACC_PERF_MODE
+        ==============   =======   =======    ================    ==============    =============
+        active           ENABLE    DISABLE    DISABLE             DISABLE           CONT
+        idle             ENABLE    DISABLE    DISABLE             DISABLE           AVG
+        relax            ENABLE    DISABLE    ENABLE              ENABLE            AVG
+        snooze           ENABLE    DISABLE    DISABLE             ENABLE            AVG
+        nap and below    DISABLE   DISABLE    DISABLE             ENABLE            AVG
+        ==============   =======   =======    ================    ==============    =============
+        
+        For detailed information on the power modes of the underlying
+        hardware, see the data shhet, chapter 4.3.
+        
+        Also see :meth:`.Module.setRunLevel`.
+        
+        :param RunLevel level: The level to switch to.
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
         ret = ErrorCode.errOk
         pwrCtrl = 0
         pwrConf = 0
@@ -625,9 +729,6 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
     # Interruptable API
     #
 
-    #
-    #
-    #
     def registerInterruptHandler(self, onEvent=None, callerFeedBack=None, handler=None ):
         ret = ErrorCode.errOk
         fAny = False
@@ -643,10 +744,26 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
             ret = ErrorCode.errExhausted
         return ret
     
-    #
-    #
-    #
     def enableInterrupt(self):
+        """Enable the interrupt mechanism/engine.
+        
+        Clear the interrupts that possibly occurred so far. Then, enable
+        interrupt signaling at the corresponding GPIO pin. Finally, set
+        the OUTPUT_ENABLE bit at the involved interrupt IO_CTRL
+        registers.
+        
+        Note that this method is just for switching the interrupt capability
+        on.
+        For switching it off, see :meth:`.disableInterrupt`.
+        For configuring interrupts, see :meth:`.configure` and
+        :meth:`.registerInterruptHandler`.
+        
+        Also see :meth:`.Interruptable.enableInterrupt`.
+        
+        :return: An error code indicating either success or the reason\
+        of failure.
+        :rtype: ErrorCode
+        """
         ret = ErrorCode.errOk
         if (not self.isAttached()):
             ret = ErrorCode.errResourceConflict
@@ -669,10 +786,22 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
                     ret = err
         return ret;
     
-    #
-    #
-    #
     def disableInterrupt(self):
+        """Disable interrupts.
+        
+        Switch off the interrupt functionality both, on the GPIO and the
+        chip level.
+        
+        Note that this method is just for switching the interrupt capability
+        off.
+        For switching it on, see :meth:`.enableInterrupt`.
+        
+        Also see :meth:`.Interruptable.disableInterrupt`.
+        
+        :return: An error code indicating either success or the reason\
+        of failure.
+        :rtype: ErrorCode
+        """
         ret = ErrorCode.errOk
         if (not self.isAttached()):
             ret = ErrorCode.errResourceConflict
@@ -694,6 +823,63 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
  
  
     def getEventContext(self, event, context):
+        """Retrieve more detailed information on an event.
+        
+        Typically, an original event notification just carries the
+        information, that an event/interrupt occurred. This method is
+        to reveal more details on the cause of the interrupt.
+        
+        The ``event`` parameter is an input to tell, which of the two
+        interrupt lined actually fired.
+        On return, the ``context`` parameter carries the resulting
+        information. It must be an instance of :class:`.accelerometer.EventContext`,
+        which is semantically multiplexed by its :attr:`.accelerometer.EventContext.source`
+        attribute. Depending on that event source indicator, the rest of
+        the structure is filled as follows: 
+        
+        =======================    ==========================================================================================
+        Event source (flag)        Context attribute and data
+        =======================    ==========================================================================================
+        dataReady                  ``data`` latest measurement as retrieved by :meth:`getLatestData`
+        fifoWatermark, fifoFull    ``status`` fifo status retrieved from :meth:`getStatus` and :attr:`StatusID.fifo`
+        activity                   ``status`` activity status retrieved from :meth:`getStatus` and :attr:`StatusID.activity`
+        step                       ``status`` step count retrieved from :meth:`getStatus` and :attr:`StatusID.stepCount`
+        highGTime                  ``status`` high-G status retrieved from :meth:`getStatus` and :attr:`StatusID.highG`
+        orientation                ``status`` orientation retrieved from :meth:`getStatus` and :attr:`StatusID.orientation`
+        tap                        ``status`` :class:`Tap` instance depending on feature set and interrupt
+        =======================    ==========================================================================================
+
+        A single interrupt may have several reasons, simultaneously.
+        That's why, it may be meaningful/necessary to call this method
+        repeatedly, until all reasons were reported. Upon its first
+        call after an event, the context's :attr:`.interruptable.EventContext.control`
+        attribute must be set to :attr:`.interruptable.EventContextControl.evtCtxtCtrl_getFirst`.
+        Upon subsequent calls, this attribute should not be changed by
+        the caller, anymore. In generally, event context information is
+        retrieved in the order according to the priority of the
+        corresponding event sources.
+        
+        The return value indicates, whether or not more information is
+        available as follows:
+        
+        ==============================    ======================================================
+        Return value                      Meaning
+        ==============================    ======================================================
+        :attr:`.ErrorCode.errOk`          Success. Last context info. No more data to retrieve.
+        :attr:`.ErrorCode.errMoreData`    Success. Context is valid. More data to be retrieved.
+        :attr:`.ErrorCode.errFewData`     No data to retrieve. Context is invalid.
+        any other ErrorCode.*             Error. Context data is invalid.
+        ==============================    ======================================================
+        
+        Also see: :meth:`.Interruptable.getEventContext`.
+        
+        :param int event: The original event occurred, as received by the\
+        handling routine. This must be one of the event mnemonics defined\
+        by :class:``Event``.
+        :param .accelerometer.EventContext context: Context information. 
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
         ret = ErrorCode.errOk
         
         if (context is None):
@@ -743,6 +929,27 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
     #
 
     def selfTest(self, tests):
+        """Execute one or more sensor self tests.
+        
+        The test(s) to execute is given as a bit mask. This sensor
+        supports the following tests:
+        
+        :attr:`.SelfTest.CONNECTION`: 
+        An attempt is made to read the sensor's chip ID. If reading is
+        successful, the result is compared to :attr:`.BMA456_CNT_CHIP_ID`.
+        On a match, the method returns successfully. Otherwise, a failure
+        is indicated.
+        
+        :attr:`.SelfTest.FUNCTIONAL`: 
+        A functional sensor self test is executed as described in the
+        data sheet, chapter 4.9.
+        
+        Also see: :meth:`.Sensor.selfTest`.
+
+        :param int tests: A bit mask to select the tests to be executed.
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
         ret = ErrorCode.errOk
     
         if ((tests & SelfTest.CONNECTION) and (ret == ErrorCode.errOk) ):
@@ -799,7 +1006,18 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
         return ret
     
     def reset(self):
-        # Known issue with BMA456: It does not ACK the softreset command, when
+        """Reset the sensor to its default state.
+        
+        After executing the reset command with the chip, it is re-configured
+        using the start-up settings. Also, interrupt configuration is
+        restored and interrupts are enabled.
+        
+        Also see: :meth:`.Sensor.reset`.
+
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        # Known issue with BMA456: It does not ACK the soft reset command, when
         # the sensor is not in suspend mode. (Search for "BMA456 soft reset error"!)
         # Instead of suspending, we catch and ignore the exception thrown.
         ret = ErrorCode.errOk
@@ -825,10 +1043,91 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
             self.enableInterrupt()
         return ret
 
-    #
-    #
-    #
     def configure(self, config):
+        """Configure the device as specified in the ``config`` parameter.
+        
+        Remember, the ``config`` parameter should be an instance of
+        :class:`.accelerometer.Configuration`. Its attributes are
+        de-multiplexed by :attr:`.sensor.Configuration.type`.
+        The following configuration types are supported:
+        
+        :attr:`.ConfigItem.rate`:
+        The data rate given as an integer value in Hz is expected in
+        :attr:`.Configuration.value`. If it doesn't match a supported
+        rate value exactly, it is rounded up appropriately. So, the
+        rate actually configured may be slightly higher than the value
+        given here.
+        Furthermore, the sampling mode must be specified in the
+        :attr:`.Configuration.rateMode` attribute.
+        The chip supports under-sampling (:attr:`.SamplingMode.average`),
+        normal sampling and over-sampling (2x and 4x). For averaging mode,
+        the number of samples to average must be given in
+        :attr:`.Configuration.rateMode.mValue`.
+         
+        :attr:`.ConfigItem.range`:
+        The :attr:`.Configuration.value` attribute is expected to carry
+        the measurement range given as an integer in milli-g. If the
+        given value doesn't match one of the hardware-supported range
+        levels, exactly, it is rounded-up accordingly.
+        
+        :attr:`.ConfigItem.fifo`: Not yet implemented.
+        
+        :attr:`.ConfigItem.eventArm`: Selectively enables or disables
+        certain event sources (interrupts). Remember that the following
+        conditions must be fulfilled in order to get a specific interrupt
+        fired:
+        
+        #. Interrupts must be enabled. See :meth:`.enableInterrupt`.
+        #. That interrupt (event source) must be armed - using this method.
+        #. The corresponding interrupt condition must be true.
+        
+        Note that the armed events are always configured to fire on both
+        interrupt lines :attr:`.Event.evtInt1` and :attr:`.Event.evtInt2`.
+        The bit mask of events to be armed is expected in
+        :attr:`.accelerometer.Configuration.armedEvents` as an instance
+        of :class:`.accelerometer.EventSource`. The translation between
+        the given event source and the underlying hardware interrupt is
+        as follows:
+        
+        =================    ==================================================
+        Event source         Hardware interrupt mapping bit mask
+        =================    ==================================================
+        dataReady            INT_MAP_DATA: (INT1_DRDY | INT2_DRDY)
+        fifoWatermark        INT_MAP_DATA: (INT1_FIFO_WM | INT2_FIFO_WM)
+        fifoFull             INT_MAP_DATA: (INT1_FIFO_FULL | INT2_FIFO_FULL)
+        error                INTX_MAP: ERROR
+        lowSlopeTime         INTX_MAP: NO_MOTION
+        highSlopeTime        INTX_MAP: ANY_MOTION
+        gesture              INTX_MAP: WRIST_WKUP
+        activity             INTX_MAP: ACTIVITY
+        step                 INTX_MAP: STEP_CNT
+        tap                  INTX_MAP: STAP (wearable), TAP (hearable, MM)
+        significantMotion    INTX_MAP: SIG_MOTION
+        highGTime            INTX_MAP: HIGH_G
+        lowGTime             INTX_MAP: LOW_G
+        orientation          INTX_MAP: ORIENT
+        =================    ==================================================
+
+        :attr:`.ConfigItem.eventCondition`:
+        Configures the trigger condition for parameterized events, such
+        as ``tap`` or ``lowGTime``. The details, such as thresholds and
+        delays, are expected in the given ``config`` 's 
+        :attr:`.accelerometer.Configuration.eventCondition` attribute,
+        which is de-multiplexed by its
+        :attr:`.accelerometer.Configuration.CfgInterrupt.event` attribute.
+        
+        Note that the event sources ``dataReady``, ``fifoWatermark``,
+        ``fifoFull`` and ``error`` are not parameterized. They cannot
+        be conditioned any further.
+        
+        The configuration of other event conditions is not implemented, yet.
+        
+        Also see: :meth:`.Sensor.configure`.
+
+        :param .accelerometer.Configuration config: Specific configuration information.
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
         ret = ErrorCode.errOk
     
         if (config.type == ConfigItem.rate):
@@ -905,10 +1204,18 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
             ret = ErrorCode.errNotSupported
         return ret;
 
-    #
-    # Gets static info data from sensor
-    #
     def calibrate(self, calib):
+        """Execute a calibration.
+        
+        The details for the calibration are given by the ``calib``
+        parameter.
+        
+        Also see: :meth:`.Sensor.calibrate`, :class:`.Calibration`.
+
+        :param Calibration calib: The calibration data.
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
         ret = ErrorCode.errOk
         if (calib.type == CalibrationType.default):
             ret = ErrorCode.errNotImplemented
@@ -918,10 +1225,17 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
             ret = ErrorCode.errNotSupported
         return ret
 
-    #
-    # Gets static info data from sensor
-    #
     def getInfo(self):
+        """Retrieve static information from the sensor chip.
+        
+        Supported information is
+        :attr:`.Info.validModelID` and :attr:`.Info.validChipID`.
+        
+        Also see: :meth:`.Sensor.getInfo`.
+
+        :return: The information object and an error code indicating either success or the reason of failure.
+        :rtype: Info, ErrorCode
+        """
         info = Info()
         
         # Model ID
@@ -932,15 +1246,113 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
         info.validity |= Info.validChipID
         return info, ret
 
-    #
-    # Gets dynamic status data from sensor
-    #
     def getStatus(self, statID):
+        """Retrieve dynamic meta information from the sensor chip.
+        
+        The information requested is indicated by the parameter ``statID``. 
+        The resulting status information is passed back as a part of the
+        return value. The following information is available:
+        
+        :attr:`.accelerometer.StatusID.dieTemp`:
+        The chip temperature as read from the register :attr:`.BMA456_REG_TEMPERATURE`
+        is returned as an Q8.8 integer given in degree Celsius.
+        
+        :attr:`.accelerometer.StatusID.dataReady`:
+        Returns a boolean to flag whether or not new data is available.
+        For that, evaluates the ``DRDY_ACC`` bit in :attr:`.BMA456_REG_STATUS`
+        
+        :attr:`.accelerometer.StatusID.interrupt`:
+        Give the pending interrupts by reading :attr:`.BMA456_REG_INT_STATUS`.
+        This information is cleared until interrupt conditions are
+        fulfilled anew.
+        The result is given as an :class:`.acceleroometer.EventSource`
+        bit mask. The mapping of hardware interrupt bits to event source
+        flags is as follows:
+        
+        ===============  ==============
+        Interrupt (Bit)  EventSource
+        ===============  ==============
+        ACC_DRDY         dataReady
+        ACTIVITY         activity
+        ANY_MOTION       highSlopeTime
+        AUX_DRDY         none
+        DBL_TAP          tap
+        ERROR            error
+        FIFO_FULL        fifoFull
+        FIFO_WM          fifoWatermark
+        HIGH_G           highGTime
+        LOW_G            lowGTime
+        NO_MOTION        lowSlopeTime
+        ORIENT           orientation
+        SIG_MOTION       significantMotion
+        STEP_COUNT       step
+        TAP_DETECT       tap
+        WRIST_WKUP       gesture
+        ===============  ==============
+        
+        :attr:`.accelerometer.StatusID.fifo`:
+        Retrieve the FIFO length by reading :attr:`.BMA456_REG_FIFO_LENGTH`.
+        The result is returned as an integer value.
+        
+        :attr:`.accelerometer.StatusID.error`:
+        Gives the sensor health code as a 32-bit integer value, obtained
+        by just concatenating the content of the registers
+        :attr:`.BMA456_REG_INTERNAL_ERR`:
+        :attr:`.BMA456_REG_INTERNAL_STATUS`:
+        :attr:`.BMA456_REG_EVENT`:
+        :attr:`.BMA456_REG_ERROR` in that order.
+        
+        :attr:`.accelerometer.StatusID.activity`:
+        For the wearable and hearable feature set, read the current activity
+        from the :attr:`.BMA456_FSWBL_REG_ACTIVITY_TYPE` register and
+        return the result as an instance of :class:`.Activity`. Indicate
+        a failure if another feature set is active. 
+         
+        :attr:`.accelerometer.StatusID.stepCount`:
+        For the wearable and hearable feature set, return the current
+        step count as read from the register
+        :attr:`.BMA456_FSWBL_REG_STEP_COUNTER`. The result is given as
+        a 32 bit integer number.
+        
+        :attr:`.accelerometer.StatusID.highG`:
+        For the MM feature set, retrieve the axis information for a
+        high-G event from the :attr:`.BMA456_FSMM_REG_HIGH_G_OUTPUT`
+        register. The result is passed back as an :class:`.AxesSign` bit
+        mask.
+        
+        :attr:`.accelerometer.StatusID.orientation`:
+        For the MM feature set, retrieve the current orientation of the
+        device as read from the :attr:`.BMA456_FSMM_REG_ORIENT_OUTPUT`
+        register. The result is given as an :class:`.Orientation` bit
+        mask.
+        
+        :attr:`.accelerometer.StatusID.tap`:
+        For the hearable and MM feature set, give the type of the recently
+        detected tap (single, double etc.) as a :class:`.Tap` bit mask
+        after reading that information from the
+        :attr:`.BMA456_FSHBL_REG_FEAT_OUT` and
+        :attr:`.BMA456_FSMM_REG_MULTITAP_OUTPUT` registers, respectively.
+        For the wearable feature set, there are dedicated interrupts for
+        this information, which get cleared upon reading. That's why,
+        :meth:`.getEventContext` should be intentionally used by the
+        caller to retrieve this information.
+        
+         
+        :attr:`.accelerometer.StatusID.sensorTime`:
+        Retrieve the current sensor time in milli-seconds [ms]. The
+        result is given as a Q24.8 integer value.
+        
+        Also see: :meth:`.Sensor.getStatus`.
+
+        :param accelerometer.StatusID statID: Identifies the status information to be retrieved.
+        :return: The status object and an error code indicating either success or the reason of failure.
+        :rtype: Object, ErrorCode
+        """
         ret = ErrorCode.errOk
         status = 0
     
         if (statID == StatusID.dieTemp):
-            # Temperature in degree Celsiusas Q8.8
+            # Temperature in degree Celsius as Q8.8
             data, ret = self.readByteRegister( BMA456.BMA456_REG_TEMPERATURE )
             if (ret == ErrorCode.errOk):
                 # sign-extend data
@@ -1093,6 +1505,21 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
 
 
     def getLatestData(self):
+        """Retrieve the most-recent available measurement data.
+        
+        This method is guaranteed to be non-blocking. Therefore, the
+        data retrieved might be /old/ or /outdated/ to some extend.
+        
+        The result is given as a 3x1 list of signed integers,
+        representing the acceleration in milli-G in the x, y and z
+        direction, respectively.
+        
+        Also see: :meth:`.Sensor.getLatestData`.
+
+        :return: The measurement data list and an error code indicating\
+        either success or the reason of failure.
+        :rtype: List(int), ErrorCode
+        """
         buf, ret = self.readBufferRegister( BMA456.BMA456_REG_ACC_X, 6 )
         if (ret == ErrorCode.errOk):
             x = buf[0] | (buf[1] << 8)
@@ -1108,6 +1535,21 @@ class BMA456( _BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
 
 
     def getNextData(self):
+        """Get the next-available measurement data.
+        
+        This method is guaranteed to produce up-to-date measurement
+        data. This may come at the price of a blocking delay.
+        
+        As with :meth:`getLatestData`, the result is given as a list
+        of integers representing the acceleration in x, y and z direction
+        in milli-G.
+        
+        Also see: :meth:`.Sensor.getNextData`.
+
+        :return: The measurement data list and an error code indicating\
+        either success or the reason of failure.
+        :rtype: List(int), ErrorCode
+        """
         done = False
         while( not done ):
             stat, err = self.getStatus( StatusID.dataReady )

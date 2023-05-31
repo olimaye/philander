@@ -2,7 +2,7 @@
 """
 __author__ = "Oliver Maye"
 __version__ = "0.1"
-__all__ = ["ErrorCode", "RunLevel", "info",]
+__all__ = ["ErrorCode", "RunLevel", "Info",]
 from enum import Enum
 from dataclasses import dataclass
 

@@ -31,7 +31,7 @@ __all__ = ["Event", "EventContextControl", "EventContext", "Interruptable"]
 import dataclasses
 import enum
 import pymitter
-import systypes
+from systypes import ErrorCode
 
 @enum.unique
 class Event(enum.Enum):
@@ -108,13 +108,17 @@ class Interruptable:
         valid, then the interrupt is enabled and the handler gets\
         registered. 
         
-        :param int onEvent: Exactly one of the event mnemonics defined by the :class:`Event` enumeration.
-        :param object callerFeedBack: Arbitrary object not evaluated here, but passed on to the handler.
-        :param handler: The handling routine to be called as an immediate response to an event.
-        :return: An error code indicating either success or the reason of failure.
+        :param int onEvent: Exactly one of the event mnemonics defined\
+        by the :class:`.Event` enumeration.
+        :param object callerFeedBack: Arbitrary object not evaluated\
+        here, but passed on to the handler when an event is fired.
+        :param handler: The handling routine to be called as an immediate\
+        response to an event.
+        :return: An error code indicating either success or the reason\
+        of failure.
         :rtype: ErrorCode
         """
-        ret = systypes.ErrorCode.errOk
+        ret = ErrorCode.errOk
         if (handler is None):
             if (onEvent is None) or (onEvent == Event.evtNone):
                 # Disable; from hardware to app.
@@ -131,7 +135,7 @@ class Interruptable:
             if (onEvent == Event.evtAny):
                 self.eventEmitter.on_any( handler )
                 ret = self.enableInterrupt()
-                if (ret == systypes.ErrorCode.errOk):
+                if (ret == ErrorCode.errOk):
                     self.dictFeedbacks[onEvent] = callerFeedBack
                 else:
                     self.disableInterrupt()
@@ -139,7 +143,7 @@ class Interruptable:
             else:
                 self.eventEmitter.on( onEvent, handler )
                 ret = self.enableInterrupt()
-                if (ret == systypes.ErrorCode.errOk):
+                if (ret == ErrorCode.errOk):
                     self.dictFeedbacks[onEvent] = callerFeedBack
                 else:
                     self.disableInterrupt()
@@ -148,13 +152,21 @@ class Interruptable:
 
     def enableInterrupt(self):
         """Enables the interrupt(s) of the implementing device.
+
+        :return: An error code indicating either success or the reason\
+        of failure.
+        :rtype: ErrorCode
         """
-        pass
+        return ErrorCode.errNotImplemented
     
     def disableInterrupt(self):
         """Disables the interrupt(s) of the implementing device.
+
+        :return: An error code indicating either success or the reason\
+        of failure.
+        :rtype: ErrorCode
         """
-        pass
+        return ErrorCode.errNotImplemented
     
     def getEventContext(self, event, context):
         """After an event occurred, retrieves more detailed information\
@@ -187,13 +199,14 @@ class Interruptable:
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        pass
+        return ErrorCode.errNotImplemented
     
-    #
-    # Internal interface function. Can be used by derived classes tp
-    # raise an event, easily.
-    #
     def _fire(self, event, *args):
+        """Raise an event.
+        
+        This is a helper method, meant to be used by derived-classes,
+        only.
+        """
         if (event in self.dictFeedbacks):
             fb = self.dictFeedbacks[event]
         elif (not(event is None)) and (event != Event.evtNone) and (Event.evtAny in self.dictFeedbacks):

@@ -9,7 +9,7 @@ class MAX77960( SerialBusDevice, Charger, Watchdog ):
     
     #
     # The only address is 0x69. No alternative.
-    _ADRESSES_ALLOWED = [0x69]
+    ADRESSES_ALLOWED = [0x69]
 
     # Definition of registers and register content.
     # TOP
@@ -1255,7 +1255,7 @@ class MAX77960( SerialBusDevice, Charger, Watchdog ):
         self._config = None
         # Override default base class parameter: serial device
         if not ("SerialDevice.deviceAddress" in paramDict):
-            paramDict["SerialDevice.deviceAddress"] = MAX77960._ADRESSES_ALLOWED[0]
+            paramDict["SerialDevice.deviceAddress"] = MAX77960.ADRESSES_ALLOWED[0]
         # Call constructors of the super class
         super().__init__(paramDict)
 

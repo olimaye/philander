@@ -1157,7 +1157,7 @@ class SerialBus( _SerialBusIface ):
         """Determine, if the given bus is already open.
         
         :return: :attr:`ErrorCode.errOk`, if the bus is already open;\
-        :attr:`ErrorCode.errUnavailable, if it has not been opened before;\
+        :attr:`ErrorCode.errUnavailable`, if it has not been opened before;\
         Any other value to indicate the failure or reason, why this\
         information could not be retrieved.
         :rtype: ErrorCode

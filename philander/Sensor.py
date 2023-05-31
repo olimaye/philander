@@ -6,8 +6,7 @@ set of common types and functions is provided.
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Calibration", "CalibrationData", "CalibrationType", \
-           "ConfigItem", "Configuration", \
-           "Info", "SelfTest",\
+           "ConfigItem", "Configuration", "SelfTest",\
            "Sensor"]
 
 from dataclasses import dataclass, field
@@ -22,15 +21,15 @@ class ConfigItem(Enum):
     This helps interpreting configuration data, correctly. The meaning
     is as follows:
     
-    ==================    ==============================================================
-    Item                  Meaning
-    ==================    ==============================================================
+    ===============    ==============================================================
+    Item               Meaning
+    ===============    ==============================================================
     rate               Data rate as a frequency in Hz.
     range              Data measurement range, depending on the physical dimension.
     fifo               Fifo low/hogh water marks, empty signals etc.
     eventArm           Arming the event machine, enabling interrupt(s).
     eventCondition     Thresholds and counts to define event conditions.
-    ==================    ==============================================================
+    ===============    ==============================================================
     """
     rate                 = auto()
     range                = auto()
