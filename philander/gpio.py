@@ -234,6 +234,7 @@ class GPIO(module.Module, interruptable.Interruptable):
         Key                  Range                                             Default
         =================    ==============================================    =========================
         gpio.pinNumbering    GPIO.PINNUMBERING_[BCM | BOARD]                   GPIO.PINNUMBERING_BCM
+        gpio.pinDesignator   pin name or number (e.g. 17 or "GPIO17")          None
         gpio.direction       GPIO.DIRECTION_[IN | OUT]                         GPIO.DIRECTION_OUT
         gpio.level           GPIO.LEVEL_[LOW | HIGH]                           GPIO.LEVEL_LOW
         gpio.pull            GPIO.PULL_[NONE | UP | DOWN]                      GPIO.PULL_NONE
