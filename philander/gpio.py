@@ -230,19 +230,19 @@ class GPIO(module.Module, interruptable.Interruptable):
         their defaults on return.
         The following options are supported.
         
-        =================    ==============================================    =========================
-        Key                  Range                                             Default
-        =================    ==============================================    =========================
-        gpio.pinNumbering    GPIO.PINNUMBERING_[BCM | BOARD]                   GPIO.PINNUMBERING_BCM
-        gpio.pinDesignator   pin name or number (e.g. 17 or "GPIO17")          None
-        gpio.direction       GPIO.DIRECTION_[IN | OUT]                         GPIO.DIRECTION_OUT
-        gpio.level           GPIO.LEVEL_[LOW | HIGH]                           GPIO.LEVEL_LOW
-        gpio.pull            GPIO.PULL_[NONE | UP | DOWN]                      GPIO.PULL_NONE
-        gpio.trigger         GPIO.TRIGGER_EDGE_[RISING | FALLING | ANY]        GPIO.TRIGGER_EDGE_RISING
-        gpio.bounce          integer number, delay in milliseconds [ms]        GPIO.BOUNCE_DEFAULT
-        gpio.feedback        Arbitrary. Passed on to the interrupt handler.    None
-        gpio.handler         Handling routine reference.                       None
-        =================    ==============================================    =========================
+        ==================    ==============================================    =========================
+        Key                   Range                                             Default
+        ==================    ==============================================    =========================
+        gpio.pinNumbering     GPIO.PINNUMBERING_[BCM | BOARD]                   GPIO.PINNUMBERING_BCM
+        gpio.pinDesignator    pin name or number (e.g. 17 or "GPIO17")          None
+        gpio.direction        GPIO.DIRECTION_[IN | OUT]                         GPIO.DIRECTION_OUT
+        gpio.level            GPIO.LEVEL_[LOW | HIGH]                           GPIO.LEVEL_LOW
+        gpio.pull             GPIO.PULL_[NONE | UP | DOWN]                      GPIO.PULL_NONE
+        gpio.trigger          GPIO.TRIGGER_EDGE_[RISING | FALLING | ANY]        GPIO.TRIGGER_EDGE_RISING
+        gpio.bounce           integer number, delay in milliseconds [ms]        GPIO.BOUNCE_DEFAULT
+        gpio.feedback         Arbitrary. Passed on to the interrupt handler.    None
+        gpio.handler          Handling routine reference.                       None
+        ==================    ==============================================    =========================
         
         :param dict(str, object) paramDict: Configuration parameters as obtained from :meth:`Params_init`, possibly.
         :return: none

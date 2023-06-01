@@ -18,8 +18,8 @@ class FGSystemManagement( Configurable, EventEmitter ):
     #
     EVT_DELIMITER           = '.'
     EVT_MASK                = 'SystemManagement'
-    EVT_BLE_CONNECTED       = EVT_MASK + EVT_DELIMITER + 'ble' + EVT_DELIMITER + 'connected'
-    EVT_BLE_DISCONNECTED    = EVT_MASK + EVT_DELIMITER + 'ble' + EVT_DELIMITER + 'disconnected'
+    bleConnected       = EVT_MASK + EVT_DELIMITER + 'ble' + EVT_DELIMITER + 'connected'
+    bleDisconnected    = EVT_MASK + EVT_DELIMITER + 'ble' + EVT_DELIMITER + 'disconnected'
     EVT_DC_PLUGGED          = EVT_MASK + EVT_DELIMITER + 'dc' + EVT_DELIMITER + 'plugged'
     EVT_DC_UNPLUGGED        = EVT_MASK + EVT_DELIMITER + 'dc' + EVT_DELIMITER + 'unplugged'
     EVT_BUTTON_PRESSED      = EVT_MASK + EVT_DELIMITER + 'ui' + EVT_DELIMITER + 'button' + EVT_DELIMITER + 'pressed'
@@ -230,9 +230,9 @@ class FGSystemManagement( Configurable, EventEmitter ):
         if self._ldoPGPin:
             self.ldoPGGPIO = GPIO( '/dev/gpiochip0', self._ldoPGPin, 'in', inverted=not self._ldoPGActHi, label='LDO-PG' )
         self.monitor.start()
-        self.actorUnit.on( ActorUnit.EVT_BLE_DISCOVERING, self.bleHandleDiscovering )
-        self.actorUnit.on( ActorUnit.EVT_BLE_CONNECTED, self.bleHandleConnected )
-        self.actorUnit.on( ActorUnit.EVT_BLE_DISCONNECTED, self.bleHandleDisconnected )
+        self.actorUnit.on( ActorUnit.bleDiscovering, self.bleHandleDiscovering )
+        self.actorUnit.on( ActorUnit.bleConnected, self.bleHandleConnected )
+        self.actorUnit.on( ActorUnit.bleDisconnected, self.bleHandleDisconnected )
         self.actorUnit.init()
 
     # 
@@ -409,11 +409,11 @@ class FGSystemManagement( Configurable, EventEmitter ):
         elif infoCat == FGSystemManagement._INFOCAT_BAT_STATE:
             logging.info('BAT state: %s', Charger.batState2Str.get( newStatus, 'UNKNOWN' ))
         elif infoCat == FGSystemManagement._INFOCAT_BLE:
-            logging.info('BLE state: %s', ActorUnit.connState2Str.get( newStatus, 'UNKNOWN'))
+            logging.info('BLE state: %s', ActorUnit.toStr.get( newStatus, 'UNKNOWN'))
             if self.bleLED:
-                if newStatus == ActorUnit.BLE_CONN_STATE_CONNECTED:
+                if newStatus == ActorUnit.connected:
                     self.bleLED.on()
-                elif newStatus == ActorUnit.BLE_CONN_STATE_DISCOVERING:
+                elif newStatus == ActorUnit.discovering:
                     self.bleLED.blink( cycle_length=SmartLED.CYCLEN_NORMAL )
                 else:
                     self.bleLED.off()
@@ -456,15 +456,15 @@ class FGSystemManagement( Configurable, EventEmitter ):
     #
     #
     def bleHandleDiscovering( self ):
-        self._displayStatusChange( FGSystemManagement._INFOCAT_BLE, ActorUnit.BLE_CONN_STATE_DISCOVERING )
+        self._displayStatusChange( FGSystemManagement._INFOCAT_BLE, ActorUnit.discovering )
         
     def bleHandleConnected( self ):
-        self._displayStatusChange( FGSystemManagement._INFOCAT_BLE, ActorUnit.BLE_CONN_STATE_CONNECTED )
-        self.emit( FGSystemManagement.EVT_BLE_CONNECTED )
+        self._displayStatusChange( FGSystemManagement._INFOCAT_BLE, ActorUnit.connected )
+        self.emit( FGSystemManagement.bleConnected )
         
     def bleHandleDisconnected( self ):
-        self._displayStatusChange( FGSystemManagement._INFOCAT_BLE, ActorUnit.BLE_CONN_STATE_DISCONNECTED )
-        self.emit( FGSystemManagement.EVT_BLE_DISCONNECTED )
+        self._displayStatusChange( FGSystemManagement._INFOCAT_BLE, ActorUnit.disconnected )
+        self.emit( FGSystemManagement.bleDisconnected )
         # Start re-discovering
         if not self.done:
             self._sysjobLock.acquire()
