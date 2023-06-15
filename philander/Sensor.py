@@ -26,6 +26,7 @@ class ConfigItem(Enum):
     ===============    ==============================================================
     rate               Data rate as a frequency in Hz.
     range              Data measurement range, depending on the physical dimension.
+    resolution         Resolution of the measurement result in bits.
     fifo               Fifo low/hogh water marks, empty signals etc.
     eventArm           Arming the event machine, enabling interrupt(s).
     eventCondition     Thresholds and counts to define event conditions.
@@ -33,6 +34,7 @@ class ConfigItem(Enum):
     """
     rate                 = auto()
     range                = auto()
+    resolution           = auto()
     fifo                 = auto()
     eventArm             = auto()
     eventCondition       = auto()
@@ -343,8 +345,7 @@ class SelfTest(Enum):
     """
     
 class Sensor(Module):
-    """
-    This class is meant to be sub-classed to define interfaces for
+    """This class is meant to be sub-classed to define interfaces for\
     more-specific categories of sensors.
     """
     
@@ -460,7 +461,12 @@ class Sensor(Module):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        return ErrorCode.errNotSupported
+        ret = ErrorCode.errOk
+        defaults = dict()
+        self.Params_init( defaults )
+        self.dataRange = defaults["Sensor.dataRange"]
+        self.dataRate = defaults["Sensor.dataRate"]
+        return ret
 
 
     def configure(self, configData):
@@ -471,7 +477,7 @@ class Sensor(Module):
         will depend on the sensor implementation.
         Also see: :class:`Configuration`.
         
-        :param Configuration configData: Specific configuration information.
+        :param .sensor.Configuration configData: Specific configuration information.
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
@@ -564,7 +570,7 @@ class Sensor(Module):
 
 
     def getLatestData(self):
-        """ Retrieves the most recent data available and returns immediately.
+        """Retrieves the most recent data available and returns immediately.
         
         This function will never block, but may read data that has been
         read before, already. More precisely, the data returned was
