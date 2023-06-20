@@ -14,7 +14,7 @@ from _bma456_feature import _BMA456_Feature
 from accelerometer import Accelerometer, Activity, AxesSign, Configuration, EventSource, Orientation, SamplingMode, StatusID, Tap
 from dictionary import dictionary
 import imath
-from interruptable import Event, EventContextControl
+from interruptable import Event, EventContextControl, Interruptable
 from sensor import CalibrationType, ConfigItem, Info, SelfTest
 from serialbus import SerialBusDevice
 from systypes import ErrorCode, RunLevel
@@ -22,7 +22,7 @@ import time
 from simBMA456 import SimDevBMA456
 from gpio import GPIO
 
-class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
+class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Interruptable ):
     """BMA456 driver implementation.
     """
     
@@ -964,7 +964,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
             oldRange = self.dataRange
             config = Configuration()
             config.type = ConfigItem.range
-            config.range = BMA456.BMA456_SELFTEST_RANGE
+            config.value = BMA456.BMA456_SELFTEST_RANGE
             ret = self.configure( config )
             # Set self-test amplitude to low
             ret = self.writeByteRegister( BMA456.BMA456_REG_SELF_TST,
@@ -1001,7 +1001,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
             # Restore old configuration
             self.writeByteRegister( BMA456.BMA456_REG_ACC_CONF, oldRate )
             config.type = ConfigItem.range
-            config.range = oldRange
+            config.value = oldRange
             self.configure( config )
         return ret
     
@@ -1084,7 +1084,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
         Note that the armed events are always configured to fire on both
         interrupt lines :attr:`.Event.evtInt1` and :attr:`.Event.evtInt2`.
         The bit mask of events to be armed is expected in
-        :attr:`.accelerometer.Configuration.armedEvents` as an instance
+        :attr:`.accelerometer.Configuration.value` as an equivalent
         of :class:`.accelerometer.EventSource`. The translation between
         the given event source and the underlying hardware interrupt is
         as follows:
@@ -1171,7 +1171,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer ):
             ret = ErrorCode.errNotImplemented
         elif (config.type == ConfigItem.eventArm):
             # Translate accel_EventSource_t into INTxMAP and INT_MAT_DATA bit masks
-            remainEvt, dataMap, featureMap = self._accelEvtSrc2bmaMap( config.armedEvents )
+            remainEvt, dataMap, featureMap = self._accelEvtSrc2bmaMap( config.value )
             if (remainEvt != EventSource.none):
                 ret = ErrorCode.errNotSupported
             else:

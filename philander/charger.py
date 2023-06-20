@@ -2,11 +2,13 @@
 """
 __author__ = "Oliver Maye"
 __version__ = "0.1"
-__all__ = ["ChargerStatus", "DCStatus", "PowerSrc", "TemperatureRating",\
-           "ChargerError", "EventSource", "Charger"]
+__all__ = ["Status", "DCStatus", "PowerSrc", "TemperatureRating",\
+           "ChargerError", "EventSource", "EventContext",\
+           "Charger"]
 from battery import Status as BatStatus
 from dataclasses import dataclass
 from enum import unique, auto, Enum, Flag
+from interruptable import EventContext as IntEventContext
 from systypes import ErrorCode, Info
 
 @unique
@@ -177,7 +179,18 @@ class EventSource(Flag):
         unknown              : 'unknown',
     }
     
-class Charger():
+@dataclass
+class EventContext( IntEventContext ):
+    """Data class holding the context information of an event (interrupt).
+    
+    Use the :attr:`source` attribute to de-multiplex the inner data items.
+    """
+    source:     EventSource = EventSource.none
+    
+    def __init__(self):
+        super().__init__()
+        
+class Charger:
     """Abstract base class to describe a battery charger.
     """
 
@@ -240,11 +253,11 @@ class Charger():
     def getBatStatus(self):
         """Get the battery status to tell about the health and state of the battery.
         
-        Returns one of the :class:`BatteryStatus` values to indicate
+        Returns one of the :class:`.battery.Status` values to indicate
         battery voltage level or presence or health state.
 
         :return: The battery state.
-        :rtype: BatteryStatus
+        :rtype: battery.Status
         """
         return BatStatus.unknown
     
@@ -252,7 +265,7 @@ class Charger():
         """Retrieves the charging phase or status.
         
         :return: A charger status code to indicate the current charger status.
-        :rtype: ChargerStatus
+        :rtype: charger.Status
         """
         return Status.unknown
     

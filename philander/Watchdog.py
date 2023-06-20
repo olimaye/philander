@@ -1,95 +1,119 @@
-from Interruptable import Interruptable
-from Configurable import Configurable
+# -*- coding: utf-8 -*-
+"""Module to describe objects that provide wath dog capabilities.
 
-class Watchdog( Interruptable, Configurable ):
+"""
+from systypes import ErrorCode
+__author__ = "Oliver Maye"
+__version__ = "0.1"
+__all__ = ["Watchdog"]
 
-    # Interrupts
-    INT_WATCHDOG      = 0x0101 # Watchdog elapsed.
-
-    #
-    # Configurable API
-    #
+class Watchdog:
+    """Interface to define watch dog related methods.
     
-    def _scanParameters( self, paramDict ):
-        # Scan parameters
-        if "Watchdog.Interval" in paramDict:
-            self.interval = self._detectDriverModule( paramDict["Watchdog.Interval"] )
+    """
+    
+    INTERVAL_MS_DEFAULT = 1000  # Default time interval in milliseconds
+    
+    @classmethod
+    def Params_init(cls, paramDict):
+        """Initialize parameters with their defaults.
+
+        If the implementing class supports the :class:`.Module` interface,
+        it can use this method to fill commonly supported options. 
+        
+        The following settings are supported:
+        
+        =============================    ==========================================================================================================
+        Key name                         Value type, meaning and default
+        =============================    ==========================================================================================================
+        Watchdog.Interval                ``int`` Watch dog interval in milliseconds; default is :attr:`INTERVAL_MS_DEFAULT`.
+        =============================    ==========================================================================================================
+        
+        Also see: :meth:`.Module.Params_init`. 
+        
+        :param dict(str, object) paramDict: Dictionary mapping option\
+        names to their respective values.
+        :returns: none
+        :rtype: None
+        """
+        
+        if not ("Watchdog.Interval" in paramDict):
+            paramDict["Watchdog.Interval"] = Watchdog.INTERVAL_MS_DEFAULT
+        return None
                                 
 
-    #
-    # Initializes the object.
-    # The only input parameter is a dictionary containing key-value pairs that
-    # configure the instance. 
-    # 
-    def __init__( self, paramDict ):
-        # This class parameter
 
-        # initialize local attributes
-        self.interval = 0;
-        Configurable.__init__( self, paramDict )
-
-    #
-    # Initializes the WATCHDOG module. Must be called once, before the features of
-    # this module can be used.
-    #
-    def init(self):
-        Interruptable.init(self)
-        Configurable.init(self)
-
-    # 
-    # Shuts down the WATCHDOG module safely.
-    #
-    def close(self):
-        Interruptable.close(self)
-        #Configurable.close(self)
-
-    #
-    # Enables and restarts the watchdog.
-    #
-    def enable(self):
-        pass
+    def enableWatchdog(self):
+        """Enable and restart the watch dog.
+        
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        return ErrorCode.errNotImplemented
     
-    #
-    # Disables the watchdog and stops it from runninng, immediately.
-    #
-    def disable(self):
-        pass
+    def disableWatchdog(self):
+        """Disable the watch dog and stop it from running, immediately.
+        
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        return ErrorCode.errNotImplemented
     
-    #
-    # Checks, whether the watchdog is currently running or not.
-    # @return TRUE, if the watchdog is running, FALSE otherwise.
-    #
-    def isRunning(self):
-        pass
+    def isWatchdogRunning(self):
+        """Check, whether the watchdog is currently running or not.
+        
+        Returns :attr:`.ErrorCode.errOk`, if the watch dog is running,
+        :attr:`.ErrorCode.errUnavailable`, if it is not running and
+        any other value to indicate the reason, why this information
+        could not be retrieved.
+        
+        :return: An error code indicating the result.
+        :rtype: ErrorCode
+        """
+        return ErrorCode.errNotImplemented
 
-    # 
-    # Clears the watchdog. This is the implementation of the acknowledge mechanism.
-    # Calling this function is necessary for an application to prevent from watchdog event.
-    # Note that it does not start the timer, e.g. when disabled.
-    #
-    def clear(self):
-        pass
+    def clearWatchdog(self):
+        """Clear the watch dog.
+        
+        This is the implementation of the acknowledge mechanism.
+        Calling this function is necessary for an application to prevent
+        the watch dog from elapsing.
+        Note that this method does not start the watch dog, when it is
+        disabled.
+        
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        return ErrorCode.errNotImplemented
 
-    #
-    # Checks, whether the configured time interval has expired, or not. By calling
-    # this function, an application may observe the expiration without using the
-    # interrupt mechanism.
-    # For the time interval to elapse, the counter must be enabled!
-    # Note, that without interrupts, this flag is not cleared automatically. The
-    # caller would have to use #watchdogClearElapsed for this purpose.
-    # @return FASLE, if the time is not yet elapsed. TRUE, if the configured time
-    # is over.
-    # @see #clearElapsed
-    #
-    def isElapsed(self):
-        pass
+    def isWatchdogElapsed(self):
+        """Check, whether the configured time interval has expired, or not.
+        
+        By calling this function, an application may observe the
+        expiration without using the interrupt mechanism.
+        Note, that this flag is not cleared automatically. The caller
+        would have to use :meth:`clearWatchdogElapsed` for this purpose.
 
-    #
-    # Clears the elapsed flag. The application should call this function after it
-    # observed that the configured time expired. When using interrupts, this flag
-    # is reset automatically.
-    # @see #isElapsed
-    #
-    def clearElapsed(self):
-        pass
+        Returns :attr:`.ErrorCode.errOk`, if the watch dog has elapsed,
+        :attr:`.ErrorCode.errUnavailable`, if it is not elapsed, yet, and
+        any other value to indicate the reason, why this information
+        could not be retrieved.
+        
+        :return: An error code indicating the result.
+        :rtype: ErrorCode
+        """
+        return ErrorCode.errNotImplemented
+
+    def clearWatchdogElapsed(self):
+        """Clear the elapsed flag.
+        
+        The application should call this function after it observed that
+        the watch dog interval time expired.
+        
+        Also see: :meth:`isWatchdogElapsed`.
+
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        return ErrorCode.errNotImplemented
     

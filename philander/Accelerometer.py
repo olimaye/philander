@@ -8,10 +8,11 @@ __all__ = ["Activity", "AxesSign", "Orientation", "Tap",\
            "SamplingMode", \
            "EventSource", "EventContext", "Configuration", "StatusID", "Data",\
            "Accelerometer"]
+from configurable import Configuration
 from dataclasses import dataclass
 from enum import Enum, Flag, unique, auto
-from interruptable import Interruptable, EventContext as IntEventContext
-from sensor import Configuration as sensorConfiguration, Sensor
+from interruptable import EventContext as IntEventContext
+from sensor import Sensor
 
 @unique
 class Activity(Enum):
@@ -106,7 +107,7 @@ class EventSource(Flag):
     all                 = 0xFFFFFFFF
 
 @dataclass
-class Configuration( sensorConfiguration ):
+class Configuration( Configuration ):
     """Data class to describe common configuration settings.
     
     Use the parental class :attr:`sensor.Configuration.type` attribute
@@ -119,11 +120,6 @@ class Configuration( sensorConfiguration ):
         control: SamplingMode = SamplingMode.normal
 
     @dataclass
-    class CfgFifo():
-        watermark:  int = 4
-        control:    int = 0
-        
-    @dataclass
     class CfgInterrupt():
         delay:      int = 10
         thrshld:    int = 1500
@@ -132,8 +128,6 @@ class Configuration( sensorConfiguration ):
         event:      EventSource = EventSource.dataReady
         
     rateMode:   CfgRateMode = None
-    fifo:       CfgFifo = None
-    armedEvents:    EventSource = EventSource.none
     eventCondition: CfgInterrupt = None
         
 @unique
@@ -182,7 +176,7 @@ class EventContext( IntEventContext ):
     def __init__(self):
         super().__init__()
         
-class Accelerometer(Interruptable, Sensor):
+class Accelerometer(Sensor):
     """Abstract base class for digital accelerometers.
     """
     pass    

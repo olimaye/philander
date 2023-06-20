@@ -186,6 +186,27 @@ class Interruptable:
         condition. E.g. the /new measurement available/ condition will
         deliver that new measurement data.
         
+        That's why, it may be meaningful/necessary to call this method
+        repeatedly, until all reasons were reported. Upon its first
+        call after an event, the context's :attr:`.interruptable.EventContext.control`
+        attribute must be set to :attr:`.interruptable.EventContextControl.evtCtxtCtrl_getFirst`.
+        Upon subsequent calls, this attribute should not be changed by
+        the caller, anymore. In generally, event context information is
+        retrieved in the order according to the priority of the
+        corresponding event sources.
+        
+        The return value indicates, whether or not more information is
+        available as follows:
+        
+        ==============================    ======================================================
+        Return value                      Meaning
+        ==============================    ======================================================
+        :attr:`.ErrorCode.errOk`          Success. Last context info. No more data to retrieve.
+        :attr:`.ErrorCode.errMoreData`    Success. Context is valid. More data to be retrieved.
+        :attr:`.ErrorCode.errFewData`     No data to retrieve. Context is invalid.
+        any other ErrorCode.*             Error. Context data is invalid.
+        ==============================    ======================================================
+        
         :param int event: The original event occurred, as recieved by the\
         handling routine. This must be one of the event mnemonics defined\
         by :class:``Event``.

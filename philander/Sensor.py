@@ -6,50 +6,14 @@ set of common types and functions is provided.
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Calibration", "CalibrationData", "CalibrationType", \
-           "ConfigItem", "Configuration", "SelfTest",\
-           "Sensor"]
-
+           "SelfTest", "Sensor"]
+from configurable import Configurable, Configuration, ConfigItem
 from dataclasses import dataclass, field
 from enum import Enum, unique, auto
 from module import Module
 from systypes import ErrorCode, Info
 from typing import List
 
-@unique
-class ConfigItem(Enum):
-    """Mnemonic type to identify a specific kind of configuration.
-    This helps interpreting configuration data, correctly. The meaning
-    is as follows:
-    
-    ===============    ==============================================================
-    Item               Meaning
-    ===============    ==============================================================
-    rate               Data rate as a frequency in Hz.
-    range              Data measurement range, depending on the physical dimension.
-    resolution         Resolution of the measurement result in bits.
-    fifo               Fifo low/hogh water marks, empty signals etc.
-    eventArm           Arming the event machine, enabling interrupt(s).
-    eventCondition     Thresholds and counts to define event conditions.
-    ===============    ==============================================================
-    """
-    rate                 = auto()
-    range                = auto()
-    resolution           = auto()
-    fifo                 = auto()
-    eventArm             = auto()
-    eventCondition       = auto()
-
-@dataclass
-class Configuration():
-    """Container type to hold configuration data.
-    
-    Instances of this class will be passed to a sensor's :meth:`configure`
-    method. Specific sensor implementations will sub-class this type to
-    add necessary data attributes.
-    """
-    type: ConfigItem
-    value: int = 1
-    
 @unique
 class CalibrationType(Enum):
     """Mnemonic type to identify a specific calibration procedure.
@@ -344,7 +308,7 @@ class SelfTest(Enum):
     """All possible self tests.
     """
     
-class Sensor(Module):
+class Sensor(Module, Configurable):
     """This class is meant to be sub-classed to define interfaces for\
     more-specific categories of sensors.
     """
@@ -400,12 +364,12 @@ class Sensor(Module):
         self.Params_init( defaults )
         ret = ErrorCode.errOk
         if ("Sensor.dataRange" in paramDict):
-            cfg = Configuration( ConfigItem.range, value=paramDict["Sensor.dataRange"])
+            cfg = Configuration( item=ConfigItem.range, value=paramDict["Sensor.dataRange"])
             ret = self.configure( cfg )
         else:
             paramDict["Sensor.dataRange"] = defaults["Sensor.dataRange"]
         if ("Sensor.dataRate" in paramDict):
-            cfg = Configuration( ConfigItem.rate, value=paramDict["Sensor.dataRate"])
+            cfg = Configuration( item=ConfigItem.rate, value=paramDict["Sensor.dataRate"])
             ret = self.configure( cfg )
         else:
             paramDict["Sensor.dataRate"] = defaults["Sensor.dataRate"]

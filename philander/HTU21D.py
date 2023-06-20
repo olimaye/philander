@@ -8,11 +8,12 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["StatusID", "Data", "HTU21D"]
 
+from configurable import Configuration, ConfigItem
 from dataclasses import dataclass
 from enum import unique, Enum, auto
 from serialbus import SerialBusDevice
 from systypes import ErrorCode
-from sensor import Sensor, ConfigItem, Configuration, SelfTest
+from sensor import Sensor, SelfTest
 from thermometer import Data as thmData
 from hygrometer import Data as hygData
 import time    
@@ -113,7 +114,7 @@ class HTU21D( Sensor, SerialBusDevice ):
         SerialBusDevice.deviceAddress    ``int`` I2C serial device address, must be :attr:`ADDRESS`; default is :attr:`ADDRESS`.
         Sensor.dataRate                  ``int`` Data rate in Hz; default is set by :meth:`.Sensor.Params_init`.
         HTU21D.resolution                ``int`` Resolution in bits; default is :attr:`.CFG_RESOLUTION_HUM12_TEMP14`.
-        ===========================================================================================================================================
+        =============================    ==========================================================================================================
         
         Also see: :meth:`.Sensor.Params_init`, :meth:`.SerialBusDevice.Params_init`. 
         """
