@@ -7,7 +7,6 @@ __all__ = ["Button"]
 
 from pymitter import EventEmitter
 from gpio import GPIO
-from threading import Thread
 import logging
 from module import Module
 

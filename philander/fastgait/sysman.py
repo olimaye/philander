@@ -5,7 +5,7 @@ from MAX77960 import MAX77960 as Charger
 from charger import Charger
 from ActorUnit import ActorUnit
 from SmartButton import SmartButton
-from SmartLED import SmartLED
+from LED import LED
 from periphery import GPIO
 
 import time, logging
@@ -209,19 +209,19 @@ class FGSystemManagement( Configurable, EventEmitter ):
         self.charger.init()
         super().init()
         if self._tmpLEDpin:
-            self.tmpLED = SmartLED( pin=self._tmpLEDpin, active_high=self._tmpLEDactHi, label='Temperature' )
+            self.tmpLED = LED( pin=self._tmpLEDpin, active_high=self._tmpLEDactHi, label='Temperature' )
         if self._batLEDpin:
-            self.batLED = SmartLED( pin=self._batLEDpin, active_high=self._batLEDactHi, label='Battery' )
+            self.batLED = LED( pin=self._batLEDpin, active_high=self._batLEDactHi, label='Battery' )
         if self._bleLEDpin:
-            self.bleLED = SmartLED( pin=self._bleLEDpin, active_high=self._bleLEDactHi, label='BLE' )
+            self.bleLED = LED( pin=self._bleLEDpin, active_high=self._bleLEDactHi, label='BLE' )
         if self._dcLEDpin:
-            self.dcLED = SmartLED( pin=self._dcLEDpin, active_high=self._dcLEDactHi, label='DC' )
+            self.dcLED = LED( pin=self._dcLEDpin, active_high=self._dcLEDactHi, label='DC' )
         if self._chgLEDpin:
-            self.chgLED = SmartLED( pin=self._chgLEDpin, active_high=self._chgLEDactHi, label='Charger' )
+            self.chgLED = LED( pin=self._chgLEDpin, active_high=self._chgLEDactHi, label='Charger' )
         if self._aux0LEDpin:
-            self.aux0LED = SmartLED( pin=self._aux0LEDpin, active_high=self._aux0LEDactHi, label='AUX-0' )
+            self.aux0LED = LED( pin=self._aux0LEDpin, active_high=self._aux0LEDactHi, label='AUX-0' )
         if self._aux1LEDpin:
-            self.aux1LED = SmartLED( pin=self._aux1LEDpin, active_high=self._aux1LEDactHi, label='AUX-1' )
+            self.aux1LED = LED( pin=self._aux1LEDpin, active_high=self._aux1LEDactHi, label='AUX-1' )
         if self._cmdBtnPin:
             btnName = 'Command'
             self.cmdBtn = SmartButton( pin=self._cmdBtnPin, active_high=self._cmdBtnActHi, label=btnName )
@@ -414,7 +414,7 @@ class FGSystemManagement( Configurable, EventEmitter ):
                 if newStatus == ActorUnit.connected:
                     self.bleLED.on()
                 elif newStatus == ActorUnit.discovering:
-                    self.bleLED.blink( cycle_length=SmartLED.CYCLEN_NORMAL )
+                    self.bleLED.blink( cycle_length=LED.CYCLEN_NORMAL )
                 else:
                     self.bleLED.off()
         elif infoCat == FGSystemManagement._INFOCAT_DC_SUPPLY:
@@ -432,7 +432,7 @@ class FGSystemManagement( Configurable, EventEmitter ):
                 if newStatus in {Charger.CHG_STATE_DONE, Charger.CHG_STATE_TOP_OFF}:
                     self.chgLED.on()
                 elif newStatus in {Charger.CHG_STATE_FASTCHARGE, Charger.CHG_STATE_FAST_CC, Charger.CHG_STATE_FAST_CV}:
-                    self.chgLED.blink( cycle_length=SmartLED.CYCLEN_FAST )
+                    self.chgLED.blink( cycle_length=LED.CYCLEN_FAST )
                 elif newStatus in {Charger.CHG_STATE_PRECHARGE, Charger.CHG_STATE_TRICKLE}:
                     self.chgLED.blink()
                 else:
@@ -444,9 +444,9 @@ class FGSystemManagement( Configurable, EventEmitter ):
             logging.info('BAT estimated by runtime: %s', Charger.batState2Str.get( newStatus, 'UNKNOWN' ))
             if self.batLED:
                 if newStatus == Charger.BAT_STATE_EMPTY:
-                    self.batLED.blink( cycle_length=SmartLED.CYCLEN_FAST )
+                    self.batLED.blink( cycle_length=LED.CYCLEN_FAST )
                 elif newStatus == Charger.BAT_STATE_LOW:
-                    self.batLED.blink( cycle_length=SmartLED.CYCLEN_SLOW )
+                    self.batLED.blink( cycle_length=LED.CYCLEN_SLOW )
                 elif newStatus == Charger.BAT_STATE_NORMAL:
                     self.batLED.off()
                 else:   # Errors
