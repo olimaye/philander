@@ -1,3 +1,8 @@
+"""Module to provide access to and control over LEDs.
+"""
+__author__ = "Oliver Maye"
+__version__ = "0.1"
+__all__ = ["LED"]
 from gpio import GPIO
 from threading import Thread
 import time, logging
@@ -5,6 +10,8 @@ from systypes import ErrorCode
 from module import Module
 
 class LED( Module ):
+    """Generic LED driver class.
+    """
     
     CURVE_HARTBEAT = [1, 0, 1, 0.7, 0.4, 0.2, 0, 0, 0, 0]
     CURVE_BLINK_CLASSIC = [1, 0]
