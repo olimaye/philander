@@ -150,7 +150,7 @@ class HTU21D( Sensor, SerialBusDevice ):
 
 
     def close(self):
-        super().close()
+        return super().close()
     
     def _heaterOn(self, flag=True):
         data, ret = self.readByteRegister( HTU21D.CMD_READ_USR_REG )
