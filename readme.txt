@@ -1,3 +1,4 @@
 External dependencies:
 pymitter
-smbus/2
+smbus, smbus2 or periphery
+RPi.gpio, gpiozero, or periphery
