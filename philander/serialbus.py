@@ -1132,6 +1132,7 @@ class SerialBus( _SerialBusIface ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
+        ret = ErrorCode.errOk
         # Actually close the bus
         if (self._status != SerialBus._STATUS_FREE):
             if not self._impl is None:
@@ -1150,7 +1151,10 @@ class SerialBus( _SerialBusIface ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        err = self._impl.setRunLevel(level)
+        if (self._status == SerialBus._STATUS_OPEN):
+            err = self._impl.setRunLevel(level)
+        else:
+            err = ErrorCode.errResourceConflict
         return err
 
     def isOpen( self ):
@@ -1213,9 +1217,10 @@ class SerialBus( _SerialBusIface ):
         result = ErrorCode.errOk
         if (device.serialBus == self):
             device.serialBus = None
-            result = self._impl.detach( device )
-            if ( self._impl.isAnyAttached() == ErrorCode.errUnavailable ):
-                result = self.close()
+            if (self._status == SerialBus._STATUS_OPEN):
+                result = self._impl.detach( device )
+                if ( self._impl.isAnyAttached() == ErrorCode.errUnavailable ):
+                    result = self.close()
         else:
             result = ErrorCode.errResourceConflict
         return result
@@ -1231,7 +1236,12 @@ class SerialBus( _SerialBusIface ):
         the failure or reason, why this information could not be retrieved.
         :rtype: ErrorCode
         """
-        return self._impl.isAttached(device)
+        ret = ErrorCode.errOk
+        if (self._status == SerialBus._STATUS_OPEN):
+            ret = self._impl.isAttached(device)
+        else:
+            ret = ErrorCode.errResourceConflict
+        return ret
             
     def readByteRegister( self, device, reg ):
         """This method provides 8 bit register read access to a device.

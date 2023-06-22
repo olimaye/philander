@@ -292,9 +292,8 @@ class GPIO(module.Module, interruptable.Interruptable):
             ret = systypes.ErrorCode.errInvalidParameter
         numScheme = paramDict.get("gpio.pinNumbering", defaults["gpio.pinNumbering"])
         self._direction = paramDict.get("gpio.direction", defaults["gpio.direction"])
-        if self._direction == GPIO.DIRECTION_OUT:
-            level = paramDict.get("gpio.level", defaults["gpio.level"])
-        else:
+        level = paramDict.get("gpio.level", defaults["gpio.level"])
+        if self._direction == GPIO.DIRECTION_IN:
             pull = paramDict.get("gpio.pull", defaults["gpio.pull"])
             self._trigger = paramDict.get("gpio.trigger", defaults["gpio.trigger"])
             self._bounce = paramDict.get("gpio.bounce", defaults["gpio.bounce"])
