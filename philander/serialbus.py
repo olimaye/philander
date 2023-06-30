@@ -748,44 +748,65 @@ class _SerialBus_SMBus( _SerialBusIface ):
     
     def readByteRegister( self, devAdr, reg ):
         err = ErrorCode.errOk
-        data = self.bus.read_byte_data( devAdr, reg )
+        data = 0
+        try:
+            data = self.bus.read_byte_data( devAdr, reg )
+        except OSError:
+            err = ErrorCode.errFailure
         return data, err
 
     def writeByteRegister( self, devAdr, reg, data ):
         err = ErrorCode.errOk
-        self.bus.write_byte_data( devAdr, reg, data )
+        try:
+            self.bus.write_byte_data( devAdr, reg, data )
+        except OSError:
+            err = ErrorCode.errFailure
         return err
 
     def readWordRegister( self, devAdr, reg ):
         err = ErrorCode.errOk
-        data = self.bus.read_word_data( devAdr, reg )
+        data = 0
+        try:
+            data = self.bus.read_word_data( devAdr, reg )
+        except OSError:
+            err = ErrorCode.errFailure
         return data, err
 
     def writeWordRegister( self, devAdr, reg, data16 ):
         err = ErrorCode.errOk
-        self.bus.write_word_data( devAdr, reg, data16 )
+        try:
+            self.bus.write_word_data( devAdr, reg, data16 )
+        except OSError:
+            err = ErrorCode.errFailure
         return err
 
     def readBufferRegister( self, devAdr, reg, length ):
         err = ErrorCode.errOk
-        if (length <= 32 ):
-            data = self.bus.read_i2c_block_data( devAdr, reg, length )
-        else:
-            msg1 = self.msg.write( devAdr, [reg] )
-            msg2 = self.msg.read( devAdr, length )
-            self.bus.i2c_rdwr( msg1, msg2 )
-            data = list(msg2)
+        try:
+            if (length <= 32 ):
+                data = self.bus.read_i2c_block_data( devAdr, reg, length )
+            else:
+                msg1 = self.msg.write( devAdr, [reg] )
+                msg2 = self.msg.read( devAdr, length )
+                self.bus.i2c_rdwr( msg1, msg2 )
+                data = list(msg2)
+        except OSError:
+            err = ErrorCode.errFailure
+            data = list()
         return data, err
 
     def writeBufferRegister( self, devAdr, reg, data ):
         err = ErrorCode.errOk
-        if (len(data) <= 32 ):
-            self.bus.write_i2c_block_data( devAdr, reg, data )
-        else:
-            bdata = data
-            bdata.insert( 0, reg )
-            msg = self.msg.write( devAdr, bdata )
-            self.bus.i2c_rdwr( msg )
+        try:
+            if (len(data) <= 32 ):
+                self.bus.write_i2c_block_data( devAdr, reg, data )
+            else:
+                bdata = data
+                bdata.insert( 0, reg )
+                msg = self.msg.write( devAdr, bdata )
+                self.bus.i2c_rdwr( msg )
+        except OSError:
+            err = ErrorCode.errFailure
         return err
 
     def readBuffer( self, devAdr, length ):

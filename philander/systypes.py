@@ -4,9 +4,7 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["ErrorCode", "RunLevel", "Info",]
 from enum import Enum
-from dataclasses import dataclass
 
-@dataclass
 class ErrorCode(Enum):
     """Data type to indicate either a successful completion or the\
     reason why some function or operation failed.
@@ -34,7 +32,7 @@ class ErrorCode(Enum):
     errFailure			= 20	# Action failed, but might be successful in next trials.
     errMalfunction		= 21	# (Persistent) defect of underlying HW.
 
-@dataclass
+
 class RunLevel(Enum):
     """Operating mode that the CPU may run in.
     
@@ -50,11 +48,11 @@ class RunLevel(Enum):
     deepSleep		 = 6	# Low power mode, may save some more power
     shutdown		 = 7	# Low power mode, saves most power
 
-    standby			 = snooze,   # Synonym for stand by
-    leastPowerSave	 = idle,     # Generic synonym
-    mostPowerSave	 = shutdown, # Generic synonym
-    leastFunctional	 = shutdown, # Generic synonym
-    mostFunctional	 = idle,     # Generic synonym
+    standby			 = snooze   # Synonym for stand by
+    leastPowerSave	 = idle     # Generic synonym
+    mostPowerSave	 = shutdown # Generic synonym
+    leastFunctional	 = shutdown # Generic synonym
+    mostFunctional	 = idle     # Generic synonym
 
 class Info:
     """Container type to wrap chip information data as retrieved from\

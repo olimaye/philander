@@ -139,21 +139,35 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
     #
 
     def _getFeatureByteAt(self, idx):
-        return self.featureBuf[idx]
+        try:
+            data = self.featureBuf[idx]
+            err = ErrorCode.errOk
+        except IndexError:
+            data = 0
+            err = ErrorCode.errInvalidParameter
+        return data, err
         
     def _getFeatureWordAt(self, idx):
-        high = self._getFeatureByteAt(idx)
-        low = self._getFeatureByteAt(idx+1)
-        return (high << 8) | low
+        high, err = self._getFeatureByteAt(idx)
+        if (err == ErrorCode.errOk):
+            low, err = self._getFeatureByteAt(idx+1)
+        else:
+            low = 0
+        return (high << 8) | low, err
         
     def _putFeatureByteAt(self, idx, data):
-        self.featureBuf[idx] = (data & 0xFF)
-        return None
+        err = ErrorCode.errOk
+        try:
+            self.featureBuf[idx] = (data & 0xFF)
+        except IndexError:
+            err = ErrorCode.errInvalidParameter
+        return err
         
     def _putFeatureWordAt(self, idx, data):
-        self._putFeatureByteAt(idx, data >> 8)
-        self._putFeatureByteAt(idx+1, data & 0xFF)
-        return None
+        err = self._putFeatureByteAt(idx, data >> 8)
+        if (err == ErrorCode.errOk):
+            err = self._putFeatureByteAt(idx+1, data & 0xFF)
+        return err
             
     def _transfer( self, reading ):
         """Transfer function.
@@ -574,11 +588,9 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
         """
         result = ErrorCode.errOk
         
-        if (self.isAttached()):
+        if (self.isAttached() == ErrorCode.errOk):
             result = ErrorCode.errResourceConflict
         else:
-            if not (self.sim is None):
-                result = self.sim.open(paramDict)
             if (result == ErrorCode.errOk):
                 paramDict["SerialBusDevice.deviceAddress"] = paramDict.get("SerialBusDevice.deviceAddress", BMA456.ADRESSES_ALLOWED[0])
                 result = SerialBusDevice.open(self, paramDict)
@@ -636,15 +648,27 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
         :meth:`.Module.close`.
         """
         result = ErrorCode.errOk
-        if (self.isAttached()):
-            result = self.setRunLevel( RunLevel.shutdown )
-            result = SerialBusDevice.close(self)
+        err = self.isAttached()
+        if (err == ErrorCode.errOk):
+            err = self.setRunLevel( RunLevel.shutdown )
+            if (result == ErrorCode.errOk):
+                result = err
+            err = SerialBusDevice.close(self)
+            if (result == ErrorCode.errOk):
+                result = err
+        else:
+            if (result == ErrorCode.errOk):
+                result = err
         if not (self.pinInt1 is None):
-            result = self.pinInt1.close()
+            err = self.pinInt1.close()
             self.pinInt1 = None
+            if (result == ErrorCode.errOk):
+                result = err
         if not (self.pinInt2 is None):
-            result = self.pinInt2.close()
+            err = self.pinInt2.close()
             self.pinInt2 = None
+            if (result == ErrorCode.errOk):
+                result = err
         return result
     
     def setRunLevel(self, level):
@@ -679,7 +703,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
         pwrCtrl = 0
         pwrConf = 0
         accConf = 0
-        if( self.isAttached()):
+        if( self.isAttached() == ErrorCode.errOk):
             # Map run levels to register configurations
             if (level == RunLevel.active):  # High performance operating mode
                 pwrCtrl = BMA456.BMA456_CNT_PWR_CTRL_ACC_ENABLE | BMA456.BMA456_CNT_PWR_CTRL_AUX_DISABLE
@@ -765,7 +789,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
         :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
-        if (not self.isAttached()):
+        if (self.isAttached() != ErrorCode.errOk):
             ret = ErrorCode.errResourceConflict
         else:
             ret = ErrorCode.errOk
@@ -803,7 +827,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
         :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
-        if (not self.isAttached()):
+        if (self.isAttached() != ErrorCode.errOk):
             ret = ErrorCode.errResourceConflict
         else:
             ret = ErrorCode.errOk
@@ -884,7 +908,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
         
         if (context is None):
             ret = ErrorCode.errInvalidParameter
-        elif( not self.isAttached() ):
+        elif( self.isAttached() != ErrorCode.errOk ):
             ret = ErrorCode.errResourceConflict
         elif( event == Event.evtNone ):
             ret = ErrorCode.errFewData
@@ -1237,13 +1261,22 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
         :rtype: Info, ErrorCode
         """
         info = Info()
-        
-        # Model ID
-        info.modelID = self._getFeatureWordAt( BMA456.BMA456_FSWBL_IDX_GENERAL_CONFIG_ID )
-        info.validity |= Info.validModelID
-        # Chip ID
-        info.chipID, ret = self.readByteRegister( BMA456.BMA456_REG_CHIP_ID )
-        info.validity |= Info.validChipID
+        ret = self.isAttached()
+        if (ret==ErrorCode.errOk):
+            # Model ID
+            data, ret = self._getFeatureWordAt( BMA456.BMA456_FSWBL_IDX_GENERAL_CONFIG_ID )
+            if (ret == ErrorCode.errOk):
+                info.modelID = data
+                info.validity |= Info.validModelID
+            # Chip ID
+            if (ret == ErrorCode.errOk):
+                data, ret = self.readByteRegister( BMA456.BMA456_REG_CHIP_ID )
+            if (ret == ErrorCode.errOk):
+                info.chipID = data
+                info.validity |= Info.validChipID
+        else:
+            info.validity = Info.validNothing
+            ret = ErrorCode.errInadequate
         return info, ret
 
     def getStatus(self, statID):
