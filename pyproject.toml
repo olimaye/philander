@@ -9,7 +9,7 @@ authors = [
   { name="Oliver Maye", email="maye@ihp-microelectronics.com" },
 ]
 description = "Sensor and other parts driver collection"
-readme = "README.txt"
+readme = "readme.md"
 requires-python = ">=3.0"
 classifiers = [
     "Programming Language :: Python :: 3",
@@ -27,9 +27,9 @@ dependencies = [
 "Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
 
 [project.optional-dependencies]
-option1 = [
-  "...",
+optSerial = [
+  "smbus2",
 ]
-option2 = [
-  "...",
+optGPIO = [
+  "RPi.GPIO",
 ]
