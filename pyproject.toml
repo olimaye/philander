@@ -16,7 +16,20 @@ classifiers = [
     "License :: OSI Approved :: European Union Public Licence 1.2 (EUPL 1.2)",
     "Operating System :: OS Independent",
 ]
+dependencies = [
+	"pymitter",
+	"smbus2",
+	"gpiozero",
+]
 
 [project.urls]
 "Homepage" = "https://www.ihp-microelectronics.com/"
 "Bug Tracker" = "https://github.com/pypa/sampleproject/issues"
+
+[project.optional-dependencies]
+option1 = [
+  "...",
+]
+option2 = [
+  "...",
+]
