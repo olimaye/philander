@@ -5,7 +5,9 @@ __version__ = "0.1"
 __all__ = ["Level", "Capacity", "Status"]
 
 from dataclasses import dataclass
-from primitives import Percentage
+
+from .primitives import Percentage
+
 
 @dataclass
 class Level():

@@ -8,11 +8,13 @@ __all__ = ["Activity", "AxesSign", "Orientation", "Tap",\
            "SamplingMode", \
            "EventSource", "EventContext", "Configuration", "StatusID", "Data",\
            "Accelerometer"]
-from configurable import Configuration
 from dataclasses import dataclass
 from enum import Enum, Flag, unique, auto
-from interruptable import EventContext as IntEventContext
-from sensor import Sensor
+
+from .configurable import Configuration
+from .interruptable import EventContext as IntEventContext
+from .sensor import Sensor
+
 
 @unique
 class Activity(Enum):

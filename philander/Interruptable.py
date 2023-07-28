@@ -30,8 +30,11 @@ __all__ = ["Event", "EventContextControl", "EventContext", "Interruptable"]
 
 import dataclasses
 import enum
+
 import pymitter
-from systypes import ErrorCode
+
+from .systypes import ErrorCode
+
 
 @enum.unique
 class Event(enum.Enum):

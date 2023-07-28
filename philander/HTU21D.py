@@ -8,15 +8,17 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["StatusID", "Data", "HTU21D"]
 
-from configurable import Configuration, ConfigItem
 from dataclasses import dataclass
 from enum import unique, Enum, auto
-from serialbus import SerialBusDevice
-from systypes import ErrorCode
-from sensor import Sensor, SelfTest
-from thermometer import Data as thmData
-from hygrometer import Data as hygData
 import time    
+
+from .configurable import Configuration, ConfigItem
+from .hygrometer import Data as hygData
+from .sensor import Sensor, SelfTest
+from .serialbus import SerialBusDevice
+from .systypes import ErrorCode
+from .thermometer import Data as thmData
+
 
 @unique
 class StatusID(Enum):

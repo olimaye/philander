@@ -1,21 +1,21 @@
 # -*- coding: utf-8 -*-
 """Support module for the MAX77960 USB battery charger.
 """
-from gpio import GPIO
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["MAX77960"]
 
-from battery import Status as BatStatus
-from charger import Charger, Status as ChgStatus, DCStatus, PowerSrc,\
+from .battery import Status as BatStatus
+from .charger import Charger, Status as ChgStatus, DCStatus, PowerSrc,\
     TemperatureRating, ChargerError, EventSource
-from configurable import ConfigItem, Configurable
-import imath
-from interruptable import Event, Interruptable, EventContextControl
-from max77960_reg import MAX77960_Reg
-from serialbus import SerialBusDevice
-from systypes import ErrorCode, Info, RunLevel
-from watchdog import Watchdog
+from .configurable import ConfigItem, Configurable
+from .gpio import GPIO
+from .imath import *
+from .interruptable import Event, Interruptable, EventContextControl
+from .max77960_reg import MAX77960_Reg
+from .serialbus import SerialBusDevice
+from .systypes import ErrorCode, Info, RunLevel
+from .watchdog import Watchdog
 
 
 class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interruptable, Watchdog ):

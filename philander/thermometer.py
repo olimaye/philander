@@ -4,9 +4,11 @@ Provide an API to abstract from temperature measurement devices.
 """
 __author__ = "Oliver Maye"
 __version__ = "0.1"
-__all__ = ["Data", "Thermometer"]
+__all__ = ["Data", ]
 from dataclasses import dataclass
-from primitives import PreciseTemperature
+
+from .primitives import PreciseTemperature
+
 
 @dataclass
 class Data:

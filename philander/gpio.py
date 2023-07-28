@@ -12,12 +12,12 @@ import logging
 from threading import Thread
 import warnings
 
-import interruptable
-import module
-import systypes
+from .interruptable import Interruptable
+from .module import Module
+from .systypes import ErrorCode
 
 
-class GPIO(module.Module, interruptable.Interruptable):
+class GPIO( module.Module, interruptable.Interruptable ):
     """General-purpose I/O abstraction class.
     
     Provide access to and control over the underlying GPIO hardware. For

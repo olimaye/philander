@@ -8,8 +8,9 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["SimDevBMA456"]
 
-from simdev import SimDevMemory, Register, MemoryType
-from bma456_reg import BMA456_Reg
+from .bma456_reg import BMA456_Reg
+from .simdev import SimDevMemory, Register, MemoryType
+
 
 class SimDevBMA456( SimDevMemory ):
     """A software simulation of the BMA456. The current implementation is

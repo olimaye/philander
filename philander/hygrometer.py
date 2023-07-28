@@ -4,9 +4,11 @@ Provide an API to abstract from relative humidity measurement devices.
 """
 __author__ = "Oliver Maye"
 __version__ = "0.1"
-__all__ = ["Data", "Hygrometer"]
+__all__ = ["Data",]
 from dataclasses import dataclass
-from primitives import Percentage
+
+from .primitives import Percentage
+
 
 @dataclass
 class Data:

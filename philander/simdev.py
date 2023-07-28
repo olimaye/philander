@@ -7,10 +7,12 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["SimDev", "SimDevNull", "SimDevMemory", "MemoryType", "Register"]
 
-import enum
 import dataclasses
-from module import Module
-from systypes import ErrorCode
+import enum
+
+from .module import Module
+from .systypes import ErrorCode
+
 
 class SimDev():
     """Abstract base class to define the functionality of a simulated serial device.

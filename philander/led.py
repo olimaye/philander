@@ -3,11 +3,13 @@
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["LED"]
-from gpio import GPIO
 from threading import Thread
 import time, logging
-from systypes import ErrorCode
-from module import Module
+
+from .gpio import GPIO
+from .module import Module
+from .systypes import ErrorCode
+
 
 class LED( Module ):
     """Generic LED driver class.

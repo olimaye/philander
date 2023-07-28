@@ -7,12 +7,14 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Calibration", "CalibrationData", "CalibrationType", \
            "SelfTest", "Sensor"]
-from configurable import Configurable, Configuration, ConfigItem
 from dataclasses import dataclass, field
 from enum import Enum, unique, auto
-from module import Module
-from systypes import ErrorCode, Info
 from typing import List
+
+from .configurable import Configurable, Configuration, ConfigItem
+from .module import Module
+from .systypes import ErrorCode, Info
+
 
 @unique
 class CalibrationType(Enum):

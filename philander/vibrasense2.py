@@ -2,15 +2,16 @@
 
 This board carries a TE LDT0-028K Piezo Film sensor as its core element. 
 """
-from systypes import ErrorCode
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["VibraSense2"]
-
-from interruptable import Interruptable
 from pymitter import EventEmitter
-from sensor import Sensor
-from serialbus import SerialBusDevice
+
+from .interruptable import Interruptable
+from .sensor import Sensor
+from .serialbus import SerialBusDevice
+from .systypes import ErrorCode
+
 
 class VibraSense2( EventEmitter, Sensor, Interruptable, SerialBusDevice):
     """Vibra sense 2 driver implementation.

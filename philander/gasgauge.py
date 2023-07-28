@@ -7,9 +7,11 @@ __all__ = ["GasGauge","SOCChangeRate", "EventSource", "EventContext",\
            "StatusID",]
 from dataclasses import dataclass
 from enum import unique, Enum, auto
-from battery import Status as BatStatus, Level as BatLevel
-from primitives import Current, Voltage, Percentage
-from systypes import ErrorCode, Info
+
+from .battery import Status as BatStatus, Level as BatLevel
+from .primitives import Current, Voltage, Percentage
+from .systypes import ErrorCode, Info
+
 
 @dataclass
 class SOCChangeRate(int):

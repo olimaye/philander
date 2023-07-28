@@ -1,14 +1,18 @@
 """Module to provide access to and control over push buttons.
 """
-from systypes import ErrorCode
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Button"]
 
-from pymitter import EventEmitter
-from gpio import GPIO
 import logging
-from module import Module
+
+from pymitter import EventEmitter
+
+from .gpio import GPIO
+from .module import Module
+from .systypes import ErrorCode
+
+
 
 class Button( Module, EventEmitter ):
     """Generic push button driver class.

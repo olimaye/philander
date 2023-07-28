@@ -1,13 +1,14 @@
 """Module to provide helper classes related to configuration.
 
 """
-from systypes import ErrorCode
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["ConfigItem", "Configuration", "Configurable"]
-
 from dataclasses import dataclass
 from enum import unique, Enum, auto
+
+from .systypes import ErrorCode
+
 
 @unique
 class ConfigItem(Enum):

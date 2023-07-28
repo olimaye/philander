@@ -28,9 +28,11 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["SerialBus", "SerialBusDevice", "SerialBusProvider", "SerialBusType"]
 from enum import unique, auto, Enum
-from module import Module
-from systypes import ErrorCode
-from simdev import SimDevNull
+
+from .module import Module
+from .simdev import SimDevNull
+from .systypes import ErrorCode
+
 
 class SerialBusDevice( Module ):
     """Reflect a specific device communicating over a serial bus.

@@ -5,11 +5,13 @@ __version__ = "0.1"
 __all__ = ["Status", "DCStatus", "PowerSrc", "TemperatureRating",\
            "ChargerError", "EventSource", "EventContext",\
            "Charger"]
-from battery import Status as BatStatus
 from dataclasses import dataclass
 from enum import unique, auto, Enum, Flag
-from interruptable import EventContext as IntEventContext
-from systypes import ErrorCode, Info
+
+from .battery import Status as BatStatus
+from .interruptable import EventContext as IntEventContext
+from .systypes import ErrorCode, Info
+
 
 @unique
 class Status(Enum):

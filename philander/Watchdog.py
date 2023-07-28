@@ -2,10 +2,11 @@
 """Module to describe objects that provide wath dog capabilities.
 
 """
-from systypes import ErrorCode
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Watchdog"]
+from .systypes import ErrorCode
+
 
 class Watchdog:
     """Interface to define watch dog related methods.

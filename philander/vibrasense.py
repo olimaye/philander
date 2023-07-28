@@ -6,11 +6,13 @@ element.
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["VibraSense"]
-from gpio import GPIO
-from interruptable import Interruptable
-from sensor import Sensor
-from systypes import ErrorCode
 from pymitter import EventEmitter
+
+from .gpio import GPIO
+from .interruptable import Interruptable
+from .sensor import Sensor
+from .systypes import ErrorCode
+
 
 class VibraSense( EventEmitter, Sensor, Interruptable):
     """Vibra sense driver implementation.

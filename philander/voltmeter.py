@@ -5,11 +5,12 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Voltmeter"]
 
-from gasgauge import GasGauge
-from gpio import GPIO
-from module import Module
-from systypes import ErrorCode
- 
+from .gasgauge import GasGauge
+from .gpio import GPIO
+from .module import Module
+from .systypes import ErrorCode
+
+
 class Voltmeter( Module, GasGauge ):
     """Driver for a generic ADC-based voltmeter.
     """

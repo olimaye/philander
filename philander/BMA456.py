@@ -9,18 +9,20 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["BMA456"]
 
-from bma456_reg import BMA456_Reg
-from _bma456_feature import _BMA456_Feature
-from accelerometer import Accelerometer, Activity, AxesSign, Configuration, EventSource, Orientation, SamplingMode, StatusID, Tap
-from dictionary import dictionary
-import imath
-from interruptable import Event, EventContextControl, Interruptable
-from sensor import CalibrationType, ConfigItem, Info, SelfTest
-from serialbus import SerialBusDevice
-from systypes import ErrorCode, RunLevel
 import time
-from simBMA456 import SimDevBMA456
-from gpio import GPIO
+
+from ._bma456_feature import _BMA456_Feature
+from .accelerometer import Accelerometer, Activity, AxesSign, Configuration, EventSource, Orientation, SamplingMode, StatusID, Tap
+from .bma456_reg import BMA456_Reg
+from .dictionary import dictionary
+from .gpio import GPIO
+from .imath import *
+from .interruptable import Event, EventContextControl, Interruptable
+from .sensor import CalibrationType, ConfigItem, Info, SelfTest
+from .serialbus import SerialBusDevice
+from .simBMA456 import SimDevBMA456
+from .systypes import ErrorCode, RunLevel
+
 
 class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Interruptable ):
     """BMA456 driver implementation.

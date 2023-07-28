@@ -2,7 +2,9 @@
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Module"]
-from systypes import ErrorCode
+
+from .systypes import ErrorCode
+
 
 class Module:
     """Generic interface to describe the capabilities of a module.
