@@ -17,7 +17,7 @@ from .module import Module
 from .systypes import ErrorCode
 
 
-class GPIO( module.Module, interruptable.Interruptable ):
+class GPIO( Module, Interruptable ):
     """General-purpose I/O abstraction class.
     
     Provide access to and control over the underlying GPIO hardware. For
@@ -80,7 +80,7 @@ class GPIO( module.Module, interruptable.Interruptable ):
         self._trigger = GPIO.TRIGGER_EDGE_RISING
         self._bounce = GPIO.BOUNCE_NONE
         self._fIntEnabled = False
-        interruptable.Interruptable.__init__(self)
+        Interruptable.__init__(self)
         self._implpak = self._detectProvider()
         self._worker = None
         self._workerDone = False
@@ -281,7 +281,7 @@ class GPIO( module.Module, interruptable.Interruptable ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        ret = systypes.ErrorCode.errOk
+        ret = ErrorCode.errOk
         # Retrieve defaults
         defaults = {}
         self.Params_init(defaults)
@@ -289,7 +289,7 @@ class GPIO( module.Module, interruptable.Interruptable ):
         # Scan parameters
         self._designator = paramDict.get("gpio.pinDesignator", None)
         if self._designator is None:
-            ret = systypes.ErrorCode.errInvalidParameter
+            ret = ErrorCode.errInvalidParameter
         numScheme = paramDict.get("gpio.pinNumbering", defaults["gpio.pinNumbering"])
         self._direction = paramDict.get("gpio.direction", defaults["gpio.direction"])
         level = paramDict.get("gpio.level", defaults["gpio.level"])
@@ -299,7 +299,7 @@ class GPIO( module.Module, interruptable.Interruptable ):
             self._bounce = paramDict.get("gpio.bounce", defaults["gpio.bounce"])
             feedback = paramDict.get("gpio.feedback", defaults["gpio.feedback"])
             handler = paramDict.get("gpio.handler", defaults["gpio.handler"])
-        if ret == systypes.ErrorCode.errOk:
+        if ret == ErrorCode.errOk:
             if self._implpak == GPIO._IMPLPAK_RPIGPIO:
                 self._factory.setmode(self._dictNumScheme[numScheme])
                 if self._direction == GPIO.DIRECTION_OUT:
@@ -357,12 +357,12 @@ class GPIO( module.Module, interruptable.Interruptable ):
                             bias=self._dictPull[pull],
                         )
                 else:
-                    ret = systypes.ErrorCode.errNotSupported
+                    ret = ErrorCode.errNotSupported
             elif self._implpak == GPIO._IMPLPAK_SIM:
                 self._level = level
             else:
-                ret = systypes.ErrorCode.errNotImplemented
-        if ret == systypes.ErrorCode.errOk:
+                ret = ErrorCode.errNotImplemented
+        if ret == ErrorCode.errOk:
             if handler:
                 ret = self.registerInterruptHandler(
                     GPIO.EVENT_DEFAULT, feedback, handler
@@ -391,7 +391,7 @@ class GPIO( module.Module, interruptable.Interruptable ):
         elif self._implpak == GPIO._IMPLPAK_SIM:
             pass
         else:
-            ret = systypes.ErrorCode.errNotImplemented
+            ret = ErrorCode.errNotImplemented
         self.pin = None
         return ret
 
@@ -407,7 +407,7 @@ class GPIO( module.Module, interruptable.Interruptable ):
         :rtype: ErrorCode
         """
         del level
-        return systypes.ErrorCode.errNotImplemented
+        return ErrorCode.errNotImplemented
 
     def enableInterrupt(self):
         """Enables the gpio interrupt for that pin.
@@ -420,9 +420,9 @@ class GPIO( module.Module, interruptable.Interruptable ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        ret = systypes.ErrorCode.errOk
+        ret = ErrorCode.errOk
         if self._fIntEnabled:
-            ret = systypes.ErrorCode.errOk
+            ret = ErrorCode.errOk
         else:
             if self._implpak == GPIO._IMPLPAK_RPIGPIO:
                 if self._bounce > 0:
@@ -451,7 +451,7 @@ class GPIO( module.Module, interruptable.Interruptable ):
                 self._worker.start()
                 self._fIntEnabled = True
             else:
-                ret = systypes.ErrorCode.errNotImplemented
+                ret = ErrorCode.errNotImplemented
         return ret
 
     def disableInterrupt(self):
@@ -464,7 +464,7 @@ class GPIO( module.Module, interruptable.Interruptable ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        ret = systypes.ErrorCode.errOk
+        ret = ErrorCode.errOk
         if self._fIntEnabled:
             if self._implpak == GPIO._IMPLPAK_RPIGPIO:
                 self._factory.remove_event_detect(self._designator)
@@ -482,9 +482,9 @@ class GPIO( module.Module, interruptable.Interruptable ):
                 self.pin.edge = "none"
                 self._fIntEnabled = False
             else:
-                ret = systypes.ErrorCode.errNotImplemented
+                ret = ErrorCode.errNotImplemented
         else:
-            ret = systypes.ErrorCode.errOk
+            ret = ErrorCode.errOk
         return ret
 
     def get(self):
@@ -524,7 +524,7 @@ class GPIO( module.Module, interruptable.Interruptable ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        ret = systypes.ErrorCode.errOk
+        ret = ErrorCode.errOk
         if self._implpak == GPIO._IMPLPAK_RPIGPIO:
             self._factory.output(self._designator, self._dictLevel[newLevel])
         elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
@@ -537,6 +537,6 @@ class GPIO( module.Module, interruptable.Interruptable ):
             else:
                 self._level = GPIO.LEVEL_LOW
         else:
-            ret = systypes.ErrorCode.errNotImplemented
+            ret = ErrorCode.errNotImplemented
 
         return ret
