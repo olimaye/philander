@@ -44,9 +44,10 @@ class GPIO( Module, Interruptable ):
     LEVEL_LOW = 0
     LEVEL_HIGH = 1
 
-    PULL_NONE = 0
-    PULL_UP = 1
-    PULL_DOWN = 2
+    PULL_DEFAULT = 0    # Don't touch, leave resistance as is
+    PULL_NONE = 1       # Disable resistance
+    PULL_UP = 2
+    PULL_DOWN = 3
 
     TRIGGER_EDGE_RISING = 1
     TRIGGER_EDGE_FALLING = 2
@@ -117,6 +118,7 @@ class GPIO( Module, Interruptable ):
                     GPIO.LEVEL_HIGH: gpioFactory.HIGH,
                 }
                 self._dictPull = {
+                    GPIO.PULL_DEFAULT: gpioFactory.PUD_OFF,
                     GPIO.PULL_NONE: gpioFactory.PUD_OFF,
                     GPIO.PULL_DOWN: gpioFactory.PUD_DOWN,
                     GPIO.PULL_UP: gpioFactory.PUD_UP,
@@ -137,6 +139,7 @@ class GPIO( Module, Interruptable ):
                 self._outFactory = DigitalOutputDevice
                 self._dictLevel = {GPIO.LEVEL_LOW: False, GPIO.LEVEL_HIGH: True}
                 self._dictPull = {
+                    GPIO.PULL_DEFAULT: None,
                     GPIO.PULL_NONE: None,
                     GPIO.PULL_DOWN: False,
                     GPIO.PULL_UP: True,
@@ -156,6 +159,7 @@ class GPIO( Module, Interruptable ):
                 self._dictLevel = {GPIO.LEVEL_LOW: False, GPIO.LEVEL_HIGH: True}
                 self._dictLevel2Dir = {GPIO.LEVEL_LOW: "low", GPIO.LEVEL_HIGH: "high"}
                 self._dictPull = {
+                    GPIO.PULL_DEFAULT: "default",
                     GPIO.PULL_NONE: "disable",
                     GPIO.PULL_DOWN: "pull_down",
                     GPIO.PULL_UP: "pull_up",
@@ -237,7 +241,7 @@ class GPIO( Module, Interruptable ):
         gpio.pinDesignator    pin name or number (e.g. 17 or "GPIO17")          None
         gpio.direction        GPIO.DIRECTION_[IN | OUT]                         GPIO.DIRECTION_OUT
         gpio.level            GPIO.LEVEL_[LOW | HIGH]                           GPIO.LEVEL_LOW
-        gpio.pull             GPIO.PULL_[NONE | UP | DOWN]                      GPIO.PULL_NONE
+        gpio.pull             GPIO.PULL_[DEFAULT | NONE | UP | DOWN]            GPIO.PULL_DEFAULT (NONE)
         gpio.trigger          GPIO.TRIGGER_EDGE_[RISING | FALLING | ANY]        GPIO.TRIGGER_EDGE_RISING
         gpio.bounce           integer number, delay in milliseconds [ms]        GPIO.BOUNCE_DEFAULT
         gpio.feedback         Arbitrary. Passed on to the interrupt handler.    None
@@ -255,7 +259,7 @@ class GPIO( Module, Interruptable ):
         if not ("gpio.level" in paramDict):
             paramDict["gpio.level"] = GPIO.LEVEL_LOW
         if not ("gpio.pull" in paramDict):
-            paramDict["gpio.pull"] = GPIO.PULL_NONE
+            paramDict["gpio.pull"] = GPIO.PULL_DEFAULT
         if not ("gpio.trigger" in paramDict):
             paramDict["gpio.trigger"] = GPIO.TRIGGER_EDGE_RISING
         if not ("gpio.bounce" in paramDict):

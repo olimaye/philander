@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "philander"
-version = "0.1.5"
+version = "0.1.8"
 authors = [
   { name="Oliver Maye", email="maye@ihp-microelectronics.com" },
 ]
@@ -19,7 +19,7 @@ classifiers = [
 dependencies = [
 	"pymitter",
 	"smbus2",
-	"gpiozero",
+	"python-periphery",
 ]
 
 [project.urls]
@@ -32,4 +32,5 @@ optSerial = [
 ]
 optGPIO = [
   "RPi.GPIO",
+  "gpiozero",
 ]
