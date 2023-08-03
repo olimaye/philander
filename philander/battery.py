@@ -9,7 +9,6 @@ from enum import Enum, unique
 from .primitives import Percentage
 
 
-@unique
 class Level(Enum):
     """Level of a battery in [0...100]%
     """

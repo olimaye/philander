@@ -366,12 +366,12 @@ class Sensor(Module, Configurable):
         self.Params_init( defaults )
         ret = ErrorCode.errOk
         if ("Sensor.dataRange" in paramDict):
-            cfg = Configuration( item=ConfigItem.range, value=paramDict["Sensor.dataRange"])
+            cfg = Configuration( ConfigItem.range, value=paramDict["Sensor.dataRange"])
             ret = self.configure( cfg )
         else:
             paramDict["Sensor.dataRange"] = defaults["Sensor.dataRange"]
         if ("Sensor.dataRate" in paramDict):
-            cfg = Configuration( item=ConfigItem.rate, value=paramDict["Sensor.dataRate"])
+            cfg = Configuration( ConfigItem.rate, value=paramDict["Sensor.dataRate"])
             ret = self.configure( cfg )
         else:
             paramDict["Sensor.dataRate"] = defaults["Sensor.dataRate"]

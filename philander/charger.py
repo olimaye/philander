@@ -58,16 +58,16 @@ class DCStatus(Enum):
         valid          : 'valid',
         overvoltage    : 'over',
     }
-    
-class PowerSrc(int):
+
+class PowerSrc(Flag):
     """A power source describes a supplier of electrical energy that can\
     be used, e.g. to drive the system.
     """
     
     unknown  = 0  # Power source is unknown, unclear, cannot be determined
-    dc       = 1  # dc supply
-    bat      = 2  # Battery
-    dcBat   = dc | bat # Both, dc and Battery available
+    dc       = auto()  # dc supply
+    bat      = auto()  # Battery
+    dcBat    = dc | bat # Both, dc and Battery available
 
     toStr = {
         unknown  : 'unknown',

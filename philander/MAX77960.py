@@ -50,8 +50,12 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
     def getAllRegistersStr(self):
         ret = []
         for descr in self._registerMap:
-            cont = self.getReg( descr[0] )
-            contStr = self.getRegContentStr( descr, cont )
+            cont, err = self.readByteRegister( descr[0] )
+            if (err == ErrorCode.errOk):
+                contStr = self.getRegContentStr( descr, cont )
+            else:
+                cont = 0
+                contStr = f"Read error: {err}"
             ret.append([descr[0], descr[1], cont, contStr])
         return ret
 
@@ -454,10 +458,10 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
         return err
     
     def _lockRegisters(self):
-        self.setReg( MAX77960._REG_CHG_CNFG_06, MAX77960._CHGPROT_LOCK | MAX77960._WDTCLR_DO_NOT_TOUCH )
+        self.writeByteRegister( MAX77960._REG_CHG_CNFG_06, MAX77960._CHGPROT_LOCK | MAX77960._WDTCLR_DO_NOT_TOUCH )
 
     def _unlockRegisters(self):
-        self.setReg( MAX77960._REG_CHG_CNFG_06, MAX77960._CHGPROT_UNLOCK | MAX77960._WDTCLR_DO_NOT_TOUCH )
+        self.writeByteRegister( MAX77960._REG_CHG_CNFG_06, MAX77960._CHGPROT_UNLOCK | MAX77960._WDTCLR_DO_NOT_TOUCH )
 
 
     #
@@ -658,17 +662,18 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
     #
     
     def reset(self):
-        self.writeByteRegister(MAX77960._REG_SWRST, MAX77960._SWRST_TYPE_O)
+        err = self.writeByteRegister(MAX77960._REG_SWRST, MAX77960._SWRST_TYPE_O)
+        return err
 
     def getInfo(self):
         info = Info()
-        # Chip ID, silicoon revision and OTP recipe version
+        # Chip ID, silicon revision and OTP recipe version
         info.chipID, ret = self.readByteRegister(MAX77960.REG_CID)
         if (ret == ErrorCode.errOk):
             # Get silicon revision from the same register
-            info.revMajor = info.chipID & MAX77960._CID_REVISION
+            info.revMajor = (info.chipID & MAX77960._CID_REVISION) >> 5
             info.revMinor = info.chipID & MAX77960._CID_VERSION
-            info.validity = info.validity | info.validChipID \
+            info.validity = info.validChipID \
                             | info.validRevMajor | info.validRevMinor
         return info, ret
 
@@ -758,9 +763,9 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
             qbat = data & MAX77960._QB_DTLS
             if (chgin == MAX77960._CHGIN_DTLS_GOOD):
                 # Valid CHGIN, so external power is the primary source
-                ret = ret | PowerSrc.dc
+                ret |= PowerSrc.dc
             if (qbat == MAX77960._QB_DTLS_ON):
-                ret = ret | PowerSrc.bat
+                ret |= PowerSrc.bat
         return ret
 
     def getChargerTempStatus(self):
