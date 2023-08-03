@@ -174,9 +174,7 @@ class EventContext( IntEventContext ):
     source:     EventSource = EventSource.none
     data:       Data = (0,0,0)
     status:     int = 0
-    
-    def __init__(self):
-        super().__init__()
+
         
 class Accelerometer(Sensor):
     """Abstract base class for digital accelerometers.

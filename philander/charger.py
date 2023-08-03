@@ -59,8 +59,7 @@ class DCStatus(Enum):
         overvoltage    : 'over',
     }
     
-@dataclass
-class PowerSrc:
+class PowerSrc(int):
     """A power source describes a supplier of electrical energy that can\
     be used, e.g. to drive the system.
     """
@@ -77,8 +76,7 @@ class PowerSrc:
         dcBat   : 'dc+bat',
     }
 
-@dataclass
-class TemperatureRating:
+class TemperatureRating( Enum ):
     """This type qualitatively describes a temperature, e.g. of a chip.
     """
     
@@ -189,9 +187,6 @@ class EventContext( IntEventContext ):
     """
     source:     EventSource = EventSource.none
     
-    def __init__(self):
-        super().__init__()
-        
 class Charger:
     """Abstract base class to describe a battery charger.
     """

@@ -7,8 +7,8 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["SimDev", "SimDevNull", "SimDevMemory", "MemoryType", "Register"]
 
-import dataclasses
-import enum
+from dataclasses import dataclass
+from enum import Enum, unique, auto
 
 from .module import Module
 from .systypes import ErrorCode
@@ -271,16 +271,16 @@ class SimDevNull( SimDev, Module ):
         del aReg, data
         return ErrorCode.errOk
 
-@enum.unique
-class MemoryType(enum.Enum):
+@unique
+class MemoryType(Enum):
     """Enumeration to reflect the different types of memory.
     """
-    ROM   = enum.auto()
-    RAM   = enum.auto()
-    NVM   = enum.auto()
-    VOLATILE  = enum.auto()
+    ROM   = auto()
+    RAM   = auto()
+    NVM   = auto()
+    VOLATILE  = auto()
     
-@dataclasses.dataclass
+@dataclass
 class Register:
     """Simulate a memory-based register.
     
@@ -291,16 +291,12 @@ class Register:
     """
     address:    int
     """The address to identify this register during read/write operations."""
-    content:    int
+    content:    int = 0
     """The register content. Can be initialized, independently of the\
     memory type of that register."""
-    type:       MemoryType
+    type:       MemoryType = MemoryType.RAM
     """The type of memory for that register."""
 
-    def __init__(self, adr, cont=0, typ=MemoryType.RAM):
-        self.address = adr
-        self.content = cont
-        self.type = typ
    
 class SimDevMemory( SimDev ):
     """Serial bus implementation to simulate a device that can be accessed\

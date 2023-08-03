@@ -4,13 +4,13 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Level", "Capacity", "Status"]
 
-from dataclasses import dataclass
+from enum import Enum, unique
 
 from .primitives import Percentage
 
 
-@dataclass
-class Level():
+@unique
+class Level(Enum):
     """Level of a battery in [0...100]%
     """
     min       = 0
@@ -39,8 +39,8 @@ class Capacity(int):
     """
     invalid = 0xFFFF
 
-@dataclass
-class Status:
+
+class Status( int ):
     """Container class to reflect the battery status
     """
     normal               = 0x0000

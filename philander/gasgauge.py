@@ -13,7 +13,6 @@ from .primitives import Current, Voltage, Percentage
 from .systypes import ErrorCode, Info
 
 
-@dataclass
 class SOCChangeRate(int):
     """State of charge (SOC) change rate, given in milli-C rate [mC].
 
@@ -50,10 +49,10 @@ class EventSource(Enum):
 class EventContext:
     """Event context type to detail the context information for an interrupt occurrence.
     """
-    source: EventSource = EventSource.none
-    soc:    Percentage = Percentage.invalid
-    voltage:  Voltage = Voltage.invalid
-    batStatus:  BatStatus = BatStatus.unknown
+    source:     EventSource = EventSource.none
+    soc:        Percentage  = Percentage.invalid
+    voltage:    Voltage     = Voltage.invalid
+    batStatus:  BatStatus   = BatStatus.unknown
 
 @unique
 class StatusID(Enum):

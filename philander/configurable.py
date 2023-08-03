@@ -66,10 +66,6 @@ class Configuration:
     value:  int = 1
     fifo:   CfgFifo = None
     
-    def __init__( self, item : ConfigItem, value : int = 1 ):
-        self.type = item
-        self.value = value
-    
     
 class Configurable:
     """Generic interface for configurable objects.

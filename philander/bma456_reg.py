@@ -8,9 +8,7 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["BMA456_Reg"]
 
-from dataclasses import dataclass
 
-@dataclass
 class BMA456_Reg:
 
     #

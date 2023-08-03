@@ -28,38 +28,38 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Event", "EventContextControl", "EventContext", "Interruptable"]
 
-import dataclasses
-import enum
+from dataclasses import dataclass
+from enum import Enum, unique, auto
 
 import pymitter
 
 from .systypes import ErrorCode
 
 
-@enum.unique
-class Event(enum.Enum):
+@unique
+class Event(Enum):
     """Generic class to indicate the nature of an interrupt (source).
     
     Instances of this class are meant to be passed to the handling routine
     as an immediate response to interrupts. 
     """
-    evtNone   = enum.auto()
-    evtAny	  = enum.auto()
-    evtInt1   = enum.auto()
-    evtInt2   = enum.auto()
+    evtNone   = auto()
+    evtAny	  = auto()
+    evtInt1   = auto()
+    evtInt2   = auto()
 
 
-@enum.unique
-class EventContextControl(enum.Enum):
+@unique
+class EventContextControl(Enum):
     """Control data to navigate through the list of event context items.
     """
-    evtCtxtCtrl_clearAll    = enum.auto()
-    evtCtxtCtrl_getFirst    = enum.auto()
-    evtCtxtCtrl_getNext     = enum.auto()
-    evtCtxtCtrl_getLast     = enum.auto()
-    evtCtxtCtrl_getPrevious = enum.auto()
+    evtCtxtCtrl_clearAll    = auto()
+    evtCtxtCtrl_getFirst    = auto()
+    evtCtxtCtrl_getNext     = auto()
+    evtCtxtCtrl_getLast     = auto()
+    evtCtxtCtrl_getPrevious = auto()
 
-@dataclasses.dataclass
+@dataclass
 class EventContext:
     """Details or quantifies the reason for an interrupt occurrence.
     
@@ -68,9 +68,6 @@ class EventContext:
     """
     control:    EventContextControl = EventContextControl.evtCtxtCtrl_getFirst
     remainInt:  int = 0
-
-    def __init__(self):
-        pass
 
 
 class Interruptable:

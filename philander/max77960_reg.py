@@ -8,9 +8,7 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["MAX77960_Reg"]
 
-from dataclasses import dataclass
 
-@dataclass
 class MAX77960_Reg:
 
     # Definition of registers and register content.
