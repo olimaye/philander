@@ -1,9 +1,45 @@
 """
 """
 import unittest
-from imath import *
+from philander.imath import *
 
 class TestIMath( unittest.TestCase ):
+
+    def test_ctz(self):
+        self.assertEqual( ctz(0), -1)
+        self.assertEqual( ctz(1), 0)
+        self.assertEqual( ctz(2), 1)
+        self.assertEqual( ctz(3), 0)
+        self.assertEqual( ctz(4), 2)
+        self.assertEqual( ctz(5), 0)
+        self.assertEqual( ctz(6), 1)
+        self.assertEqual( ctz(7), 0)
+        self.assertEqual( ctz(8), 3)
+        self.assertEqual( ctz(9), 0)
+        self.assertEqual( ctz(10), 1)
+        self.assertEqual( ctz(16), 4)
+        self.assertEqual( ctz(128), 7)
+        self.assertEqual( ctz(256), 8)
+        self.assertEqual( ctz(0x0800), 11)
+        self.assertEqual( ctz(0x10000),16)
+
+    def test_ffs(self):
+        self.assertEqual( ffs(0), 0)
+        self.assertEqual( ffs(1), 1)
+        self.assertEqual( ffs(2), 2)
+        self.assertEqual( ffs(3), 1)
+        self.assertEqual( ffs(4), 3)
+        self.assertEqual( ffs(5), 1)
+        self.assertEqual( ffs(6), 2)
+        self.assertEqual( ffs(7), 1)
+        self.assertEqual( ffs(8), 4)
+        self.assertEqual( ffs(9), 1)
+        self.assertEqual( ffs(10), 2)
+        self.assertEqual( ffs(20), 3)
+        self.assertEqual( ffs(192), 7)
+        self.assertEqual( ffs(0x300), 9)
+        self.assertEqual( ffs(0x1800), 12)
+        self.assertEqual( ffs(0x10000), 17)
     
     def test_ispowtwo(self):
         self.assertFalse( ispowtwo(0) )

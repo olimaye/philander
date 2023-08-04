@@ -41,7 +41,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
             ret = hex(content)
         else:
             for frag in regDescr[2]:
-                shift = self._lowestBitNum( frag[0] )
+                shift = ctz( frag[0] )
                 fragVal = (content & frag[0]) >> shift
                 ret = ret + frag[1] + '=' + str(fragVal) + ' '
         return ret
@@ -59,17 +59,6 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
             ret.append([descr[0], descr[1], cont, contStr])
         return ret
 
-    def _lowestBitNum( self, x ):
-        ret = 0
-        if x==0:
-            ret = -1
-        else:
-            mask = 1
-            while not (x & mask):
-                ret = ret + 1
-                mask = mask << 1
-        return ret
-            
             
     #
     # Configurable options
