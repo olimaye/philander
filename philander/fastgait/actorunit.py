@@ -8,15 +8,11 @@ __version__ = "0.1"
 __all__ = ["Event", "ActorUnit",]
 
 from enum import auto, unique, Enum
-from bleak import BleakClient, BleakScanner
-from bleak.exc import BleakDBusError
-from threading import Thread, Lock
-import asyncio
-import logging
 
 from .actuator import Actuator
 from .ble import BLE
 from .systypes import ErrorCode
+
 
 @unique
 class Event( Enum ):

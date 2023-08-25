@@ -10,3 +10,6 @@ For more information on the FastGait project see:
 `IHP project website
 <https://www.ihp-microelectronics.com/de/forschung/drahtlose-systeme-und-anwendungen/projekte/fast-gait>`_. 
 """
+__author__ = "Oliver Maye"
+__version__ = "0.1"
+__all__ = ["actorunit",]
