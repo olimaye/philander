@@ -9,9 +9,9 @@ __all__ = ["Event", "ActorUnit",]
 
 from enum import auto, unique, Enum
 
-from .actuator import Actuator
-from .ble import BLE
-from .systypes import ErrorCode
+from philander.actuator import Actuator, Direction
+from philander.ble import BLE
+from philander.systypes import ErrorCode
 
 
 @unique
@@ -37,7 +37,9 @@ class ActorUnit( BLE, Actuator ):
     MOTORS_NONE = 0
     """Mnemonics for no actuator"""
     MOTORS_ALL  = MOTORS_1 | MOTORS_2
-    """Mnemonics for all actuators"""
+    """Mnemonics for all motors"""
+    MOTORS_DEFAULT       = MOTORS_ALL # All motors
+    """Motor selection used for vibration [0...3]: Motors #1, or #2 or both."""
     
     
     #
@@ -65,8 +67,6 @@ class ActorUnit( BLE, Actuator ):
     """Total number of pulses 0...255. Zero (0) means infinitely."""
     PULSE_INTENSITY_DEFAULT = 80    # 80% strength
     """Intensity of the ON phase vibration [0...100]."""
-    ACTUATORS_DEFAULT       = MOTORS_ALL # All motors
-    """Motor selection used for vibration [0...3]: Motors #1, or #2 or both."""
 
     CMD_START         = 0x01
     """Command to start a vibration as specified by further parameters.""" 
@@ -115,7 +115,7 @@ class ActorUnit( BLE, Actuator ):
         self.pulseOn = defDict["ActorUnit.pulseOn"]
         self.pulseCount = defDict["ActorUnit.pulseCount"]
         self.pulseIntensity = defDict["ActorUnit.pulseIntensity"]
-        self.actuators = defDict["ActorUnit.actuators"]
+        self.motors = defDict["ActorUnit.motors"]
         self.dataBuf = bytearray( 11 )
 
     @classmethod
@@ -132,8 +132,9 @@ class ActorUnit( BLE, Actuator ):
         ActorUnit.pulseOn                  ``int`` [0...pulsePeriod] Length of the active part in that period in ms; :attr:`PULSE_ON_DEFAULT`
         ActorUnit.pulseCount               ``int`` [0...255] Number of pulses. Zero (0) means infinite pulses. :attr:`PULSE_COUNT_DEFAULT`
         ActorUnit.pulseIntensity           ``int`` [0...100] Intensity of the pulses given as a percentage %. :attr:`PULSE_INTENSITY_DEFAULT`
-        ActorUnit.actuators                Motors to be used for the pulses [0...3] meaning none, left, right, both motors; :attr:`ACTUATORS_DEFAULT`
-        ===============================    ==========================================================================================================
+        ActorUnit.motors                   Motors to be used for the pulses [0...3] meaning none, left, right, both motors; :attr:`MOTORS_DEFAULT`
+        All other BLE.* settings as documented at :meth:`.BLE.Params_init`.
+        =============================================================================================================================================
 
         Also see: :meth:`.Module.Params_init`.
         
@@ -141,6 +142,7 @@ class ActorUnit( BLE, Actuator ):
         :returns: none
         :rtype: None
         """
+        # ActorUnit pulse configuration
         if not "ActorUnit.delay" in paramDict:
             paramDict["ActorUnit.delay"] = ActorUnit.DELAY_DEFAULT
         if not "ActorUnit.pulsePeriod" in paramDict:
@@ -151,8 +153,14 @@ class ActorUnit( BLE, Actuator ):
             paramDict["ActorUnit.pulseCount"] = ActorUnit.PULSE_COUNT_DEFAULT
         if not "ActorUnit.pulseIntensity" in paramDict:
             paramDict["ActorUnit.pulseIntensity"] = ActorUnit.PULSE_INTENSITY_DEFAULT
-        if not "ActorUnit.actuators" in paramDict:
-            paramDict["ActorUnit.actuators"] = ActorUnit.ACTUATORS_DEFAULT
+        if not "ActorUnit.motors" in paramDict:
+            paramDict["ActorUnit.motors"] = ActorUnit.MOTORS_DEFAULT
+        # BLE UUIDs
+        if not "BLE.client.uuid" in paramDict:
+            paramDict["BLE.client.uuid"] = ActorUnit.DEVICE_UUID
+        if not "BLE.characteristic.uuid" in paramDict:
+            paramDict["BLE.characteristic.uuid"] = ActorUnit.CHARACTERISTIC_UUID
+        # General BLE configuration
         super(ActorUnit, cls).Params_init( paramDict )
         return None
     
@@ -215,14 +223,14 @@ class ActorUnit( BLE, Actuator ):
             result = ErrorCode.errInvalidParameter
         self.pulseIntensity = val
             
-        sKey = "ActorUnit.actuators"
+        sKey = "ActorUnit.motors"
         paramDict[sKey] = paramDict.get( sKey, defParam[sKey] )
         val = paramDict[sKey]
         if (val < ActorUnit.MOTORS_NONE) or (val > ActorUnit.MOTORS_ALL):
             val = defParam[sKey]
             paramDict[sKey] = val
             result = ErrorCode.errInvalidParameter
-        self.actuators = val
+        self.motors = val
             
         if (result == ErrorCode.errOk):
             result = super().open( paramDict )
@@ -245,11 +253,11 @@ class ActorUnit( BLE, Actuator ):
         result = self.writeCharacteristic( ActorUnit.CMDBUF_START_DEFAULT )
         return result
 
-    def startOperation(self, direction=Actuator.Direction.positive,
-                       strengthIntensity = self.pulseIntensity,
-                       onSpeedDuty = self.pulseOn,
-                       ctrlInterval = self.pulsePeriod,
-                       durationLengthCycles = self.pulseCount ):
+    def startOperation(self, direction=Direction.positive,
+                       strengthIntensity = None,
+                       onSpeedDuty = None,
+                       ctrlInterval = None,
+                       durationLengthCycles = None ):
         """Issue a start command to the actuator unit.
 
         Make the actor unit start cueing.
@@ -258,6 +266,14 @@ class ActorUnit( BLE, Actuator ):
         :rtype: ErrorCode
         """
         del direction
+        if (strengthIntensity is None):
+            strengthIntensity = self.pulseIntensity
+        if (onSpeedDuty is None):
+            onSpeedDuty = self.pulseOn
+        if (ctrlInterval is None):
+            ctrlInterval = self.pulsePeriod
+        if (durationLengthCycles is None):
+            durationLengthCycles = self.pulseCount
         #Create parametric start-vibration-command buffer
         self.dataBuf[0] = ActorUnit.CMD_START
         self.dataBuf[1] = onSpeedDuty & 0xFF
@@ -268,7 +284,7 @@ class ActorUnit( BLE, Actuator ):
         self.dataBuf[6] = self.delay >> 8
         self.dataBuf[7] = durationLengthCycles
         self.dataBuf[8] = strengthIntensity
-        self.dataBuf[9] = self.actuators
+        self.dataBuf[9] = self.motors
         self.dataBuf[10] = ActorUnit.TIMER_RESET
         
         result = self.writeCharacteristic( self.dataBuf )

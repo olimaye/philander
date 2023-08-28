@@ -1,12 +1,12 @@
 from pymitter import EventEmitter
 from threading import Thread, Lock
-from Configurable import Configurable
-from MAX77960 import MAX77960 as Charger
-from charger import Charger
-from ActorUnit import ActorUnit
-from SmartButton import SmartButton
-from LED import LED
-from periphery import GPIO
+from configurable import Configurable
+from max77960 import MAX77960 as Charger
+#from charger import Charger
+from .actorunit import ActorUnit
+#from button import Button
+from led import LED
+from gpio import GPIO
 
 import time, logging
 

@@ -7,7 +7,7 @@ sub-classed by implementing devices. It can be registered with interrupt
 handling routines and used to enable or disable interrupts on that device.
 
 Upon an interrupt occurrence, the registered handler is called with an
-:class:`Event` argument. It is intended to carry all
+:class:`.interruptable.Event` argument. It is intended to carry all
 information available at no extra price in the moment of interrupt
 occurrence. For that reason, it is likely to represent no more
 information than just the fact, *that* an interrupt occurred. If a device
@@ -96,20 +96,20 @@ class Interruptable:
         follow, as they were handed in to the :meth:`_fire` method.
         
         * If the ``handler`` is ``None`` then
-            * if ``onEvent`` is ``None`` or ``Event.evtNone``, then\
-            the interrupt is disabled and all registrations cleared.
+            * if ``onEvent`` is ``None`` or ``.interruptable.Event.evtNone``,\
+            then the interrupt is disabled and all registrations cleared.
             * otherwise, the ``callerFeedBack`` replaces what was\
             previously set for this type of ``onEvent``.
         * If the ``handler`` is valid but ``onEvent`` is still\
-        ``None`` or ``Event.evtNone``, then this handler is de-registered.\
-        If that was the last/only handler registered, interrupts are\
-        disabled.
+        ``None`` or ``.interruptable.Event.evtNone``, then this handler\
+        is de-registered. If that was the last/only handler registered,\
+        interrupts are disabled.
         * If both, the ``handler`` and the ``onEvent`` parameters are\
         valid, then the interrupt is enabled and the handler gets\
         registered. 
         
         :param int onEvent: Exactly one of the event mnemonics defined\
-        by the :class:`.Event` enumeration.
+        by the :class:`.interruptable.Event` enumeration.
         :param object callerFeedBack: Arbitrary object not evaluated\
         here, but passed on to the handler when an event is fired.
         :param handler: The handling routine to be called as an immediate\
@@ -209,7 +209,7 @@ class Interruptable:
         
         :param int event: The original event occurred, as recieved by the\
         handling routine. This must be one of the event mnemonics defined\
-        by :class:``Event``.
+        by :class:``.interruptable.Event``.
         :param EventContext context: A representation of the context\
         information. The appropriate sub-class must be provided by the\
         device implementation. Upon the first call for each interrupt,\

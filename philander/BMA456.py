@@ -901,7 +901,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
         
         :param int event: The original event occurred, as received by the\
         handling routine. This must be one of the event mnemonics defined\
-        by :class:``Event``.
+        by :class:``.interruptable.Event``.
         :param .accelerometer.EventContext context: Context information. 
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
@@ -1108,7 +1108,8 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
         #. The corresponding interrupt condition must be true.
         
         Note that the armed events are always configured to fire on both
-        interrupt lines :attr:`.Event.evtInt1` and :attr:`.Event.evtInt2`.
+        interrupt lines :attr:`.interruptable.Event.evtInt1` and
+        :attr:`.interruptable.Event.evtInt2`.
         The bit mask of events to be armed is expected in
         :attr:`.accelerometer.Configuration.value` as an equivalent
         of :class:`.accelerometer.EventSource`. The translation between

@@ -2,6 +2,7 @@
 
 Provide an API to abstract from any type of BLE subsystem.
 """
+from dataclasses import dataclass
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Event", "ConnectionState", "BLE"]
@@ -18,20 +19,14 @@ from .interruptable import Interruptable
 from .module import Module
 from .systypes import ErrorCode
 
-@unique
-class Event( Enum ):
+@dataclass
+class Event:
     """Data class to represent events, emitted by the BLE device.
     """
-    bleDisconnected= auto()
-    bleDiscovering = auto()
-    bleConnected   = auto()
+    bleDisconnected= "ble.disconnected"
+    bleDiscovering = "ble.discovering"
+    bleConnected   = "ble.connected"
 
-    toStr = {
-        bleDisconnected : 'disconnected',
-        bleDiscovering  : 'discovering',
-        bleConnected    : 'connected',
-    }
-    
 @unique
 class ConnectionState( Enum ):
     """Data class to represent BLE connection states
@@ -121,7 +116,7 @@ class BLE( Module, Interruptable ):
         if not self.bleCharacteristicUUID:
             result = ErrorCode.errInvalidParameter
             
-        if self.isCoupled():
+        if (self.isCoupled() == ErrorCode.errOk):
             result = self.decouple()
             
         #self.couple()
@@ -136,7 +131,7 @@ class BLE( Module, Interruptable ):
         :rtype: ErrorCode
         """
         result = ErrorCode.errOk
-        if self.isCoupled():
+        if (self.isCoupled() == ErrorCode.errOk):
             result = self.decouple()
         elif self._worker:
             if self._worker.is_alive():

@@ -4,13 +4,13 @@ build-backend = "hatchling.build"
 
 [project]
 name = "philander"
-version = "0.0.2"
+version = "0.0.10"
 authors = [
   { name="Oliver Maye", email="maye@ihp-microelectronics.com" },
 ]
 description = "Sensor and other parts driver collection"
 readme = "readme.md"
-requires-python = ">=3.0"
+requires-python = ">=3.4"
 classifiers = [
     "Programming Language :: Python :: 3",
     "License :: OSI Approved :: European Union Public Licence 1.2 (EUPL 1.2)",
@@ -32,4 +32,7 @@ optSerial = [
 ]
 optGPIO = [
   "RPi.GPIO",
+]
+optBLE = [
+  "bleak",
 ]
