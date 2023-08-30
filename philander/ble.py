@@ -56,7 +56,7 @@ class BLE( Module, Interruptable ):
         defDict = {}
         BLE.Params_init(defDict)
         self.bleDiscoveryTimeout = defDict["BLE.discovery.timeout"]
-        self.bleClientUUID = None
+        self.bleClientName = None
         self.bleCharacteristicUUID = None
         self._bleClient = None
         self._bleCharacteristic = None
@@ -76,7 +76,7 @@ class BLE( Module, Interruptable ):
         Key name                   Value type, meaning and default
         =======================    ==========================================================================================================
         BLE.discovery.timeout      ``int`` or ``float`` Timeout for the BLE discovery phase, given in seconds. :attr:`DISCOVERY_TIMEOUT`
-        BLE.client.uuid            ``string`` UUID of the client device to connect to, given as a string. No default.
+        BLE.client.name            ``string`` Name of the client device to connect to, given as a string. No default.
         BLE.characteristic.uuid    ``string`` UUID of the client characteristic, given as a string. No default.
         =======================    ==========================================================================================================
 
@@ -108,8 +108,8 @@ class BLE( Module, Interruptable ):
             paramDict["BLE.discovery.timeout"] = val
         self.bleDiscoveryTimeout = val
 
-        self.bleClientUUID = paramDict.get("BLE.client.uuid")
-        if not self.bleClientUUID:
+        self.bleClientName = paramDict.get("BLE.client.name")
+        if not self.bleClientName:
             result = ErrorCode.errInvalidParameter
 
         self.bleCharacteristicUUID = paramDict.get("BLE.characteristic.uuid")
@@ -268,7 +268,7 @@ class BLE( Module, Interruptable ):
         :rtype: ErrorCode
         """
         result = ErrorCode.errOk
-        if (self._bleConnectionState == BLE.ConnectionState.connected):
+        if (self._bleConnectionState == ConnectionState.connected):
             try:
                 if self._evtLoop.is_running():
                     self._evtLoop.create_task( self._sendRoutine( data ) )
@@ -317,7 +317,8 @@ class BLE( Module, Interruptable ):
             ConnectionState.discovering:   Event.bleDiscovering,
         }
         if self._evtEnabled:
-            self._fire( stateXevt.get( newState, Event.bleDisconnected ) )
+            evt = stateXevt.get( newState, Event.bleDisconnected )
+            self._fire( evt )
         
         
     def _handleDisconnected( self, client ):
@@ -337,24 +338,29 @@ class BLE( Module, Interruptable ):
         # Discovering
         if self._changeState( ConnectionState.discovering ):
             try:
-                devices = await BleakScanner.discover(
-                    timeout=self.bleDiscoveryTimeout,
-                    filters={'UUIDs': [self.bleClientUUID]} )
-                if devices:
+                device = await BleakScanner.find_device_by_name(
+                                    name = self.bleClientName,
+                                    timeout=self.bleDiscoveryTimeout )
+                if device is None:
+                    self._setState( ConnectionState.disconnected )
+                else:
+                    logging.info( self._couplingRoutine.__name__ + " found BLE device:" +
+                                  " name=" + device.name +
+                                  " address=" + device.address +
+                                  " RSSI=" + str(device.details["props"]["RSSI"]) )
                     # Try to connect
-                    self._bleClient = BleakClient( devices[0] )
-                    self._bleClient.set_disconnected_callback( self._handleDisconnected )
+                    self._bleClient = BleakClient( device, disconnected_callback=self._handleDisconnected )
                     success = await self._bleClient.connect()
                     if success:
-                        svcColl = await self._bleClient.get_services()
+                        logging.info( self._couplingRoutine.__name__ + " BLE connected." )
+                        svcColl = self._bleClient.services
                         self._bleCharacteristic = svcColl.get_characteristic( self.bleCharacteristicUUID )
                         self._setState( ConnectionState.connected )
                     else:
+                        logging.info( self._couplingRoutine.__name__ + " BLE could not connect." )
                         self._setState( ConnectionState.disconnected )
-                else:
-                    self._setState( ConnectionState.disconnected )
             except Exception as exc:
-                logging.warning( self._couplingRoutine.__name__ + ' caught ' + type(exc).__name__ + ' ' + str(exc) )
+                logging.warning( self._couplingRoutine.__name__ + ' caught ' + type(exc).__name__ + ': ' + str(exc) )
                 self._setState( ConnectionState.disconnected )
         return None
 

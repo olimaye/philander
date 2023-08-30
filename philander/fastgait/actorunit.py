@@ -92,7 +92,8 @@ class ActorUnit( BLE, Actuator ):
     """Complete command buffer to start vibration using the default parameter set."""
 
     # BLE UUIDs
-    DEVICE_UUID         = '0000fa01-0000-1000-8000-00805f9b34fb'
+    #DEVICE_UUID         = '0000fa01-0000-1000-8000-00805f9b34fb'
+    CLIENT_NAME         = "FastGait AU"
     CHARACTERISTIC_UUID = '0000fa61-0000-1000-8000-00805f9b34fb'
     
 
@@ -156,8 +157,8 @@ class ActorUnit( BLE, Actuator ):
         if not "ActorUnit.motors" in paramDict:
             paramDict["ActorUnit.motors"] = ActorUnit.MOTORS_DEFAULT
         # BLE UUIDs
-        if not "BLE.client.uuid" in paramDict:
-            paramDict["BLE.client.uuid"] = ActorUnit.DEVICE_UUID
+        if not "BLE.client.name" in paramDict:
+            paramDict["BLE.client.name"] = ActorUnit.CLIENT_NAME
         if not "BLE.characteristic.uuid" in paramDict:
             paramDict["BLE.characteristic.uuid"] = ActorUnit.CHARACTERISTIC_UUID
         # General BLE configuration
