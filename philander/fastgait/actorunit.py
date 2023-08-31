@@ -353,14 +353,17 @@ class ActorUnit( BLE, Actuator ):
         err, dataBuf = self.writeCharacteristic( ActorUnit.CMDBUF_GET_DEFAULT,
                                                  readResponse = True )
         if (err == ErrorCode.errOk):
-            # neglect CMD byte at index 0
-            cfg.onDuration  = (dataBuf[2] << 8) + dataBuf[1]
-            cfg.period      = (dataBuf[4] << 8) + dataBuf[3]
-            cfg.delay       = (dataBuf[6] << 8) + dataBuf[5]
-            cfg.numPulses   = dataBuf[7]
-            cfg.intensity   = dataBuf[8]
-            cfg.motors      = dataBuf[9]
-            cfg.resetTimer  = dataBuf[10]
+            if ( (dataBuf is None) or (len(dataBuf) < 11) ):
+                err = ErrorCode.errFewData
+            else:
+                # neglect CMD byte at index 0
+                cfg.onDuration  = (dataBuf[2] << 8) + dataBuf[1]
+                cfg.period      = (dataBuf[4] << 8) + dataBuf[3]
+                cfg.delay       = (dataBuf[6] << 8) + dataBuf[5]
+                cfg.numPulses   = dataBuf[7]
+                cfg.intensity   = dataBuf[8]
+                cfg.motors      = dataBuf[9]
+                cfg.resetTimer  = dataBuf[10]
         return cfg, err
     
     def setDefault(self, newDefault: Configuration):
