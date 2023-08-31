@@ -7,11 +7,13 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Event", "ActorUnit",]
 
-from enum import auto, unique, Enum
+from dataclasses import dataclass
+from enum import auto, unique, Enum, Flag
 
 from philander.actuator import Actuator, Direction
 from philander.ble import BLE
 from philander.systypes import ErrorCode
+from philander.primitives import Percentage
 
 
 @unique
@@ -20,8 +22,95 @@ class Event( Enum ):
     """
     cueStandard    = auto()
     cueStop        = auto()
+
+@dataclass
+class Default:
+    """Container for default values that are not part of any other data structure.
+    """
+    FIRST_DELAY         = 0     # immediately
+    """Delay of the first pulse, given in milliseconds 0...65535 (0xFFFF). Zero (0) to start immediately."""
+    PULSE_PERIOD        = 200  # ms
+    """Pulse period in milliseconds 0...65535 (0xFFFF)."""
+    PULSE_ON_DURATION   = 120   # ms; 60% duty cycle
+    """Pulse ON duration in milliseconds 0...65535 (0xFFFF). Must be less than the period."""
+    PULSE_COUNT         = 3
+    """Total number of pulses 0...255. Zero (0) means infinitely."""
+
+
+class Intensity( Percentage ):
+    """Structure to reflect the intensity that the vibration motors run on.
+    """
+    MIN = 0
+    """Minimal intensity."""
+    OFF = MIN
+    """Least possible intensity, actually no vibration."""
+    WEAK = 20
+    """Weak intensity."""
+    MEDIUM = 50
+    """Medium vibration intensity."""
+    STRONG = 80
+    """Strong intensity."""
+    MAX = 100
+    """Maximum possible intensity."""
+    DEFAULT = STRONG
+    """The default intensity."""
     
+class Motor(Flag):
+    """Motor selection used for vibration: Motor #1, or #2 or both."""
+    NONE = 0
+    """Mnemonics for no actuator"""
+    ONE = 1
+    """First actuator"""
+    TWO = 2
+    """Second actuator"""
+    ALL  = ONE | TWO
+    """Mnemonics for all motors"""
+    DEFAULT = ALL
+    """Default motor selection."""
+
+class TimerControl(Enum):
+    """Structure to reflect the timer control setting as part of a vibration command
+    """
+    KEEP  = 0x00
+    """Keep the current timer setting."""
+    RESET = 0x01
+    """Reset the timer."""
+    DEFAULT = RESET
+    """Default timer control value."""
     
+@dataclass
+class Configuration:
+    """Data class to represent a (default) configuration of the ActorUnit.
+
+    Pulses are emitted periodically in rectangle form and the low-level
+    API allows to configure:
+        - the length of one period,
+        - the length of the on-part,
+        - an initial delay and
+        - the number of periods to run.
+    
+                |< PULSE ON >|
+                _____________       _____________       ______     ON
+     ...........|            |______|            |______|     ...  OFF
+    
+    |<  DELAY  >|<      PERIOD     >|
+    """
+    onDuration  : int = Default.PULSE_ON_DURATION
+    """Length of the duty cycle, given in milliseconds."""
+    period      : int = Default.PULSE_PERIOD
+    """Total length of each interval in milliseconds. Must be larger than the onDuration.""" 
+    delay       : int = Default.FIRST_DELAY
+    """Wait time before the first interval, specified in milliseconds."""
+    numPulses   : int = Default.PULSE_COUNT
+    """Number of repetitions. Zero means infinitely."""
+    intensity   : int = Intensity.DEFAULT
+    """Intensity of the vibration [0...100]."""
+    motors      : int = Motor.DEFAULT
+    """Motor(s) to use for vibration. 0=none, 1=left, 2=right, 3=both.""" 
+    resetTimer  : int = TimerControl.DEFAULT
+    """Whether or not to reset the pulse timer. 0=keep, 1=reset."""
+    
+     
 class ActorUnit( BLE, Actuator ):
     """Implementation of the vibration belt driver, also called ActorUnit.
     """
@@ -29,44 +118,6 @@ class ActorUnit( BLE, Actuator ):
     #
     # Public attributes
     #
-    
-    MOTORS_1 = 1
-    """First actuator"""
-    MOTORS_2 = 2
-    """Second actuator"""
-    MOTORS_NONE = 0
-    """Mnemonics for no actuator"""
-    MOTORS_ALL  = MOTORS_1 | MOTORS_2
-    """Mnemonics for all motors"""
-    MOTORS_DEFAULT       = MOTORS_ALL # All motors
-    """Motor selection used for vibration [0...3]: Motors #1, or #2 or both."""
-    
-    
-    #
-    # Pulses are emitted periodically in rectangle form and the low-level
-    # API allows to configure:
-    #   - the length of one period,
-    #   - the length of the on-part,
-    #   - an initial delay and
-    #   - the number of periods to run.
-    #
-    #            |< PULSE ON >|
-    #            _____________       _____________       ______     ON
-    # ...........|            |______|            |______|     ...  OFF
-    #
-    #|<  DELAY  >|<   PULSE PERIOD  >|
-    #
-    
-    DELAY_DEFAULT           = 0     # immediately
-    """Delay of the first pulse, given in milliseconds 0...65535 (0xFFFF). Zero (0) to start cueing immediately."""
-    PULSE_PERIOD_DEFAULT    = 200  # ms
-    """Pulse period in milliseconds 0...65535 (0xFFFF)."""
-    PULSE_ON_DEFAULT        = 120   # ms; 60% duty cycle
-    """Pulse ON duration in milliseconds 0...65535 (0xFFFF). Must be less than the period."""
-    PULSE_COUNT_DEFAULT     = 3
-    """Total number of pulses 0...255. Zero (0) means infinitely."""
-    PULSE_INTENSITY_DEFAULT = 80    # 80% strength
-    """Intensity of the ON phase vibration [0...100]."""
 
     CMD_START         = 0x01
     """Command to start a vibration as specified by further parameters.""" 
@@ -78,11 +129,6 @@ class ActorUnit( BLE, Actuator ):
     """Retrieve current default configuration:"""
     CMD_START_DEFAULT = 0x05
     """Start vibration as specified by the default parameters."""
-    
-    TIMER_KEEP  = 0x00
-    """Vibration parameter indicating to keep the current timer setting:"""
-    TIMER_RESET = 0x01
-    """Vibration parameter to reset the timer."""
     
     CMDBUF_STOP          = bytearray( [CMD_STOP] )
     """Command buffer to stop vibration."""
@@ -109,14 +155,7 @@ class ActorUnit( BLE, Actuator ):
         # Initialize base class attributes
         super().__init__()
         # Create instance attributes
-        defDict = {}
-        ActorUnit.Params_init(defDict)
-        self.delay = defDict["ActorUnit.delay"]
-        self.pulsePeriod = defDict["ActorUnit.pulsePeriod"]
-        self.pulseOn = defDict["ActorUnit.pulseOn"]
-        self.pulseCount = defDict["ActorUnit.pulseCount"]
-        self.pulseIntensity = defDict["ActorUnit.pulseIntensity"]
-        self.motors = defDict["ActorUnit.motors"]
+        self.vibConfig = Configuration()
         self.dataBuf = bytearray( 11 )
 
     @classmethod
@@ -145,17 +184,17 @@ class ActorUnit( BLE, Actuator ):
         """
         # ActorUnit pulse configuration
         if not "ActorUnit.delay" in paramDict:
-            paramDict["ActorUnit.delay"] = ActorUnit.DELAY_DEFAULT
+            paramDict["ActorUnit.delay"] = Default.FIRST_DELAY
         if not "ActorUnit.pulsePeriod" in paramDict:
-            paramDict["ActorUnit.pulsePeriod"] = ActorUnit.PULSE_PERIOD_DEFAULT
+            paramDict["ActorUnit.pulsePeriod"] = Default.PULSE_PERIOD
         if not "ActorUnit.pulseOn" in paramDict:
-            paramDict["ActorUnit.pulseOn"] = ActorUnit.PULSE_ON_DEFAULT
+            paramDict["ActorUnit.pulseOn"] = Default.PULSE_ON_DURATION
         if not "ActorUnit.pulseCount" in paramDict:
-            paramDict["ActorUnit.pulseCount"] = ActorUnit.PULSE_COUNT_DEFAULT
+            paramDict["ActorUnit.pulseCount"] = Default.PULSE_COUNT
         if not "ActorUnit.pulseIntensity" in paramDict:
-            paramDict["ActorUnit.pulseIntensity"] = ActorUnit.PULSE_INTENSITY_DEFAULT
+            paramDict["ActorUnit.pulseIntensity"] = Intensity.DEFAULT
         if not "ActorUnit.motors" in paramDict:
-            paramDict["ActorUnit.motors"] = ActorUnit.MOTORS_DEFAULT
+            paramDict["ActorUnit.motors"] = Motor.DEFAULT
         # BLE UUIDs
         if not "BLE.client.name" in paramDict:
             paramDict["BLE.client.name"] = ActorUnit.CLIENT_NAME
@@ -186,7 +225,7 @@ class ActorUnit( BLE, Actuator ):
             val = defParam[sKey]
             paramDict[sKey] = val
             result = ErrorCode.errInvalidParameter
-        self.delay = val
+        self.vibConfig.delay = val
             
         sKey = "ActorUnit.pulsePeriod"
         paramDict[sKey] = paramDict.get( sKey, defParam[sKey] )
@@ -195,7 +234,7 @@ class ActorUnit( BLE, Actuator ):
             val = defParam[sKey]
             paramDict[sKey] = val
             result = ErrorCode.errInvalidParameter
-        self.pulsePeriod = val
+        self.vibConfig.period = val
             
         sKey = "ActorUnit.pulseOn"
         paramDict[sKey] = paramDict.get( sKey, defParam[sKey] )
@@ -204,7 +243,7 @@ class ActorUnit( BLE, Actuator ):
             val = self.pulsePeriod / 2
             paramDict[sKey] = val
             result = ErrorCode.errInvalidParameter
-        self.pulseOn = val
+        self.vibConfig.onDuration = val
 
         sKey = "ActorUnit.pulseCount"
         paramDict[sKey] = paramDict.get( sKey, defParam[sKey] )
@@ -213,7 +252,7 @@ class ActorUnit( BLE, Actuator ):
             val = defParam[sKey]
             paramDict[sKey] = val
             result = ErrorCode.errInvalidParameter
-        self.pulseCount = val
+        self.vibConfig.numPulses = val
             
         sKey = "ActorUnit.pulseIntensity"
         paramDict[sKey] = paramDict.get( sKey, defParam[sKey] )
@@ -222,7 +261,7 @@ class ActorUnit( BLE, Actuator ):
             val = defParam[sKey]
             paramDict[sKey] = val
             result = ErrorCode.errInvalidParameter
-        self.pulseIntensity = val
+        self.vibConfig.intensity = val
             
         sKey = "ActorUnit.motors"
         paramDict[sKey] = paramDict.get( sKey, defParam[sKey] )
@@ -231,7 +270,7 @@ class ActorUnit( BLE, Actuator ):
             val = defParam[sKey]
             paramDict[sKey] = val
             result = ErrorCode.errInvalidParameter
-        self.motors = val
+        self.vibConfig.motors = val
             
         if (result == ErrorCode.errOk):
             result = super().open( paramDict )
@@ -251,7 +290,7 @@ class ActorUnit( BLE, Actuator ):
         :rtype: ErrorCode
         """
         del pattern
-        result = self.writeCharacteristic( ActorUnit.CMDBUF_START_DEFAULT )
+        result, _ = self.writeCharacteristic( ActorUnit.CMDBUF_START_DEFAULT )
         return result
 
     def startOperation(self, direction=Direction.positive,
@@ -268,27 +307,27 @@ class ActorUnit( BLE, Actuator ):
         """
         del direction
         if (strengthIntensity is None):
-            strengthIntensity = self.pulseIntensity
+            strengthIntensity = self.vibConfig.intensity
         if (onSpeedDuty is None):
-            onSpeedDuty = self.pulseOn
+            onSpeedDuty = self.vibConfig.onDuration
         if (ctrlInterval is None):
-            ctrlInterval = self.pulsePeriod
+            ctrlInterval = self.vibConfig.period
         if (durationLengthCycles is None):
-            durationLengthCycles = self.pulseCount
+            durationLengthCycles = self.vibConfig.numPulses
         #Create parametric start-vibration-command buffer
         self.dataBuf[0] = ActorUnit.CMD_START
         self.dataBuf[1] = onSpeedDuty & 0xFF
         self.dataBuf[2] = onSpeedDuty >> 8
         self.dataBuf[3] = ctrlInterval & 0xFF
         self.dataBuf[4] = ctrlInterval >> 8
-        self.dataBuf[5] = self.delay & 0xFF
-        self.dataBuf[6] = self.delay >> 8
+        self.dataBuf[5] = self.vibConfig.delay & 0xFF
+        self.dataBuf[6] = self.vibConfig.delay >> 8
         self.dataBuf[7] = durationLengthCycles
         self.dataBuf[8] = strengthIntensity
-        self.dataBuf[9] = self.motors
-        self.dataBuf[10] = ActorUnit.TIMER_RESET
+        self.dataBuf[9] = self.vibConfig.motors
+        self.dataBuf[10] = self.vibConfig.resetTimer
         
-        result = self.writeCharacteristic( self.dataBuf )
+        result, _ = self.writeCharacteristic( self.dataBuf )
         return result
     
     def stopOperation(self):
@@ -297,5 +336,52 @@ class ActorUnit( BLE, Actuator ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        result = self.writeCharacteristic( ActorUnit.CMDBUF_STOP )
+        result, _ = self.writeCharacteristic( ActorUnit.CMDBUF_STOP )
         return result
+
+    #
+    # Individual specific API
+    #
+
+    def getDefault(self):
+        """Retrieve default configuration from the remote client unit.
+
+        :return: The configuration and an error code indicating either success or the reason of failure.
+        :rtype: Configuration, ErrorCode
+        """
+        cfg = Configuration()
+        err, dataBuf = self.writeCharacteristic( ActorUnit.CMDBUF_GET_DEFAULT,
+                                                 readResponse = True )
+        if (err == ErrorCode.errOk):
+            # neglect CMD byte at index 0
+            cfg.onDuration  = (dataBuf[2] << 8) + dataBuf[1]
+            cfg.period      = (dataBuf[4] << 8) + dataBuf[3]
+            cfg.delay       = (dataBuf[6] << 8) + dataBuf[5]
+            cfg.numPulses   = dataBuf[7]
+            cfg.intensity   = dataBuf[8]
+            cfg.motors      = dataBuf[9]
+            cfg.resetTimer  = dataBuf[10]
+        return cfg, err
+    
+    def setDefault(self, newDefault: Configuration):
+        """Store default configuration onto the remote client unit.
+
+        :param newDefault: The configuration to store as the new default.
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        self.dataBuf[0] = ActorUnit.CMD_SET_DEFAULT
+        self.dataBuf[1] = newDefault.onDuration & 0xFF
+        self.dataBuf[2] = newDefault.onDuration >> 8
+        self.dataBuf[3] = newDefault.period & 0xFF
+        self.dataBuf[4] = newDefault.period >> 8
+        self.dataBuf[5] = newDefault.delay & 0xFF
+        self.dataBuf[6] = newDefault.delay >> 8
+        self.dataBuf[7] = newDefault.numPulses
+        self.dataBuf[8] = newDefault.intensity
+        self.dataBuf[9] = newDefault.motors
+        self.dataBuf[10] = newDefault.resetTimer
+        
+        result, _ = self.writeCharacteristic( self.dataBuf )
+        return result
+    

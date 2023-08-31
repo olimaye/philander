@@ -2,15 +2,15 @@
 
 Provide an API to abstract from any type of BLE subsystem.
 """
-from dataclasses import dataclass
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Event", "ConnectionState", "BLE"]
 
 from enum import Enum, unique, auto
 
-from bleak import BleakClient, BleakScanner
+from bleak import BleakClient, BleakScanner, BleakGATTCharacteristic
 from bleak.exc import BleakDBusError
+from dataclasses import dataclass
 from threading import Thread, Lock
 import asyncio
 import logging
@@ -48,6 +48,9 @@ class BLE( Module, Interruptable ):
 
     DISCOVERY_TIMEOUT   = 5.0
     """Timeout for the discovery phase, given in seconds."""
+    WRITE_NOTIFICATION_TIMEOUT  = 0.5
+    """Timeout for a notification response after a GATT write, given in seconds.""" 
+    
     
     def __init__( self ):
         # Initialize base class attributes
@@ -61,7 +64,13 @@ class BLE( Module, Interruptable ):
         self._bleClient = None
         self._bleCharacteristic = None
         self._bleConnectionState = ConnectionState.disconnected
-        self._bleLock = Lock()
+        self._connectionStateLock = Lock()
+        self._notificationData = bytearray()
+        self._notificationLock = Lock()
+        self._writeLock = Lock()
+        self._acceptNotificationLock = Lock()
+        self._notificationReceivedLock = Lock()
+        self._asyncError = ErrorCode.errOk
         self._evtLoop = asyncio.new_event_loop()
         self._evtEnabled = True
         self._worker = None
@@ -118,7 +127,9 @@ class BLE( Module, Interruptable ):
             
         if (self.isCoupled() == ErrorCode.errOk):
             result = self.decouple()
-            
+        
+        self._evtEnabled = True
+
         #self.couple()
         return result
 
@@ -208,12 +219,11 @@ class BLE( Module, Interruptable ):
         :rtype: ErrorCode
         """
         result = ErrorCode.errFailure
-        self._bleLock.acquire()
-        if (self._bleConnectionState == ConnectionState.connected):
-            result = ErrorCode.errOk
-        else:
-            result = ErrorCode.errUnavailable
-        self._bleLock.release()
+        with self._connectionStateLock:
+            if (self._bleConnectionState == ConnectionState.connected):
+                result = ErrorCode.errOk
+            else:
+                result = ErrorCode.errUnavailable
         return result
 
     def couple(self):
@@ -258,28 +268,32 @@ class BLE( Module, Interruptable ):
             ret = ErrorCode.errInadequate
         return ret
 
-    def writeCharacteristic(self, data: bytearray ):
+    def writeCharacteristic(self, data: bytearray, readResponse = False ):
         """Write data to the remote BLE characteristic.
         
         The instance must be coupled to a device, before using this
         function.
+        The notification content is only valid if requested by ``readResponse=True``
+        and the error code indicates a successful operation.
         
-        :return: An error code indicating either success or the reason of failure.
-        :rtype: ErrorCode
+        :param bytearray data: The content to write to the characteristic.
+        :param bool readResponse: Whether or not to read back the response notification.
+        :return: A tuple of an error code indicating either success or the reason of failure and the notification data.
+        :rtype: ErrorCode, bytearray
         """
         result = ErrorCode.errOk
         if (self._bleConnectionState == ConnectionState.connected):
             try:
                 if self._evtLoop.is_running():
-                    self._evtLoop.create_task( self._sendRoutine( data ) )
+                    self._evtLoop.create_task( self._sendRoutine( data, readResponse ) )
                 else:
-                    self._evtLoop.run_until_complete( self._sendRoutine( data ) )
+                    self._evtLoop.run_until_complete( self._sendRoutine( data, readResponse ) )
             except Exception as exc:
                 logging.exception(exc)
                 result = ErrorCode.errFailure
         else:
             result = ErrorCode.errUnavailable
-        return result
+        return result, self._notificationData
     
     #
     # Internal helper functions
@@ -287,23 +301,21 @@ class BLE( Module, Interruptable ):
     
 
     def _setState(self, newState ):
-        self._bleLock.acquire()
-        self._bleConnectionState = newState
-        self._bleLock.release()
+        with self._connectionStateLock:
+            self._bleConnectionState = newState
         self._emitState( newState )
         
         
     def _changeState( self, toState, fromState=None ):
         ret = False
         
-        self._bleLock.acquire()
-        if fromState is None:
-            ret = (self._bleConnectionState != toState)
-        else:
-            ret = (self._bleConnectionState == fromState)
-        if ret:
-            self._bleConnectionState = toState
-        self._bleLock.release()
+        with self._connectionStateLock:
+            if fromState is None:
+                ret = (self._bleConnectionState != toState)
+            else:
+                ret = (self._bleConnectionState == fromState)
+            if ret:
+                self._bleConnectionState = toState
 
         if ret:
             self._emitState( toState )
@@ -324,7 +336,26 @@ class BLE( Module, Interruptable ):
     def _handleDisconnected( self, client ):
         self._setState( ConnectionState.disconnected )
         logging.info('Unsolicited disconnect: ' + client.address )
+        return None
     
+    async def _decouplingRoutine(self):
+        """Close a BLE connection.
+        
+        Returns nothing, but emits the :attr:`.Event.bleDisconnected`
+        event, as a side-effect.
+
+        :return: None
+        :rtype: None
+        """
+        if self._bleClient:
+            try:
+                await self._bleClient.disconnect()
+                self._bleClient = None
+            except Exception as exc:
+                logging.warning( self._decouplingRoutine.__name__ + ' caught ' + type(exc).__name__ + ' ' + str(exc) )
+        self._setState( ConnectionState.disconnected )
+        return None
+
     async def _couplingRoutine(self):
         """Establish a connection with the first available matching device.
         
@@ -363,37 +394,7 @@ class BLE( Module, Interruptable ):
                 logging.warning( self._couplingRoutine.__name__ + ' caught ' + type(exc).__name__ + ': ' + str(exc) )
                 self._setState( ConnectionState.disconnected )
         return None
-
-    async def _decouplingRoutine(self):
-        """Close a BLE connection.
-        
-        Returns nothing, but emits the :attr:`.Event.bleDisconnected`
-        event, as a side-effect.
-
-        :return: None
-        :rtype: None
-        """
-        if self._bleClient:
-            try:
-                await self._bleClient.disconnect()
-                self._bleClient = None
-            except Exception as exc:
-                logging.warning( self._decouplingRoutine.__name__ + ' caught ' + type(exc).__name__ + ' ' + str(exc) )
-        self._setState( ConnectionState.disconnected )
-        return None
-
-
-    async def _sendRoutine(self, cmdData):
-        if self._bleClient:
-            try:
-                await self._bleClient.write_gatt_char( self._bleCharacteristic, cmdData, response=True )
-            except BleakDBusError as err: # In Progress
-                logging.warning( self._sendRoutine.__name__ + ' caught ' + type(err).__name__ + ' ' + err.dbus_error_details )
-            except Exception as exc:
-                logging.warning( self._sendRoutine.__name__ + ' caught ' + type(exc).__name__ + ' ' + str(exc) )
-        return None
-
-
+    
     def _bleWorker( self, routine ):
         try:
             if self._evtLoop.is_closed():
@@ -404,5 +405,39 @@ class BLE( Module, Interruptable ):
                 self._evtLoop.run_until_complete( routine )
         except Exception as exc:
                 logging.exception(exc)
+        return None
+
+    def _handleNotification( self, sender: BleakGATTCharacteristic, data: bytearray):
+        del sender
+        with self._notificationLock:
+            if self._acceptNotificationLock.locked():
+                self._notificationData[:] = data
+                self._notificationReceivedLock.release()
+        return None
+    
+
+    async def _sendRoutine(self, cmdData, readResponse=False):
+        with self._writeLock:
+            if self._bleClient:
+                try:
+                    if readResponse:
+                        valid = False
+                        await self._bleClient.start_notify( self._bleCharacteristic, self._handleNotification )
+                        with self._acceptNotificationLock:
+                            self._notificationReceivedLock.acquire()
+                            await self._bleClient.write_gatt_char( self._bleCharacteristic, cmdData, response=True )
+                            valid = self._notificationReceivedLock.acquire(blocking=True, timeout=BLE.WRITE_NOTIFICATION_TIMEOUT)
+                        await self._bleClient.stop_notify( self._bleCharacteristic )
+                        self._notificationReceivedLock.release()
+                        if valid:
+                            self._asyncError = ErrorCode.errOk
+                        else:
+                            self._asyncError = ErrorCode.errFewData
+                    else:
+                        await self._bleClient.write_gatt_char( self._bleCharacteristic, cmdData, response=True )
+                except BleakDBusError as err: # In Progress
+                    logging.warning( self._sendRoutine.__name__ + ' caught ' + type(err).__name__ + ' ' + err.dbus_error_details )
+                except Exception as exc:
+                    logging.warning( self._sendRoutine.__name__ + ' caught ' + type(exc).__name__ + ' ' + str(exc) )
         return None
 
