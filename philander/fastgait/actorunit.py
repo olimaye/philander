@@ -5,15 +5,19 @@ vibrating in pulses, giving the patient a tactile cueing impulse.
 """
 __author__ = "Oliver Maye"
 __version__ = "0.1"
-__all__ = ["Event", "ActorUnit",]
+__all__ = ["Event", \
+           "Default", "Intensity", "Motor", "TimerControl", \
+           "Configuration", \
+           "ActorUnit",]
 
 from dataclasses import dataclass
-from enum import auto, unique, Enum, Flag
+from enum import auto, unique, Enum, IntEnum, IntFlag
 
 from philander.actuator import Actuator, Direction
 from philander.ble import BLE
-from philander.systypes import ErrorCode
+from philander.configurable import Configuration as BaseConfiguration, Configurable
 from philander.primitives import Percentage
+from philander.systypes import ErrorCode
 
 
 @unique
@@ -55,7 +59,7 @@ class Intensity( Percentage ):
     DEFAULT = STRONG
     """The default intensity."""
     
-class Motor(Flag):
+class Motor(IntFlag):
     """Motor selection used for vibration: Motor #1, or #2 or both."""
     NONE = 0
     """Mnemonics for no actuator"""
@@ -68,7 +72,7 @@ class Motor(Flag):
     DEFAULT = ALL
     """Default motor selection."""
 
-class TimerControl(Enum):
+class TimerControl(IntEnum):
     """Structure to reflect the timer control setting as part of a vibration command
     """
     KEEP  = 0x00
@@ -79,7 +83,7 @@ class TimerControl(Enum):
     """Default timer control value."""
     
 @dataclass
-class Configuration:
+class Configuration( BaseConfiguration ):
     """Data class to represent a (default) configuration of the ActorUnit.
 
     Pulses are emitted periodically in rectangle form and the low-level
@@ -111,7 +115,7 @@ class Configuration:
     """Whether or not to reset the pulse timer. 0=keep, 1=reset."""
     
      
-class ActorUnit( BLE, Actuator ):
+class ActorUnit( BLE, Actuator, Configurable ):
     """Implementation of the vibration belt driver, also called ActorUnit.
     """
 
@@ -239,8 +243,8 @@ class ActorUnit( BLE, Actuator ):
         sKey = "ActorUnit.pulseOn"
         paramDict[sKey] = paramDict.get( sKey, defParam[sKey] )
         val = paramDict[sKey]
-        if (val < 0) or (val > self.pulsePeriod):
-            val = self.pulsePeriod / 2
+        if (val < 0) or (val > self.vibConfig.period):
+            val = self.vibConfig.period / 2
             paramDict[sKey] = val
             result = ErrorCode.errInvalidParameter
         self.vibConfig.onDuration = val
@@ -257,7 +261,7 @@ class ActorUnit( BLE, Actuator ):
         sKey = "ActorUnit.pulseIntensity"
         paramDict[sKey] = paramDict.get( sKey, defParam[sKey] )
         val = paramDict[sKey]
-        if (val < 0) or (val > 100):
+        if (val < Intensity.MIN) or (val > Intensity.MAX):
             val = defParam[sKey]
             paramDict[sKey] = val
             result = ErrorCode.errInvalidParameter
@@ -266,7 +270,7 @@ class ActorUnit( BLE, Actuator ):
         sKey = "ActorUnit.motors"
         paramDict[sKey] = paramDict.get( sKey, defParam[sKey] )
         val = paramDict[sKey]
-        if (val < ActorUnit.MOTORS_NONE) or (val > ActorUnit.MOTORS_ALL):
+        if (val < Motor.NONE) or (val > Motor.ALL):
             val = defParam[sKey]
             paramDict[sKey] = val
             result = ErrorCode.errInvalidParameter
@@ -278,10 +282,60 @@ class ActorUnit( BLE, Actuator ):
         #self.couple()
         return result
 
+    #
+    # Configurable API
+    #
+    
+    def configure(self, configData):
+        """Re-configures the driver's default vibration parameters.
+
+        :param .actorunit.Configuration configData: The configuration to apply.
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        result = ErrorCode.errOk
+        if (configData is None):
+            result = ErrorCode.errFewData
+        elif not isinstance(configData, Configuration):
+            result = ErrorCode.errInvalidParameter
+        else:
+            result = ErrorCode.errOk
+            # Do range-checking, instead of blunt copy
+            if (0 <= configData.period) and (configData.period <= 0xFFFF):
+                self.vibConfig.period = configData.period
+            else:
+                result = ErrorCode.errInvalidParameter
+            if (0 <= configData.onDuration) and (configData.onDuration < self.vibConfig.period):
+                self.vibConfig.onDuration = configData.onDuration
+            else:
+                result = ErrorCode.errInvalidParameter
+            if (0 <= configData.delay) and (configData.delay <= 0xFFFF):
+                self.vibConfig.delay = configData.delay
+            else:
+                result = ErrorCode.errInvalidParameter
+            if (0 <= configData.numPulses) and (configData.numPulses <= 0xFF):
+                self.vibConfig.numPulses = configData.numPulses
+            else:
+                result = ErrorCode.errInvalidParameter
+            if (Intensity.MIN <= configData.intensity) and (configData.intensity <= Intensity.MAX):
+                self.vibConfig.intensity = configData.intensity
+            else:
+                result = ErrorCode.errInvalidParameter
+            if (Motor.NONE <= configData.motors) and (configData.motors <= Motor.ALL):
+                self.vibConfig.motors = configData.motors
+            else:
+                result = ErrorCode.errInvalidParameter
+            if (TimerControl.KEEP <= configData.resetTimer) and (configData.resetTimer <= TimerControl.RESET):
+                self.vibConfig.resetTimer = configData.resetTimer
+            else:
+                result = ErrorCode.errInvalidParameter
+                
+        return result
     
     #
     # Actuator API
     #
+    
     def action(self, pattern=None):
         """Executes a predefined action or movement pattern with this actuator.
         
@@ -362,8 +416,8 @@ class ActorUnit( BLE, Actuator ):
                 cfg.delay       = (dataBuf[6] << 8) + dataBuf[5]
                 cfg.numPulses   = dataBuf[7]
                 cfg.intensity   = dataBuf[8]
-                cfg.motors      = dataBuf[9]
-                cfg.resetTimer  = dataBuf[10]
+                cfg.motors      = Motor( dataBuf[9] )
+                cfg.resetTimer  = TimerControl( dataBuf[10] )
         return cfg, err
     
     def setDefault(self, newDefault: Configuration):
