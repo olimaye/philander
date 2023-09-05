@@ -1,25 +1,38 @@
-from pymitter import EventEmitter
-from threading import Thread, Lock
-from configurable import Configurable
-from max77960 import MAX77960 as Charger
-#from charger import Charger
-from .actorunit import ActorUnit
-#from button import Button
-from led import LED
-from gpio import GPIO
+"""A module for the FastGait system management implementation.
+"""
+__author__ = "Oliver Maye"
+__version__ = "0.1"
+__all__ = ["systemManagement",]
 
+from threading import Thread, Lock
 import time, logging
 
-# The fastGait power management and user interface
-class FGSystemManagement( Configurable, EventEmitter ):
+from pymitter import EventEmitter
+
+from philander.battery import Status as BatStatus, Level
+from philander.ble import Event as BleEvent, ConnectionState
+from philander.button import Button
+from philander.charger import Charger, TemperatureRating, DCStatus, Status as ChgStatus
+from philander.gpio import GPIO
+from philander.led import LED
+from philander.max77960 import MAX77960 as ChgDriver
+from philander.module import Module
+from philander.systypes import ErrorCode
+
+from .actorunit import ActorUnit
+
+
+class SystemManagement( Module, EventEmitter ):
+    """The fastGait power management and user interface.
+    """
     
     #
     # Public class attributes
     #
     EVT_DELIMITER           = '.'
     EVT_MASK                = 'SystemManagement'
-    bleConnected       = EVT_MASK + EVT_DELIMITER + 'ble' + EVT_DELIMITER + 'connected'
-    bleDisconnected    = EVT_MASK + EVT_DELIMITER + 'ble' + EVT_DELIMITER + 'disconnected'
+    EVT_BLE_CONNECTED       = EVT_MASK + EVT_DELIMITER + 'ble' + EVT_DELIMITER + 'connected'
+    EVT_BLE_DISCONNECTED    = EVT_MASK + EVT_DELIMITER + 'ble' + EVT_DELIMITER + 'disconnected'
     EVT_DC_PLUGGED          = EVT_MASK + EVT_DELIMITER + 'dc' + EVT_DELIMITER + 'plugged'
     EVT_DC_UNPLUGGED        = EVT_MASK + EVT_DELIMITER + 'dc' + EVT_DELIMITER + 'unplugged'
     EVT_BUTTON_PRESSED      = EVT_MASK + EVT_DELIMITER + 'ui' + EVT_DELIMITER + 'button' + EVT_DELIMITER + 'pressed'
@@ -37,260 +50,214 @@ class FGSystemManagement( Configurable, EventEmitter ):
     # Private class attributes
     #
     
-    #_INFOCAT_AUX       = 2
-    _INFOCAT_TEMP      = 3
-    _INFOCAT_BAT_STATE = 4
-    _INFOCAT_BLE       = 5
-    _INFOCAT_DC_SUPPLY = 6
-    _INFOCAT_CHG_STATE = 7
-    _INFOCAT_LDO_STATE = 8
-    _INFOCAT_LDO_STATE = 8
-    _INFOCAT_RUN_TIME  = 9
-   
     _SYSJOB_NONE      = 0x00
     _SYSJOB_AU_COUPLE = 0x01
     _SYSJOB_ANY       = 0xFFFF
     
-    _CRITICAL_TEMPERATURES = (Charger.TEMP_COLD, Charger.TEMP_HOT)
+    _LED_SETTING_PREFIXES   = ("UI.LED.tmp", "UI.LED.bat", "UI.LED.ble",\
+                               "UI.LED.dc", "UI.LED.chg", "UI.LED.0",\
+                               "UI.LED.1", )
+    _BUTTON_SETTING_PREFIXES= ("UI.Button.cmd", )
     
-    #
-    # The Configurable API
-    #
-    
-    #
-    # Initializes the sensor.
-    # The only input parameter is a dictionary containing key-value pairs that
-    # configure the instance. Key names and their meanings are:
-    # UI.LED.tmp.pin         : Pin of the temperature LED, such as 17 or 'GPIO17'
-    # UI.LED.tmp.activeHigh  : True, if high-state makes the LED shine, False otherwise
-    # UI.LED.bat.pin         : Pin of the battery status LED
-    # UI.LED.bat.activeHigh  : True, if high-state makes the LED shine, False otherwise
-    # UI.LED.ble.pin         : Pin of the BLE connection status LED
-    # UI.LED.ble.activeHigh  : True, if high-state makes the LED shine, False otherwise
-    # UI.LED.dc.pin          : Pin of the DC supply status LED
-    # UI.LED.dc.activeHigh   : True, if high-state makes the LED shine, False otherwise
-    # UI.LED.chg.pin         : Pin of the charger status LED
-    # UI.LED.chg.activeHigh  : True, if high-state makes the LED shine, False otherwise
-    # UI.LED.0.pin           : Pin of the aux #0 LED
-    # UI.LED.0.activeHigh    : True, if high-state makes the LED shine, False otherwise
-    # UI.LED.1.pin           : Pin of the aux #1 LED
-    # UI.LED.1.activeHigh    : True, if high-state makes the LED shine, False otherwise
-    # UI.Button.cmd.pin      : Pin of the user command button
-    # UI.Button.cmd.activeHigh: True, if high-state signals a push, False otherwise
-    # Power.LDO.PG.pin       : Pin of the LDO's power good output
-    # Power.LDO.PG.activeHigh: True, if high-state signals a push, False otherwise
-    #
-    def __init__(self, paramDict):
+    def __init__(self):
+        # Call super class constructor(s)
+        EventEmitter.__init__( self, wildcard=True, delimiter=SystemManagement.EVT_DELIMITER)
         # Create instance attributes
-        self._systemJob = FGSystemManagement._SYSJOB_NONE
+        self._systemJob = SystemManagement._SYSJOB_NONE
         self._sysjobLock = Lock()
         self.done = False
-        self.charger = Charger( paramDict )
-        self.actorUnit = ActorUnit( paramDict )
+        self.charger = ChgDriver()
+        self.actorUnit = ActorUnit()
         self.tmpLED = None
-        self._tmpLEDpin = None
-        self._tmpLEDactHi = True
         self.batLED = None
-        self._batLEDpin = None
-        self._batLEDactHi = True
         self.bleLED = None
-        self._bleLEDpin = None
-        self._bleLEDactHi = True
         self.dcLED = None
-        self._dcLEDpin = None
-        self._dcLEDactHi = True
         self.chgLED = None
-        self._chgLEDpin = None
-        self._chgLEDactHi = True
         self.aux0LED = None
-        self._aux0LEDpin = None
-        self._aux0LEDactHi = True
         self.aux1LED = None
-        self._aux1LEDpin = None
-        self._aux1LEDactHi = True
         self.cmdBtn = None
-        self._cmdBtnPin = None
-        self._cmdBtnActHi = True
         self.ldoPGGPIO = None
-        self._ldoPGPin = None
-        self._ldoPGActHi = False
-        self.monitor = Thread( target=self.manageSystem, name='System Management' )
-        # Set defaults
-        if not "UI.LED.tmp.pin" in paramDict:
-            paramDict["UI.LED.tmp.pin"] = None
-        if not "UI.LED.tmp.activeHigh" in paramDict:
-            paramDict["UI.LED.tmp.activeHigh"] = True
-        if not "UI.LED.bat.pin" in paramDict:
-            paramDict["UI.LED.bat.pin"] = None
-        if not "UI.LED.bat.activeHigh" in paramDict:
-            paramDict["UI.LED.bat.activeHigh"] = True
-        if not "UI.LED.ble.pin" in paramDict:
-            paramDict["UI.LED.ble.pin"] = None
-        if not "UI.LED.ble.activeHigh" in paramDict:
-            paramDict["UI.LED.ble.activeHigh"] = True
-        if not "UI.LED.dc.pin" in paramDict:
-            paramDict["UI.LED.dc.pin"] = None
-        if not "UI.LED.dc.activeHigh" in paramDict:
-            paramDict["UI.LED.dc.activeHigh"] = True
-        if not "UI.LED.chg.pin" in paramDict:
-            paramDict["UI.LED.chg.pin"] = None
-        if not "UI.LED.chg.activeHigh" in paramDict:
-            paramDict["UI.LED.chg.activeHigh"] = True
-        if not "UI.LED.0.pin" in paramDict:
-            paramDict["UI.LED.0.pin"] = None
-        if not "UI.LED.0.activeHigh" in paramDict:
-            paramDict["UI.LED.0.activeHigh"] = True
-        if not "UI.LED.1.pin" in paramDict:
-            paramDict["UI.LED.1.pin"] = None
-        if not "UI.LED.1.activeHigh" in paramDict:
-            paramDict["UI.LED.1.activeHigh"] = True
-        if not "UI.Button.cmd.pin" in paramDict:
-            paramDict["UI.Button.cmd.pin"] = None
-        if not "UI.Button.cmd.activeHigh" in paramDict:
-            paramDict["UI.Button.cmd.activeHigh"] = True
-        if not "Power.LDO.PG.pin" in paramDict:
-            paramDict["Power.LDO.PG.pin"] = None
-        if not "Power.LDO.PG.activeHigh" in paramDict:
-            paramDict["Power.LDO.PG.activeHigh"] = True
-        Configurable.__init__( self, paramDict )
-        EventEmitter.__init__( self, wildcard=True, delimiter=FGSystemManagement.EVT_DELIMITER)
+        self.monitor = Thread( target=self._manageSystem, name='System Management' )
 
     #
-    # Scans the parameters for known keys.
+    # Module API
     #
-    def _scanParameters( self, paramDict ):
-        if "UI.LED.tmp.pin" in paramDict:
-            self._tmpLEDpin = paramDict["UI.LED.tmp.pin"]
-        if "UI.LED.tmp.activeHigh" in paramDict:
-            self._tmpLEDactHi = paramDict["UI.LED.tmp.activeHigh"]
-        if "UI.LED.bat.pin" in paramDict:
-            self._batLEDpin = paramDict["UI.LED.bat.pin"]
-        if "UI.LED.bat.activeHigh" in paramDict:
-            self._batLEDactHi = paramDict["UI.LED.bat.activeHigh"]
-        if "UI.LED.ble.pin" in paramDict:
-            self._bleLEDpin = paramDict["UI.LED.ble.pin"]
-        if "UI.LED.ble.activeHigh" in paramDict:
-            self._bleLEDactHi = paramDict["UI.LED.ble.activeHigh"]
-        if "UI.LED.dc.pin" in paramDict:
-            self._dcLEDpin = paramDict["UI.LED.dc.pin"]
-        if "UI.LED.dc.activeHigh" in paramDict:
-            self._dcLEDactHi = paramDict["UI.LED.dc.activeHigh"]
-        if "UI.LED.chg.pin" in paramDict:
-            self._chgLEDpin = paramDict["UI.LED.chg.pin"]
-        if "UI.LED.chg.activeHigh" in paramDict:
-            self._chgLEDactHi = paramDict["UI.LED.chg.activeHigh"]
-        if "UI.LED.0.pin" in paramDict:
-            self._aux0LEDpin = paramDict["UI.LED.0.pin"]
-        if "UI.LED.0.activeHigh" in paramDict:
-            self._aux0LEDactHi = paramDict["UI.LED.0.activeHigh"]
-        if "UI.LED.1.pin" in paramDict:
-            self._aux1LEDpin = paramDict["UI.LED.1.pin"]
-        if "UI.LED.1.activeHigh" in paramDict:
-            self._aux1LEDactHi = paramDict["UI.LED.1.activeHigh"]
-        if "UI.Button.cmd.pin" in paramDict:
-            self._cmdBtnPin = paramDict["UI.Button.cmd.pin"]
-        if "UI.Button.cmd.activeHigh" in paramDict:
-            self._cmdBtnActHi = paramDict["UI.Button.cmd.activeHigh"]
-        if "Power.LDO.PG.pin" in paramDict:
-            self._ldoPGPin = paramDict["Power.LDO.PG.pin"]
-        if "Power.LDO.PG.activeHigh" in paramDict:
-            self._ldoPGActHi = paramDict["Power.LDO.PG.activeHigh"]
-                
-    #
-    # Apply the new configuration.
-    #
-    #def _applyConfiguration( self ):
 
-    #
-    # Initializes the instance. Must be called once, before the features of
-    # this module can be used.
-    #
-    def init(self):
-        self.charger.init()
-        super().init()
-        if self._tmpLEDpin:
-            self.tmpLED = LED( pin=self._tmpLEDpin, active_high=self._tmpLEDactHi, label='Temperature' )
-        if self._batLEDpin:
-            self.batLED = LED( pin=self._batLEDpin, active_high=self._batLEDactHi, label='Battery' )
-        if self._bleLEDpin:
-            self.bleLED = LED( pin=self._bleLEDpin, active_high=self._bleLEDactHi, label='BLE' )
-        if self._dcLEDpin:
-            self.dcLED = LED( pin=self._dcLEDpin, active_high=self._dcLEDactHi, label='DC' )
-        if self._chgLEDpin:
-            self.chgLED = LED( pin=self._chgLEDpin, active_high=self._chgLEDactHi, label='Charger' )
-        if self._aux0LEDpin:
-            self.aux0LED = LED( pin=self._aux0LEDpin, active_high=self._aux0LEDactHi, label='AUX-0' )
-        if self._aux1LEDpin:
-            self.aux1LED = LED( pin=self._aux1LEDpin, active_high=self._aux1LEDactHi, label='AUX-1' )
-        if self._cmdBtnPin:
-            btnName = 'Command'
-            self.cmdBtn = SmartButton( pin=self._cmdBtnPin, active_high=self._cmdBtnActHi, label=btnName )
-            self.cmdBtn.on( btnName, func=self.uiHandleButtonPressed )
-            self.cmdBtn.asyncWait4Press()
-        if self._ldoPGPin:
-            self.ldoPGGPIO = GPIO( '/dev/gpiochip0', self._ldoPGPin, 'in', inverted=not self._ldoPGActHi, label='LDO-PG' )
-        self.monitor.start()
-        self.actorUnit.on( ActorUnit.bleDiscovering, self.bleHandleDiscovering )
-        self.actorUnit.on( ActorUnit.bleConnected, self.bleHandleConnected )
-        self.actorUnit.on( ActorUnit.bleDisconnected, self.bleHandleDisconnected )
-        self.actorUnit.init()
+    @classmethod
+    def Params_init(cls, paramDict):
+        """Initializes configuration parameters with defaults.
+        
+        The following settings are supported:
+        
+        =================    ==========================================================================================================
+        Key name             Value type, meaning and default
+        =================    ==========================================================================================================
+        UI.LED.tmp.*         temperature LED; settings as documented at :meth:`.LED.Params_init`.
+        UI.LED.bat.*         battery status LED; see :meth:`.LED.Params_init`.
+        UI.LED.ble.*         BLE connection status LED; see :meth:`.LED.Params_init`.
+        UI.LED.dc.*          DC supply status LED; see :meth:`.LED.Params_init`.
+        UI.LED.chg.*         charger status LED; see :meth:`.LED.Params_init`.
+        UI.LED.0.*           aux #0 LED; see :meth:`.LED.Params_init`.
+        UI.LED.1.*           aux #1 LED; see :meth:`.LED.Params_init`.
+        UI.Button.cmd.*      user command button; see :meth:`.Button.Params_init`.
+        Power.LDO.PG.*       LDO's power good output; see :meth:`.GPIO.Params_init`.
+        Charger.*            as documented at the charger implementation.
+        ActorUnit.*          as documented at :meth:`.ActorUnit.Params_init`.
+        =================    ==========================================================================================================
+        
+        Also see: :meth:`.LED.Params_init`, :meth:`.Button.Params_init`, :meth:`.GPIO.Params_init`, :meth:`.MAX77960.Params_init`. 
 
-    # 
-    # Shuts down the instance safely.
-    #
+        :param dict(str, object) paramDict: Dictionary mapping option\
+        names to their respective values.
+        :returns: none
+        :rtype: None
+        """
+        # All LED settings
+        dflt = {}
+        LED.Params_init( dflt )
+        # Explicit settings
+        for p in SystemManagement._LED_SETTING_PREFIXES:
+            if not (p+".label") in paramDict:
+                paramDict[p+".label"] = p.replace("UI.", "")
+        # Common routine
+        for p in SystemManagement._LED_SETTING_PREFIXES:
+            paramDict[p + ".gpio.direction"] = dflt.get("LED.gpio.direction")
+        for key, value in dflt.items():
+            if key.startswth("LED."):
+                keyBase = key.replace("LED.", ".")
+                for p in SystemManagement._LED_SETTING_PREFIXES:
+                    newKey = p + keyBase
+                    if not newKey in paramDict:
+                        paramDict[newKey] = value
+        # Button settings
+        dflt = {}
+        Button.Params_init( dflt )
+        # Explicit settings
+        for p in SystemManagement._BUTTON_SETTING_PREFIXES:
+            if not (p+".label") in paramDict:
+                paramDict[p+".label"] = p.replace("UI.", "")
+        # Common routine
+        for p in SystemManagement._BUTTON_SETTING_PREFIXES:
+            paramDict[p + ".gpio.direction"] = dflt.get("Button.gpio.direction")
+        for key, value in dflt.items():
+            if key.startswth("Button."):
+                keyBase = key.replace("Button.", ".")
+                for p in SystemManagement._BUTTON_SETTING_PREFIXES:
+                    newKey = p + keyBase
+                    if not newKey in paramDict:
+                        paramDict[newKey] = value
+        # GPIO settings for the separate LDO's PowerGood pin.
+        dflt = {}
+        GPIO.Params_init( dflt )
+        paramDict["Power.LDO.PG.gpio.direction"] = GPIO.DIRECTION_IN
+        for key, value in dflt.items():
+            newKey = "Power.LDO.PG." + key
+            if not newKey in paramDict:
+                paramDict[newKey] = value
+        # Charger settings
+        ChgDriver.Params_init( paramDict )
+        # ActorUnit settings
+        ActorUnit.Params_init( paramDict )
+        return None
+    
+    def open(self, paramDict):
+        result = ErrorCode.errOk
+
+        # LEDs first:
+        if "UI.LED.tmp.gpio.pinDesignator" in paramDict:
+            self.tmpLED = LED()
+            result = self.tmpLED.open( paramDict )
+        if "UI.LED.bat.gpio.pinDesignator" in paramDict:
+            self.batLED = LED()
+            result = self.batLED.open( paramDict )
+        if "UI.LED.ble.gpio.pinDesignator" in paramDict:
+            self.bleLED = LED()
+            result = self.bleLED.open( paramDict )
+        if "UI.LED.dc.gpio.pinDesignator" in paramDict:
+            self.dcLED = LED()
+            result = self.dcLED.open( paramDict )
+        if "UI.LED.chg.gpio.pinDesignator" in paramDict:
+            self.chgLED = LED()
+            result = self.chgLED.open( paramDict )
+        if "UI.LED.0.gpio.pinDesignator" in paramDict:
+            self.aux0LED = LED()
+            result = self.aux0LED.open( paramDict )
+        if "UI.LED.1.gpio.pinDesignator" in paramDict:
+            self.aux1LED = LED()
+            result = self.aux1LED.open( paramDict )
+        # Button
+        if "UI.Button.cmd.gpio.pinDesignator" in paramDict:
+            self.cmdBtn = Button()
+            result = self.cmdBtn.open( paramDict )
+            self.cmdBtn.on( self.cmdBtn.label, func=self.uiHandleButtonPressed )
+            #self.cmdBtn.asyncWait4Press()
+        # LDO PG pin
+        if "Power.LDO.PG.gpio.pinDesignator" in paramDict:
+            self.ldoPGGPIO = GPIO()
+            result = self.ldoPGGPIO. open( paramDict )
+        # Charger
+        if (result == ErrorCode.errOk):
+            result = self.charger.open( paramDict )
+        # ActorUnit
+        if (result == ErrorCode.errOk):
+            result = self.actorUnit.open( paramDict )
+
+        # Event registration, monitor thread and coupling
+        if (result == ErrorCode.errOk):
+            self.actorUnit.on( BleEvent.bleDiscovering, self.handleBleDiscovering )
+            self.actorUnit.on( BleEvent.bleConnected, self.handleBleConnected )
+            self.actorUnit.on( BleEvent.bleDisconnected, self.handleBleDisconnected )
+            self.monitor.start()
+            result = self.actorUnit.couple()
+            
+        return result
+
     def close(self):
+        result = ErrorCode.errOk
         self.done = True
         if self.monitor.is_alive():
             self.monitor.join()
+        # Remove event subscriptions
         self.off_all()
-        self.charger.close()
-        self.actorUnit.close()
-        if self.tmpLED:
-            self.tmpLED.close()
-            self.tmpLED = None
-        if self.batLED:
-            self.batLED.close()
-            self.batLED = None
-        if self.bleLED:
-            self.bleLED.close()
-            self.bleLED = None
-        if self.dcLED:
-            self.dcLED.close()
-            self.dcLED = None
-        if self.chgLED:
-            self.chgLED.close()
-            self.chgLED = None
-        if self.aux0LED:
-            self.aux0LED.close()
-            self.aux0LED = None
-        if self.aux1LED:
-            self.aux1LED.close()
-            self.aux1LED = None
-        if self.cmdBtn:
-            self.cmdBtn.close()
-            self.cmdBtn = None
-        if self.ldoPGGPIO:
-            self.ldoPGGPIO.close()
-            self.ldoPGGPIO = None
-
+        # Close all module-like attributes
+        for mod in (self.charger, self.actorUnit, \
+                    self.tmpLED, self.batLED, self.bleLED, self.dcLED,\
+                    self.chgLED, self.aux0LED, self.aux1LED, \
+                    self.cmdBtn, \
+                    self.ldoPGGPIO, ):
+            if mod:
+                err = mod.close()
+                if (err != ErrorCode.errOk):
+                    result = err
+        self.tmpLED = None
+        self.batLED = None
+        self.bleLED = None
+        self.dcLED = None
+        self.chgLED = None
+        self.aux0LED = None
+        self.aux1LED = None
+        self.cmdBtn = None
+        self.ldoPGGPIO = None
+        return result
+    
     #
-    # Own, specific API
+    # Private helper
     #
             
-    def manageSystem( self ):
+    def _manageSystem( self ):
         logging.info('Management thread is running.')
         self._sysjobLock.acquire()
-        self._systemJob = FGSystemManagement._SYSJOB_NONE
+        self._systemJob = SystemManagement._SYSJOB_NONE
         self._sysjobLock.release()
 
         # Note that the BLE status is maintained in a separate loop
-        batStatus = -1
-        tmpStatus = -1
-        dcStatus  = -1
-        chgStatus = -1
-        ldoStatus = -1
+        batStatus = None
+        chgStatus = None
+        dcStatus  = None
+        tmpStatus = None    # chg + bat temperature rating
+        ldoStatus = None
+        batLvlStatus = None     # Run-Time based level estimation
         startTime = time.time()
-        batTimeStatus = -1
 
         while not self.done:
             try:
@@ -299,68 +266,76 @@ class FGSystemManagement( Configurable, EventEmitter ):
                 val = self.charger.getBatStatus()
                 if val != batStatus:
                     batStatus = val
-                    self._displayStatusChange( FGSystemManagement._INFOCAT_BAT_STATE, batStatus )
+                    self._displayBatStatus( batStatus )
                 
                 val = self.charger.getChargerTempStatus()
-                if batStatus != Charger.BAT_STATE_REMOVED:
+                if batStatus != BatStatus.removed:
                     val1 = self.charger.getBatteryTempStatus()
                     val = self._combineTempStatus( val, val1 )
                 if val != tmpStatus:
                     oldStatus = tmpStatus
                     tmpStatus = val
-                    self._displayStatusChange( FGSystemManagement._INFOCAT_TEMP, tmpStatus )
-                    if val in FGSystemManagement._CRITICAL_TEMPERATURES:
-                        self.emit( FGSystemManagement.EVT_TEMP_CRITICAL )
-                    elif oldStatus in FGSystemManagement._CRITICAL_TEMPERATURES:
-                        self.emit( FGSystemManagement.EVT_TEMP_NORMAL )
+                    self._displayTempStatus( tmpStatus )
+                    if tmpStatus.value & TemperatureRating.coldOrHot.value:
+                        self.emit( SystemManagement.EVT_TEMP_CRITICAL )
+                    elif oldStatus.value & TemperatureRating.coldOrHot.value:
+                        self.emit( SystemManagement.EVT_TEMP_NORMAL )
                 
                 val  = self.charger.getDCStatus()
                 if val != dcStatus:
+                    oldStatus = dcStatus
                     dcStatus = val
-                    self._displayStatusChange( FGSystemManagement._INFOCAT_DC_SUPPLY, dcStatus )
-                    if dcStatus == Charger.DC_STATE_VALID:
-                        self.emit( FGSystemManagement.EVT_DC_PLUGGED )
-                    else:
+                    self._displayDcStatus( dcStatus )
+                    if dcStatus == DCStatus.valid:
+                        self.emit( SystemManagement.EVT_DC_PLUGGED )
+                    elif oldStatus == DCStatus.valid:
                         startTime = time.time()
-                        self.emit( FGSystemManagement.EVT_DC_UNPLUGGED )
+                        self.emit( SystemManagement.EVT_DC_UNPLUGGED )
                         
                 val = self.charger.getChgStatus()
                 if val != chgStatus:
                     chgStatus = val
-                    self._displayStatusChange( FGSystemManagement._INFOCAT_CHG_STATE, chgStatus )
+                    self._displayChgStatus( chgStatus )
                 
                 if self.ldoPGGPIO:
-                    val = self.ldoPGGPIO.read()
+                    val = self.ldoPGGPIO.get()
                     if val != ldoStatus:
                         ldoStatus = val
-                        self._displayStatusChange( FGSystemManagement._INFOCAT_LDO_STATE, ldoStatus )
+                        self._displayLdoStatus( ldoStatus )
                         if ldoStatus:
-                            self.emit( FGSystemManagement.EVT_POWER_CRITICAL )
+                            self.emit( SystemManagement.EVT_POWER_CRITICAL )
                         else:
-                            self.emit( FGSystemManagement.EVT_POWER_NORMAL )
+                            self.emit( SystemManagement.EVT_POWER_NORMAL )
 
-                if dcStatus != Charger.DC_STATE_VALID:   # Battery only
+                # Estimate battery level based on elapsed run time
+                if dcStatus != DCStatus.valid:   # Battery only
                     now = time.time()
                     dur = now - startTime 
-                    if batTimeStatus == Charger.BAT_STATE_EMPTY:
-                        val = Charger.BAT_STATE_EMPTY
-                    elif batTimeStatus == Charger.BAT_STATE_LOW:
-                        if dur >= FGSystemManagement.BAT_WARN_TIME_LOW2EMPTY:
-                            val = Charger.BAT_STATE_EMPTY
+                    if batLvlStatus == Level.empty:
+                        val = Level.empty
+                    elif batLvlStatus == Level.low:
+                        if dur >= SystemManagement.BAT_WARN_TIME_LOW2EMPTY:
+                            val = Level.empty
                             startTime = now
                         else:
-                            val = Charger.BAT_STATE_LOW
+                            val = Level.low
                     else:
-                        if dur >= FGSystemManagement.BAT_WARN_TIME_FULL2LOW:
-                            val = Charger.BAT_STATE_LOW
+                        if dur >= SystemManagement.BAT_WARN_TIME_FULL2LOW:
+                            val = Level.low
                             startTime = now
                         else:
-                            val = Charger.BAT_STATE_NORMAL
+                            val = Level.full
+                elif (batStatus & BatStatus.removed):
+                    val = Level.invalid
+                elif (batStatus & BatStatus.empty):
+                    val = Level.empty
+                elif (batStatus & BatStatus.low):
+                    val = Level.low
                 else:
-                    val = batStatus       # while charging
-                if val != batTimeStatus:
-                    batTimeStatus = val
-                    self._displayStatusChange( FGSystemManagement._INFOCAT_RUN_TIME, batTimeStatus )
+                    val = Level.full
+                if val != batLvlStatus:
+                    batLvlStatus = val
+                    self._displayBatLvlStatus( batLvlStatus )
                     
                 self._executeSystemJobs()
             except RuntimeError as exc:
@@ -369,110 +344,122 @@ class FGSystemManagement( Configurable, EventEmitter ):
         logging.info('Management thread stopped.')
     
     
-    def _combineTempStatus( self, tempStatus1, tempStatus2 ):
-        if tempStatus1 < tempStatus2:
-            low = tempStatus1
-            high = tempStatus2
+    def _combineTempStatus( self, chgTemp: TemperatureRating, batTemp: BatStatus ):
+        ret = TemperatureRating.unknown
+        # Prioritize battery temperature information
+        if batTemp != BatStatus.unknown:
+            batTemp &= BatStatus.problemThermal
+            if batTemp == BatStatus.coldOrHot:
+                ret = TemperatureRating.coldOrHot
+            elif batTemp == BatStatus.hot:
+                ret = TemperatureRating.hot
+            elif batTemp == BatStatus.cold:
+                ret = TemperatureRating.cold
+            elif chgTemp == TemperatureRating.unknown:
+                ret = TemperatureRating.ok
+            else:
+                ret = chgTemp
         else:
-            high = tempStatus1
-            low = tempStatus2
-        ret = Charger.TEMP_OK
-        if high == Charger.TEMP_HOT:
-            ret = high
-        elif low==Charger.TEMP_COLD:
-            ret = low
-        elif high == Charger.TEMP_WARM:
-            ret = high
-        elif low==Charger.TEMP_COOL:
-            ret = low
-        else:
-            ret = high
+            ret = chgTemp
         return ret
         
+    def _displayTempStatus( self, newStatus: TemperatureRating ):
+        logging.info('TMP state: %s', TemperatureRating.toStr.get( newStatus, 'UNKNOWN' ))
+        if self.tmpLED:
+            if newStatus == TemperatureRating.ok:
+                self.tmpLED.off()
+            elif newStatus in (TemperatureRating.cool,\
+                               TemperatureRating.warm,\
+                               TemperatureRating.coolOrWarm):
+                self.tmpLED.blink()
+            else:
+                self.tmpLED.on()
+        return None
+
+    def _displayBatStatus( self, newStatus: BatStatus ):
+        logging.info('BAT state: %s', BatStatus.toStr.get( newStatus, 'UNKNOWN' ))
+        return None
+        
+    def _displayBleStatus( self, newStatus: ConnectionState ):
+        logging.info('BLE state: %s', ConnectionState.toStr.get( newStatus, 'UNKNOWN'))
+        if self.bleLED:
+            if newStatus == ConnectionState.connected:
+                self.bleLED.on()
+            elif newStatus == ConnectionState.discovering:
+                self.bleLED.blink( cycle_length=LED.CYCLEN_NORMAL )
+            else:
+                self.bleLED.off()
+        return None
+        
+    def _displayDcStatus( self, newStatus: DCStatus ):
+        logging.info(' DC state: %s', DCStatus.toStr.get( newStatus, 'UNKNOWN' ))
+        if self.dcLED:
+            if newStatus == DCStatus.valid:
+                self.dcLED.on()
+            elif newStatus == DCStatus.off:
+                self.dcLED.off()
+            else:
+                self.dcLED.blink()
+        return None
+        
+    def _displayChgStatus( self, newStatus: ChgStatus ):
+        logging.info('CHG state: %s', ChgStatus.toStr.get( newStatus, 'UNKNOWN' ))
+        if self.chgLED:
+            if newStatus in (ChgStatus.done, ChgStatus.topOff, ):
+                self.chgLED.on()
+            elif newStatus in (ChgStatus.fastCharge, ChgStatus.fastChargeConstCurrent, ChgStatus.fastChargeConstVoltage, ):
+                self.chgLED.blink( cycle_length=LED.CYCLEN_FAST )
+            elif newStatus in (ChgStatus.preCharge, ChgStatus.trickle, ):
+                self.chgLED.blink()
+            else:
+                self.chgLED.off()
+        return None
+        
+    def _displayLdoStatus( self, newStatus: int ):
+        logging.info('LDO state: %d', newStatus )
+        return None
+        
+    def _displayBatLvlStatus( self, newStatus: Level ):
+        logging.info('BAT Level: %s', Level.toStr.get( newStatus, 'UNKNOWN' ))
+        if self.batLED:
+            if newStatus in (Level.min, Level.empty, ):
+                self.batLED.blink( cycle_length=LED.CYCLEN_FAST )
+            elif newStatus in (Level.low, Level.medium, ):
+                self.batLED.blink( cycle_length=LED.CYCLEN_SLOW )
+            elif newStatus in (Level.good, Level.full, Level.max, ):
+                self.batLED.off()
+            else:   # Errors
+                self.batLED.on()
+        return None
+
+
     def _executeSystemJobs( self ):
-        if self._systemJob & FGSystemManagement._SYSJOB_AU_COUPLE:
+        if self._systemJob & SystemManagement._SYSJOB_AU_COUPLE:
             self.actorUnit.couple()
             self._sysjobLock.acquire()
-            self._systemJob &= ~FGSystemManagement._SYSJOB_AU_COUPLE
+            self._systemJob &= ~SystemManagement._SYSJOB_AU_COUPLE
             self._sysjobLock.release()
             
-    def _displayStatusChange( self, infoCat, newStatus ):
-        if infoCat == FGSystemManagement._INFOCAT_TEMP:
-            logging.info('TMP state: %s', Charger.temp2Str.get( newStatus, 'UNKNOWN' ))
-            if self.tmpLED:
-                if newStatus == Charger.TEMP_OK:
-                    self.tmpLED.off()
-                elif (newStatus==Charger.TEMP_WARM) or (newStatus==Charger.TEMP_COOL):
-                    self.tmpLED.blink()
-                else:
-                    self.tmpLED.on()
-        elif infoCat == FGSystemManagement._INFOCAT_BAT_STATE:
-            logging.info('BAT state: %s', Charger.batState2Str.get( newStatus, 'UNKNOWN' ))
-        elif infoCat == FGSystemManagement._INFOCAT_BLE:
-            logging.info('BLE state: %s', ActorUnit.toStr.get( newStatus, 'UNKNOWN'))
-            if self.bleLED:
-                if newStatus == ActorUnit.connected:
-                    self.bleLED.on()
-                elif newStatus == ActorUnit.discovering:
-                    self.bleLED.blink( cycle_length=LED.CYCLEN_NORMAL )
-                else:
-                    self.bleLED.off()
-        elif infoCat == FGSystemManagement._INFOCAT_DC_SUPPLY:
-            logging.info(' DC state: %s', Charger.dcState2Str.get( newStatus, 'UNKNOWN' ))
-            if self.dcLED:
-                if newStatus == Charger.DC_STATE_VALID:
-                    self.dcLED.on()
-                elif newStatus == Charger.DC_STATE_OFF:
-                    self.dcLED.off()
-                else:
-                    self.dcLED.blink()
-        elif infoCat == FGSystemManagement._INFOCAT_CHG_STATE:
-            logging.info('CHG state: %s', Charger.chgState2Str.get( newStatus, 'UNKNOWN' ))
-            if self.chgLED:
-                if newStatus in {Charger.CHG_STATE_DONE, Charger.CHG_STATE_TOP_OFF}:
-                    self.chgLED.on()
-                elif newStatus in {Charger.CHG_STATE_FASTCHARGE, Charger.CHG_STATE_FAST_CC, Charger.CHG_STATE_FAST_CV}:
-                    self.chgLED.blink( cycle_length=LED.CYCLEN_FAST )
-                elif newStatus in {Charger.CHG_STATE_PRECHARGE, Charger.CHG_STATE_TRICKLE}:
-                    self.chgLED.blink()
-                else:
-                    self.chgLED.off()
-        elif infoCat == FGSystemManagement._INFOCAT_LDO_STATE:
-            logging.info('LDO state: %s', newStatus)
-
-        elif infoCat == FGSystemManagement._INFOCAT_RUN_TIME:
-            logging.info('BAT estimated by runtime: %s', Charger.batState2Str.get( newStatus, 'UNKNOWN' ))
-            if self.batLED:
-                if newStatus == Charger.BAT_STATE_EMPTY:
-                    self.batLED.blink( cycle_length=LED.CYCLEN_FAST )
-                elif newStatus == Charger.BAT_STATE_LOW:
-                    self.batLED.blink( cycle_length=LED.CYCLEN_SLOW )
-                elif newStatus == Charger.BAT_STATE_NORMAL:
-                    self.batLED.off()
-                else:   # Errors
-                    self.batLED.on()
         
-    #
-    #
-    #
-    def bleHandleDiscovering( self ):
-        self._displayStatusChange( FGSystemManagement._INFOCAT_BLE, ActorUnit.discovering )
+    def handleBleDiscovering( self ):
+        self._displayBleStatus( ConnectionState.discovering )
         
-    def bleHandleConnected( self ):
-        self._displayStatusChange( FGSystemManagement._INFOCAT_BLE, ActorUnit.connected )
-        self.emit( FGSystemManagement.bleConnected )
+    def handleBleConnected( self ):
+        self._displayBleStatus( ConnectionState.connected )
+        self.emit( SystemManagement.EVT_BLE_CONNECTED )
         
-    def bleHandleDisconnected( self ):
-        self._displayStatusChange( FGSystemManagement._INFOCAT_BLE, ActorUnit.disconnected )
-        self.emit( FGSystemManagement.bleDisconnected )
+    def handleBleDisconnected( self ):
+        self._displayBleStatus( ConnectionState.disconnected )
+        self.emit( SystemManagement.EVT_BLE_DISCONNECTED )
         # Start re-discovering
         if not self.done:
             self._sysjobLock.acquire()
-            self._systemJob = self._systemJob | FGSystemManagement._SYSJOB_AU_COUPLE
+            self._systemJob = self._systemJob | SystemManagement._SYSJOB_AU_COUPLE
             self._sysjobLock.release()
             
     def uiHandleButtonPressed( self ):
-        self.emit( FGSystemManagement.EVT_BUTTON_PRESSED )
+        logging.info('UI button pressed.')
+        self.emit( SystemManagement.EVT_BUTTON_PRESSED )
         
         
         
