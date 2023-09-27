@@ -113,7 +113,7 @@ class HTU21D( Sensor, SerialBusDevice ):
         =============================    ==========================================================================================================
         Key name                         Value type, meaning and default
         =============================    ==========================================================================================================
-        SerialBusDevice.deviceAddress    ``int`` I2C serial device address, must be :attr:`ADDRESS`; default is :attr:`ADDRESS`.
+        SerialBusDevice.address          ``int`` I2C serial device address, must be :attr:`ADDRESS`; default is :attr:`ADDRESS`.
         Sensor.dataRate                  ``int`` Data rate in Hz; default is set by :meth:`.Sensor.Params_init`.
         HTU21D.resolution                ``int`` Resolution in bits; default is :attr:`.CFG_RESOLUTION_HUM12_TEMP14`.
         =============================    ==========================================================================================================
@@ -121,7 +121,7 @@ class HTU21D( Sensor, SerialBusDevice ):
         Also see: :meth:`.Sensor.Params_init`, :meth:`.SerialBusDevice.Params_init`. 
         """
 
-        paramDict["SerialBusDevice.deviceAddress"] = HTU21D.ADDRESS
+        paramDict["SerialBusDevice.address"] = HTU21D.ADDRESS
         if not ("HTU21D.resolution" in paramDict):
             paramDict["HTU21D.resolution"] = HTU21D.CFG_RESOLUTION_DEFAULT
         super().Params_init(paramDict)
@@ -133,7 +133,7 @@ class HTU21D( Sensor, SerialBusDevice ):
         defaults = dict()
         HTU21D.Params_init(defaults)
         # Open the bus device
-        paramDict["SerialBusDevice.deviceAddress"] = defaults["SerialBusDevice.deviceAddress"]
+        paramDict["SerialBusDevice.address"] = defaults["SerialBusDevice.address"]
         ret = SerialBusDevice.open(self, paramDict)
         # Reset sensor
         if (ret == ErrorCode.errOk):

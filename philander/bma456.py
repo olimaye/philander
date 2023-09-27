@@ -496,7 +496,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
         =============================    ==========================================================================================================
         Key name                         Value type, meaning and default
         =============================    ==========================================================================================================
-        SerialBusDevice.deviceAddress    ``int`` I2C serial device address, one of :attr:`ADRESSES_ALLOWED`; default is :attr:`ADRESSES_ALLOWED` ``[0]``.
+        SerialBusDevice.address          ``int`` I2C serial device address, one of :attr:`ADRESSES_ALLOWED`; default is :attr:`ADRESSES_ALLOWED` ``[0]``.
         Sensor.dataRange                 ``int`` Measurement range in milli-g; default corresponds to :attr:`.BMA456_CNT_ACC_RANGE_DEFAULT`.
         Sensor.dataRate                  ``int`` Data rate in Hz; default corresponds to :attr:`.BMA456_CNT_ACC_CONF_ODR_DEFAULT`.
         BMA456.INT1_IO_CTRL              ``int`` Content of the INT1_IO_CTRL register; default is :attr:`.BMA456_CNT_INT1_IO_CTRL_DEFAULT`.
@@ -513,7 +513,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
         All other BMA456.int1.gpio.* and BMA456.int1.gpio.* settings as documented at :meth:`.GPIO.Params_init`.
         ===========================================================================================================================================
         
-        For the ``SerialBusDevice.deviceAddress`` value, also 0 or 1
+        For the ``SerialBusDevice.address`` value, also 0 or 1
         can be specified alternatively to the absolute addresses to reflect
         the level of the ``SDO`` pin. In this case, 0 will be mapped to
         0x18, while 1 maps to 0x19.
@@ -521,13 +521,13 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
         Also see: :meth:`.Sensor.Params_init`, :meth:`.SerialBusDevice.Params_init`, :meth:`.GPIO.Params_init`. 
         """
         # Set defaults, where necessary
-        if not ("SerialBusDevice.deviceAddress" in paramDict):
-            paramDict["SerialBusDevice.deviceAddress"] = BMA456.ADRESSES_ALLOWED[0]
+        if not ("SerialBusDevice.address" in paramDict):
+            paramDict["SerialBusDevice.address"] = BMA456.ADRESSES_ALLOWED[0]
         else:
-            da = paramDict["SerialBusDevice.deviceAddress"]
+            da = paramDict["SerialBusDevice.address"]
             if not (da in BMA456.ADRESSES_ALLOWED):
                 da = BMA456.ADRESSES_ALLOWED[da!=0]   
-                paramDict["SerialBusDevice.deviceAddress"] = da
+                paramDict["SerialBusDevice.address"] = da
         if not ("Sensor.dataRange" in paramDict):
             paramDict["Sensor.dataRange"], _ = BMA456.dictRange.getValue( BMA456_Reg.BMA456_CNT_ACC_RANGE_DEFAULT )
         if not ("Sensor.dataRate" in paramDict):
@@ -594,7 +594,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
             result = ErrorCode.errResourceConflict
         else:
             if (result == ErrorCode.errOk):
-                paramDict["SerialBusDevice.deviceAddress"] = paramDict.get("SerialBusDevice.deviceAddress", BMA456.ADRESSES_ALLOWED[0])
+                paramDict["SerialBusDevice.address"] = paramDict.get("SerialBusDevice.address", BMA456.ADRESSES_ALLOWED[0])
                 result = SerialBusDevice.open(self, paramDict)
             if (result == ErrorCode.errOk):
                 # Ramp-up the chip

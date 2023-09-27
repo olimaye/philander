@@ -27,7 +27,7 @@ class SimDev():
     Remember that each :class:`serialbus.SerialDevice` must be registered
     with a :class:`serialbus.SerialBus` by calling its :meth:`serialbus.SerialBus.attach`
     method. The simulative serial bus implementation uses the
-    :attr:`serialbus.SerialDevice.deviceAddress` attribute to identify
+    :attr:`serialbus.SerialDevice.address` attribute to identify
     the addressed device and then looks up its ``SerialBusDevice.sim``
     attribute to retrieve the serial simulation for that device.
     

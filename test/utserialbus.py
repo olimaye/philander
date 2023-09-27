@@ -11,10 +11,10 @@ class TestSerialBus( unittest.TestCase ):
         self.assertIsNotNone( bus )
         
         params = {\
-            "SerialBus.busDesignator":   1,
+            "SerialBus.designator":   1,
             }
         SerialBus.Params_init( params )
-        self.assertEqual( params["SerialBus.busDesignator"], 1 )
+        self.assertEqual( params["SerialBus.designator"], 1 )
         
         self.assertEqual( bus.isOpen(), ErrorCode.errUnavailable )
         err = bus.open(params)
@@ -62,10 +62,10 @@ class TestSerialBus( unittest.TestCase ):
         dev = SerialBusDevice()
         self.assertIsNotNone( dev )
         params = {\
-            "SerialBus.busDesignator":   1,
+            "SerialBus.designator":   1,
             }
         SerialBusDevice.Params_init( params )
-        self.assertEqual( params["SerialBus.busDesignator"], 1 )
+        self.assertEqual( params["SerialBus.designator"], 1 )
         err = dev.open(params)
         self.assertEqual( err, ErrorCode.errOk )
         self.assertTrue( "SerialBusDevice.bus" in params )

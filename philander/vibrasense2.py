@@ -41,14 +41,14 @@ class VibraSense2( EventEmitter, Sensor, Interruptable, SerialBusDevice):
         =============================    ==========================================================================================================
         Key name                         Value type, meaning and default
         =============================    ==========================================================================================================
-        SerialBusDevice.deviceAddress    ``int`` I2C serial device address, must be :attr:`ADDRESS`; default is :attr:`ADDRESS`.
+        SerialBusDevice.address          ``int`` I2C serial device address, must be :attr:`ADDRESS`; default is :attr:`ADDRESS`.
         Sensor.dataRate                  ``int`` Data rate in Hz; default is set by :meth:`.Sensor.Params_init`.
         =============================    ==========================================================================================================
         
         Also see: :meth:`.Sensor.Params_init`, :meth:`.SerialBusDevice.Params_init`. 
         """
 
-        paramDict["SerialBusDevice.deviceAddress"] = VibraSense2.ADDRESSES_ALLOWED[0]
+        paramDict["SerialBusDevice.address"] = VibraSense2.ADDRESSES_ALLOWED[0]
         super().Params_init(paramDict)
         return None
 

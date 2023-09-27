@@ -466,7 +466,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
         =================================    ==========================================================================================================
         Key name                             Value type, meaning and default
         =================================    ==========================================================================================================
-        SerialBusDevice.deviceAddress        ``int`` I2C serial device address; default is :attr:`ADDRESSES_ALLOWED` [0].
+        SerialBusDevice.address              ``int`` I2C serial device address; default is :attr:`ADDRESSES_ALLOWED` [0].
         Charger.Comm.Mode                    ``int`` Communication mode; default is :attr:`.CFG_COMM_MODE_DEFAULT`.
         Charger.DisIBS                       ``int`` ; default is :attr:`.CFG_DISIBS_DEFAULT`.
         Charger.Mode                         ``int`` ; default is :attr:`.CFG_MODE_DEFAULT`.
@@ -494,7 +494,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
         Also see: :meth:`.Charger.Params_init`, :meth:`.SerialBusDevice.Params_init`, :meth:`.GPIO.Params_init`. 
         """
         # Override default base class parameter: serial bus device address
-        paramDict["SerialBusDevice.deviceAddress"] = MAX77960.ADRESSES_ALLOWED[0]
+        paramDict["SerialBusDevice.address"] = MAX77960.ADRESSES_ALLOWED[0]
         # If not present, add the comm.mode and set it to I2C (non-default)
         key = "Charger.Comm.Mode"
         if not key in paramDict:
@@ -525,7 +525,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
         defParam = {}
         MAX77960.Params_init( defParam )
         # Open the bus device
-        paramDict["SerialBusDevice.deviceAddress"] = MAX77960.ADRESSES_ALLOWED[0]
+        paramDict["SerialBusDevice.address"] = MAX77960.ADRESSES_ALLOWED[0]
         ret = SerialBusDevice.open(self, paramDict)
         # Configure the sensor
         if (ret == ErrorCode.errOk):

@@ -51,14 +51,14 @@ class SerialBusDevice( Module ):
     
     def __init__(self):
         self.serialBus   = None
-        self.deviceAddress = SerialBusDevice.DEFAULT_ADDRESS
+        self.address = SerialBusDevice.DEFAULT_ADDRESS
 
     @classmethod
     def Params_init( cls, paramDict ):
         """Initialize the set of configuration parameters with supported options.
         Supported configuration key names and their meanings are:
         
-        * ``SerialBusDevice.deviceAddress``: The address of the device.\
+        * ``SerialBusDevice.address``: The address of the device.\
         The value should be given as an integer number.\
         Must be unique in that, a serial bus does not allow two devices\
         with the same address being attached.\
@@ -71,7 +71,7 @@ class SerialBusDevice( Module ):
         :returns: none
         :rtype: None
         """
-        paramDict["SerialBusDevice.deviceAddress"] = paramDict.get("SerialBusDevice.deviceAddress", SerialBusDevice.DEFAULT_ADDRESS)
+        paramDict["SerialBusDevice.address"] = paramDict.get("SerialBusDevice.address", SerialBusDevice.DEFAULT_ADDRESS)
         SerialBus.Params_init(paramDict)
         return None
     
@@ -102,15 +102,15 @@ class SerialBusDevice( Module ):
         """
         result = ErrorCode.errOk
         if (self.serialBus is None ):
-            adr = paramDict.get("SerialBusDevice.deviceAddress", SerialBusDevice.DEFAULT_ADDRESS)
+            adr = paramDict.get("SerialBusDevice.address", SerialBusDevice.DEFAULT_ADDRESS)
             if not isinstance(adr, int):
                 try:
                     adr = int( adr, 0 )
                 except ValueError as e:
                     adr = SerialBusDevice.DEFAULT_ADDRESS
                     
-            paramDict["SerialBusDevice.deviceAddress"] = adr
-            self.deviceAddress = adr
+            paramDict["SerialBusDevice.address"] = adr
+            self.address = adr
             if ("SerialBusDevice.bus" in paramDict):
                 sb = paramDict["SerialBusDevice.bus"]
                 if not( isinstance(sb, SerialBus)):
@@ -391,7 +391,7 @@ class _SerialBusIface( Module ):
     """
 
     def __init__(self):
-        self.busDesignator = ""
+        self.designator = ""
         self.provider = SerialBusProvider.NONE
         self.type = SerialBusType.I2C
         self._attachedDevices = list()
@@ -399,10 +399,10 @@ class _SerialBusIface( Module ):
     @classmethod
     def Params_init( cls, paramDict ):
         # Fill paramDict with defaults
-        if not ("SerialBus.busType" in paramDict):
-            paramDict["SerialBus.busType"] = SerialBusType.I2C
-        if not ("SerialBus.busDesignator" in paramDict):
-            paramDict["SerialBus.busDesignator"] = "/dev/i2c-1"
+        if not ("SerialBus.type" in paramDict):
+            paramDict["SerialBus.type"] = SerialBusType.I2C
+        if not ("SerialBus.designator" in paramDict):
+            paramDict["SerialBus.designator"] = "/dev/i2c-1"
         if not ("SerialBus.provider" in paramDict):
             paramDict["SerialBus.provider"] = SerialBusProvider.AUTO
         return None
@@ -419,17 +419,17 @@ class _SerialBusIface( Module ):
             self.provider = SerialBusProvider.NONE
             ret = ErrorCode.errInvalidParameter
 
-        if "SerialBus.busType" in paramDict:
-            self.type = paramDict["SerialBus.busType"]
+        if "SerialBus.type" in paramDict:
+            self.type = paramDict["SerialBus.type"]
         else:
-            self.type = defaults["SerialBus.busType"]
-            paramDict["SerialBus.busType"] = self.type
+            self.type = defaults["SerialBus.type"]
+            paramDict["SerialBus.type"] = self.type
 
-        if "SerialBus.busDesignator" in paramDict:
-            self.busDesignator = paramDict["SerialBus.busDesignator"]
+        if "SerialBus.designator" in paramDict:
+            self.designator = paramDict["SerialBus.designator"]
         else:
-            self.busDesignator = defaults["SerialBus.busDesignator"]
-            paramDict["SerialBus.busDesignator"] = self.busDesignator
+            self.designator = defaults["SerialBus.designator"]
+            paramDict["SerialBus.designator"] = self.designator
         return ret
 
     def close(self):
@@ -742,11 +742,11 @@ class _SerialBus_SMBus( _SerialBusIface ):
                 elif (self.provider == SerialBusProvider.SMBUS2):
                     from smbus2 import SMBus, i2c_msg
                     self.msg = i2c_msg
-                self.bus = SMBus( self.busDesignator )
+                self.bus = SMBus( self.designator )
                 ret = ErrorCode.errOk
             except Exception as exc:
                 ret = ErrorCode.errInternal
-                raise SystemError("Couldn't initialize serial bus ["+str(self.busDesignator)+"]. Designator right? Access to interface granted?") from exc
+                raise SystemError("Couldn't initialize serial bus ["+str(self.designator)+"]. Designator right? Access to interface granted?") from exc
         return ret
 
     def close( self ):
@@ -836,7 +836,7 @@ class _SerialBus_Periphery( _SerialBusIface ):
         ret = super().open(paramDict)
         if (ret == ErrorCode.errOk):
             from periphery import I2C
-            self.bus = I2C( self.busDesignator )
+            self.bus = I2C( self.designator )
         return ret
     
     def close(self):
@@ -929,7 +929,7 @@ class _SerialBus_Sim( _SerialBusIface ):
     def _findSim( self, devAdr ):
         sim = None
         for dev in self._attachedDevices:
-            if (dev.deviceAddress == devAdr):
+            if (dev.address == devAdr):
                 if (hasattr(dev, 'sim')):
                     sim = dev.sim
                 else:
@@ -1086,9 +1086,9 @@ class SerialBus( _SerialBusIface ):
         """Initialize parameters with default values.
         Supported key names and their meanings are:
         
-        * ``SerialBus.busType``: A :class:`SerialBusType` to indicate the\
+        * ``SerialBus.type``: A :class:`SerialBusType` to indicate the\
         serial protocol. The default is :attr:`SerialBusType.I2C`.
-        * ``SerialBus.busDesignator``: A string or number to identify\
+        * ``SerialBus.designator``: A string or number to identify\
         the bus port, such as "/dev/i2c-3" or 1. Defaults to "/dev/i2c-1".
         * ``SerialBus.provider``: A :class:`SerialBusProvider` indicating the\
         implementation to use. Defaults to :attr:`SerialBusProvider.AUTO`.
@@ -1127,10 +1127,10 @@ class SerialBus( _SerialBusIface ):
             else:
                 provider = defaults["SerialBus.provider"]
             if (provider == SerialBusProvider.AUTO):
-                if "SerialBus.busType" in paramDict:
-                    busType = paramDict["SerialBus.busType"]
+                if "SerialBus.type" in paramDict:
+                    busType = paramDict["SerialBus.type"]
                 else:
-                    busType = defaults["SerialBus.busType"]
+                    busType = defaults["SerialBus.type"]
                 provider = self._detectProvider( busType )
                 paramDict["SerialBus.provider"] = provider
             
@@ -1291,7 +1291,7 @@ class SerialBus( _SerialBusIface ):
         and an error code indicating success or the reason of failure.
         :rtype: int, ErrorCode
         """
-        return self._impl.readByteRegister( device.deviceAddress, reg )
+        return self._impl.readByteRegister( device.address, reg )
 
     def writeByteRegister( self, device, reg, data8 ):
         """Assuming a register-type access, this function writes a byte register.
@@ -1309,7 +1309,7 @@ class SerialBus( _SerialBusIface ):
         :return: An error code indicating success or the reason of failure.
         :rtype: ErrorCode
         """
-        return self._impl.writeByteRegister(device.deviceAddress, reg, data8)
+        return self._impl.writeByteRegister(device.address, reg, data8)
 
     def readWordRegister( self, device, reg ):
         """Provide register read access for 16 bit data words.
@@ -1327,7 +1327,7 @@ class SerialBus( _SerialBusIface ):
         and an error code indicating success or the reason of failure.
         :rtype: int, ErrorCode
         """
-        return self._impl.readWordRegister( device.deviceAddress, reg )
+        return self._impl.readWordRegister( device.address, reg )
 
     def writeWordRegister( self, device, reg, data16 ):
         """Assuming a register-type access, this function writes a word register.
@@ -1345,7 +1345,7 @@ class SerialBus( _SerialBusIface ):
         :return: An error code indicating success or the reason of failure.
         :rtype: ErrorCode
         """
-        return self._impl.writeWordRegister( device.deviceAddress, reg, data16 )
+        return self._impl.writeWordRegister( device.address, reg, data16 )
 
     def readDWordRegister( self, device, reg ):
         """Read a 32-bit word from the given register.
@@ -1364,7 +1364,7 @@ class SerialBus( _SerialBusIface ):
         and an error code indicating success or the reason of failure.
         :rtype: int, ErrorCode
         """
-        return self._impl.readDWordRegister( device.deviceAddress, reg )
+        return self._impl.readDWordRegister( device.address, reg )
 
     def writeDWordRegister( self, device, reg, data32 ):
         """Write a 32 bit double-word to the given register.
@@ -1382,7 +1382,7 @@ class SerialBus( _SerialBusIface ):
         :return: An error code indicating success or the reason of failure.
         :rtype: ErrorCode
         """
-        return self._impl.writeDWordRegister( device.deviceAddress, reg, data32 )
+        return self._impl.writeDWordRegister( device.address, reg, data32 )
     
     def readBufferRegister( self, device, reg, length ):
         """Multi-byte read access to a register-type serial bus device.
@@ -1406,7 +1406,7 @@ class SerialBus( _SerialBusIface ):
         and an error code indicating success or the reason of failure.
         :rtype: int[], ErrorCode
         """
-        return self._impl.readBufferRegister( device.deviceAddress, reg, length )
+        return self._impl.readBufferRegister( device.address, reg, length )
 
     def writeBufferRegister( self, device, reg, buffer ):
         """Assuming a register-type access, this function writes a buffer\
@@ -1425,7 +1425,7 @@ class SerialBus( _SerialBusIface ):
         :return: An error code indicating success or the reason of failure.
         :rtype: ErrorCode
         """
-        return self._impl.writeBufferRegister( device.deviceAddress, reg, buffer )
+        return self._impl.writeBufferRegister( device.address, reg, buffer )
 
     def readBuffer( self, device, length ):
         """Directly reads multiple bytes from the given device.
@@ -1439,7 +1439,7 @@ class SerialBus( _SerialBusIface ):
         and an error code indicating success or the reason of failure.
         :rtype: int[], ErrorCode
         """
-        return self._impl.readBuffer( device.deviceAddress, length )
+        return self._impl.readBuffer( device.address, length )
 
     def writeBuffer( self, device, buffer ):
         """Writes the given data to the device specified.
@@ -1454,7 +1454,7 @@ class SerialBus( _SerialBusIface ):
         :return: An error code indicating success or the reason of failure.
         :rtype: ErrorCode
         """
-        return self._impl.writeBuffer( device.deviceAddress, buffer )
+        return self._impl.writeBuffer( device.address, buffer )
     
     def readWriteBuffer( self, device, inLength, outBuffer ):
         """Writes and reads a number of bytes.
@@ -1469,4 +1469,4 @@ class SerialBus( _SerialBusIface ):
         and an error code indicating success or the reason of failure.
         :rtype: int[], ErrorCode
         """
-        return self._impl.readWriteBuffer( device.deviceAddress, inLength, outBuffer )
+        return self._impl.readWriteBuffer( device.address, inLength, outBuffer )
