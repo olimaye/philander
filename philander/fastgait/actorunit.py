@@ -15,7 +15,7 @@ from enum import auto, unique, Enum, IntEnum, IntFlag
 
 from philander.actuator import Actuator, Direction
 from philander.ble import BLE
-from philander.configurable import Configuration as BaseConfiguration, Configurable
+from philander.configurable import ConfigItem, Configuration as BaseConfiguration, Configurable
 from philander.primitives import Percentage
 from philander.systypes import ErrorCode
 
@@ -159,7 +159,7 @@ class ActorUnit( BLE, Actuator, Configurable ):
         # Initialize base class attributes
         super().__init__()
         # Create instance attributes
-        self.vibConfig = Configuration()
+        self.vibConfig = Configuration( ConfigItem.implicit )
         self.dataBuf = bytearray( 11 )
 
     @classmethod
@@ -208,6 +208,21 @@ class ActorUnit( BLE, Actuator, Configurable ):
         super(ActorUnit, cls).Params_init( paramDict )
         return None
     
+    @classmethod
+    def _extractParameterInt( cls, val, default, lowLimit=0, highLimit=0xFFFF ):
+        err = ErrorCode.errOk
+        if not isinstance(val, int):
+            try:
+                intValue = int( val, 0 )
+            except ValueError as e:
+                intValue = default
+                err = ErrorCode.errInvalidParameter
+        if (intValue < lowLimit) or (intValue > highLimit):
+            intValue = default
+            result = ErrorCode.errInvalidParameter
+        return intValue, err
+    
+    
     def open( self, paramDict ):
         """Initialize an instance and prepare it for use.
 
@@ -223,60 +238,58 @@ class ActorUnit( BLE, Actuator, Configurable ):
         ActorUnit.Params_init( defParam )
         
         sKey = "ActorUnit.delay"
-        paramDict[sKey] = paramDict.get( sKey, defParam[sKey] )
-        val = paramDict[sKey]
-        if (val < 0) or (val > 0xFFFF):
-            val = defParam[sKey]
-            paramDict[sKey] = val
-            result = ErrorCode.errInvalidParameter
+        val = paramDict.get( sKey, defParam[sKey] )
+        val, result = ActorUnit._extractParameterInt( val, defParam[sKey], 0, 0xFFFF )
+        paramDict[sKey] = val
         self.vibConfig.delay = val
             
         sKey = "ActorUnit.pulsePeriod"
-        paramDict[sKey] = paramDict.get( sKey, defParam[sKey] )
-        val = paramDict[sKey]
-        if (val < 0) or (val > 0xFFFF):
-            val = defParam[sKey]
-            paramDict[sKey] = val
-            result = ErrorCode.errInvalidParameter
+        val = paramDict.get( sKey, defParam[sKey] )
+        val, result = ActorUnit._extractParameterInt( val, defParam[sKey], 0, 0xFFFF )
+        paramDict[sKey] = val
         self.vibConfig.period = val
             
         sKey = "ActorUnit.pulseOn"
-        paramDict[sKey] = paramDict.get( sKey, defParam[sKey] )
-        val = paramDict[sKey]
-        if (val < 0) or (val > self.vibConfig.period):
-            val = self.vibConfig.period / 2
-            paramDict[sKey] = val
-            result = ErrorCode.errInvalidParameter
+        val = paramDict.get( sKey, defParam[sKey] )
+        val, result = ActorUnit._extractParameterInt( val, self.vibConfig.period/2, 0, self.vibConfig.period )
+        paramDict[sKey] = val
         self.vibConfig.onDuration = val
 
         sKey = "ActorUnit.pulseCount"
-        paramDict[sKey] = paramDict.get( sKey, defParam[sKey] )
-        val = paramDict[sKey]
-        if (val < 0) or (val > 0xFF):
-            val = defParam[sKey]
-            paramDict[sKey] = val
-            result = ErrorCode.errInvalidParameter
+        val = paramDict.get( sKey, defParam[sKey] )
+        val, result = ActorUnit._extractParameterInt( val, defParam[sKey], 0, 0xFF )
+        paramDict[sKey] = val
         self.vibConfig.numPulses = val
             
         sKey = "ActorUnit.pulseIntensity"
-        paramDict[sKey] = paramDict.get( sKey, defParam[sKey] )
-        val = paramDict[sKey]
-        if (val < Intensity.MIN) or (val > Intensity.MAX):
-            val = defParam[sKey]
-            paramDict[sKey] = val
-            result = ErrorCode.errInvalidParameter
+        val = paramDict.get( sKey, defParam[sKey] )
+        val, result = ActorUnit._extractParameterInt( val, defParam[sKey], Intensity.MIN, Intensity.MAX )
+        paramDict[sKey] = val
         self.vibConfig.intensity = val
             
         sKey = "ActorUnit.motors"
-        paramDict[sKey] = paramDict.get( sKey, defParam[sKey] )
-        val = paramDict[sKey]
+        val = paramDict.get( sKey, defParam[sKey] )
+        if isinstance(val, Motor):
+            pass
+        elif isinstance(val, int):
+            val = Motor(val)
+        else:
+            try:
+                val = int( val, 0 )
+            except ValueError as e:
+                val = defParam[sKey]
+                err = ErrorCode.errInvalidParameter
         if (val < Motor.NONE) or (val > Motor.ALL):
             val = defParam[sKey]
-            paramDict[sKey] = val
             result = ErrorCode.errInvalidParameter
+        paramDict[sKey] = val
         self.vibConfig.motors = val
-            
+        
         if (result == ErrorCode.errOk):
+            sKey = "BLE.client.name"
+            paramDict[sKey] = paramDict.get( sKey, defParam[sKey] )
+            sKey = "BLE.characteristic.uuid"
+            paramDict[sKey] = paramDict.get( sKey, defParam[sKey] )
             result = super().open( paramDict )
         
         #self.couple()

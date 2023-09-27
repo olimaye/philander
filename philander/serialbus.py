@@ -102,8 +102,15 @@ class SerialBusDevice( Module ):
         """
         result = ErrorCode.errOk
         if (self.serialBus is None ):
-            paramDict["SerialBusDevice.deviceAddress"] = paramDict.get("SerialBusDevice.deviceAddress", SerialBusDevice.DEFAULT_ADDRESS)
-            self.deviceAddress = paramDict["SerialBusDevice.deviceAddress"]
+            adr = paramDict.get("SerialBusDevice.deviceAddress", SerialBusDevice.DEFAULT_ADDRESS)
+            if not isinstance(adr, int):
+                try:
+                    adr = int( adr, 0 )
+                except ValueError as e:
+                    adr = SerialBusDevice.DEFAULT_ADDRESS
+                    
+            paramDict["SerialBusDevice.deviceAddress"] = adr
+            self.deviceAddress = adr
             if ("SerialBusDevice.bus" in paramDict):
                 sb = paramDict["SerialBusDevice.bus"]
                 if not( isinstance(sb, SerialBus)):

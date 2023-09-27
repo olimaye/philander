@@ -386,7 +386,8 @@ class GPIO( Module, Interruptable ):
         """
         ret = self.registerInterruptHandler(None)
         if self._implpak == GPIO._IMPLPAK_RPIGPIO:
-            self._factory.cleanup(self._designator)
+            if not self._designator is None:
+                self._factory.cleanup(self._designator)
         elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
             self.pin.close()
         elif self._implpak == GPIO._IMPLPAK_PERIPHERY:

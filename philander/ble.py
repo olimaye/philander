@@ -111,11 +111,16 @@ class BLE( Module, Interruptable ):
         :rtype: ErrorCode
         """
         result = ErrorCode.errOk
-        paramDict["BLE.discovery.timeout"] = paramDict.get("BLE.discovery.timeout", BLE.DISCOVERY_TIMEOUT )
-        val = paramDict["BLE.discovery.timeout"]
+        val = paramDict.get("BLE.discovery.timeout", BLE.DISCOVERY_TIMEOUT )
+        if not isinstance(val, int):
+            try:
+                val = float( val )
+            except ValueError as e:
+                val = BLE.DISCOVERY_TIMEOUT
+                result = ErrorCode.errInvalidParameter
         if val < 0:
             val = BLE.DISCOVERY_TIMEOUT
-            paramDict["BLE.discovery.timeout"] = val
+        paramDict["BLE.discovery.timeout"] = val
         self.bleDiscoveryTimeout = val
 
         self.bleClientName = paramDict.get("BLE.client.name")
@@ -130,7 +135,7 @@ class BLE( Module, Interruptable ):
             result = self.decouple()
         
         self._evtEnabled = True
-
+        
         #self.couple()
         return result
 

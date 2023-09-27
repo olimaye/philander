@@ -25,6 +25,7 @@ class ConfigItem(Enum):
     fifo               Fifo low/hogh water marks, empty signals etc.
     eventArm           Arming the event machine, enabling interrupt(s).
     eventCondition     Thresholds and counts to define event conditions.
+    implicit           Configured property is implicitly given by the enclosing type.
     ===============    ==============================================================
     """
     rate                 = auto()
@@ -33,6 +34,7 @@ class ConfigItem(Enum):
     fifo                 = auto()
     eventArm             = auto()
     eventCondition       = auto()
+    implicit             = auto()
 
 @dataclass
 class Configuration:
@@ -61,6 +63,7 @@ class Configuration:
     ConfigItem.fifo              fifo
     ConfigItem.eventArm          value
     ConfigItem.eventCondition    to be defined in subclass
+    ConfigItem.implicit          to be defined in subclass
     =========================    ===========================
     """
     value:  int = 1

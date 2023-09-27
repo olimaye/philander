@@ -4,7 +4,7 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Level", "Capacity", "Status"]
 
-from enum import Enum, unique
+from enum import Enum, unique, Flag
 
 from .primitives import Percentage
 
@@ -22,24 +22,13 @@ class Level(Enum):
     deepDischarge   = min
     invalid         = Percentage.invalid
 
-    toStr = {
-        min     : 'minimum',
-        empty   : 'empty',
-        low     : 'low',
-        medium  : 'medium',
-        good    : 'good',
-        full    : 'full',
-        max     : 'maximum',
-        invalid : 'invalid',
-    }
-    
 class Capacity(int):
     """Absolute capacity of a battery in mAh
     """
     invalid = 0xFFFF
 
 
-class Status( int ):
+class Status( Flag ):
     """Container class to reflect the battery status
     """
     normal               = 0x0000
@@ -74,17 +63,3 @@ class Status( int ):
     
     unknown              = 0xFFFF
     """Battery status information is unavailable"""
-
-    toStr = {
-        normal        : 'normal',
-        removed       : 'removed',
-        broken        : 'broken',
-        empty         : 'empty',
-        low           : 'low',
-        overvoltage   : 'overvoltage',
-        overcurrent   : 'overcurrent',
-        cold          : 'cold',
-        hot           : 'hot',
-        coldOrHot   : 'cold or hot',
-        unknown       : 'unknown',
-    }

@@ -204,9 +204,9 @@ class SystemManagement( Module, EventEmitter ):
 
         # Event registration, monitor thread and coupling
         if (result == ErrorCode.errOk):
-            self.actorUnit.on( BleEvent.bleDiscovering, self.handleBleDiscovering )
-            self.actorUnit.on( BleEvent.bleConnected, self.handleBleConnected )
-            self.actorUnit.on( BleEvent.bleDisconnected, self.handleBleDisconnected )
+            self.actorUnit.registerInterruptHandler( onEvent = BleEvent.bleDiscovering, handler=self.handleBleDiscovering )
+            self.actorUnit.registerInterruptHandler( onEvent = BleEvent.bleConnected, handler=self.handleBleConnected )
+            self.actorUnit.registerInterruptHandler( onEvent = BleEvent.bleDisconnected, handler=self.handleBleDisconnected )
             self.monitor.start()
             result = self.actorUnit.couple()
             
@@ -250,7 +250,7 @@ class SystemManagement( Module, EventEmitter ):
         self._systemJob = SystemManagement._SYSJOB_NONE
         self._sysjobLock.release()
 
-        # Note that the BLE status is maintained in a separate loop
+        oldStatus = None   # Note that the BLE status is maintained in a separate loop
         batStatus = None
         chgStatus = None
         dcStatus  = None
@@ -278,7 +278,7 @@ class SystemManagement( Module, EventEmitter ):
                     self._displayTempStatus( tmpStatus )
                     if tmpStatus.value & TemperatureRating.coldOrHot.value:
                         self.emit( SystemManagement.EVT_TEMP_CRITICAL )
-                    elif oldStatus.value & TemperatureRating.coldOrHot.value:
+                    elif (not (oldStatus is None)) and (oldStatus.value & TemperatureRating.coldOrHot.value):
                         self.emit( SystemManagement.EVT_TEMP_NORMAL )
                 
                 val  = self.charger.getDCStatus()
@@ -288,7 +288,7 @@ class SystemManagement( Module, EventEmitter ):
                     self._displayDcStatus( dcStatus )
                     if dcStatus == DCStatus.valid:
                         self.emit( SystemManagement.EVT_DC_PLUGGED )
-                    elif oldStatus == DCStatus.valid:
+                    elif (oldStatus is None) or (oldStatus == DCStatus.valid):
                         startTime = time.time()
                         self.emit( SystemManagement.EVT_DC_UNPLUGGED )
                         
@@ -344,19 +344,14 @@ class SystemManagement( Module, EventEmitter ):
         logging.info('Management thread stopped.')
     
     
-    def _combineTempStatus( self, chgTemp: TemperatureRating, batTemp: BatStatus ):
+    def _combineTempStatus( self, chgTemp: TemperatureRating, batTemp: TemperatureRating ):
         ret = TemperatureRating.unknown
         # Prioritize battery temperature information
-        if batTemp != BatStatus.unknown:
-            batTemp &= BatStatus.problemThermal
-            if batTemp == BatStatus.coldOrHot:
-                ret = TemperatureRating.coldOrHot
-            elif batTemp == BatStatus.hot:
-                ret = TemperatureRating.hot
-            elif batTemp == BatStatus.cold:
-                ret = TemperatureRating.cold
-            elif chgTemp == TemperatureRating.unknown:
-                ret = TemperatureRating.ok
+        if batTemp != TemperatureRating.unknown:
+            if batTemp in [TemperatureRating.cold, TemperatureRating.hot, TemperatureRating.coldOrHot]:
+                ret = batTemp
+            elif chgTemp in [TemperatureRating.unknown, TemperatureRating.ok]:
+                ret = batTemp
             else:
                 ret = chgTemp
         else:
@@ -364,7 +359,7 @@ class SystemManagement( Module, EventEmitter ):
         return ret
         
     def _displayTempStatus( self, newStatus: TemperatureRating ):
-        logging.info('TMP state: %s', TemperatureRating.toStr.get( newStatus, 'UNKNOWN' ))
+        logging.info('TMP state: %s', str(newStatus) )
         if self.tmpLED:
             if newStatus == TemperatureRating.ok:
                 self.tmpLED.off()
@@ -377,11 +372,11 @@ class SystemManagement( Module, EventEmitter ):
         return None
 
     def _displayBatStatus( self, newStatus: BatStatus ):
-        logging.info('BAT state: %s', BatStatus.toStr.get( newStatus, 'UNKNOWN' ))
+        logging.info('BAT state: %s', str(newStatus))
         return None
         
     def _displayBleStatus( self, newStatus: ConnectionState ):
-        logging.info('BLE state: %s', ConnectionState.toStr.get( newStatus, 'UNKNOWN'))
+        logging.info('BLE state: %s', str(newStatus) )
         if self.bleLED:
             if newStatus == ConnectionState.connected:
                 self.bleLED.on()
@@ -392,7 +387,7 @@ class SystemManagement( Module, EventEmitter ):
         return None
         
     def _displayDcStatus( self, newStatus: DCStatus ):
-        logging.info(' DC state: %s', DCStatus.toStr.get( newStatus, 'UNKNOWN' ))
+        logging.info(' DC state: %s', str(newStatus) )
         if self.dcLED:
             if newStatus == DCStatus.valid:
                 self.dcLED.on()
@@ -403,7 +398,7 @@ class SystemManagement( Module, EventEmitter ):
         return None
         
     def _displayChgStatus( self, newStatus: ChgStatus ):
-        logging.info('CHG state: %s', ChgStatus.toStr.get( newStatus, 'UNKNOWN' ))
+        logging.info('CHG state: %s', str(newStatus) )
         if self.chgLED:
             if newStatus in (ChgStatus.done, ChgStatus.topOff, ):
                 self.chgLED.on()
@@ -420,7 +415,7 @@ class SystemManagement( Module, EventEmitter ):
         return None
         
     def _displayBatLvlStatus( self, newStatus: Level ):
-        logging.info('BAT Level: %s', Level.toStr.get( newStatus, 'UNKNOWN' ))
+        logging.info('BAT Level: %s', str(newStatus) )
         if self.batLED:
             if newStatus in (Level.min, Level.empty, ):
                 self.batLED.blink( cycle_length=LED.CYCLEN_FAST )
@@ -441,14 +436,14 @@ class SystemManagement( Module, EventEmitter ):
             self._sysjobLock.release()
             
         
-    def handleBleDiscovering( self ):
+    def handleBleDiscovering( self, *args ):
         self._displayBleStatus( ConnectionState.discovering )
         
-    def handleBleConnected( self ):
+    def handleBleConnected( self, *args ):
         self._displayBleStatus( ConnectionState.connected )
         self.emit( SystemManagement.EVT_BLE_CONNECTED )
         
-    def handleBleDisconnected( self ):
+    def handleBleDisconnected( self, *args ):
         self._displayBleStatus( ConnectionState.disconnected )
         self.emit( SystemManagement.EVT_BLE_DISCONNECTED )
         # Start re-discovering
@@ -457,7 +452,7 @@ class SystemManagement( Module, EventEmitter ):
             self._systemJob = self._systemJob | SystemManagement._SYSJOB_AU_COUPLE
             self._sysjobLock.release()
             
-    def uiHandleButtonPressed( self ):
+    def uiHandleButtonPressed( self, *args ):
         logging.info('UI button pressed.')
         self.emit( SystemManagement.EVT_BUTTON_PRESSED )
         

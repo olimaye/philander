@@ -29,18 +29,6 @@ class Status(Enum):
     done       = auto()  # Charging done
     unknown    = auto()  # Status information unavailable, cannot be determined. 
     
-    toStr = {
-        off        : 'off',
-        preCharge  : 'preCharge',
-        trickle    : 'trickle',
-        fastCharge : 'fastCharge',
-        fastChargeConstCurrent    : 'fastChargeConstCurrent',
-        fastChargeConstVoltage    : 'fastChargeConstVoltage',
-        topOff    : 'topOff',
-        done       : 'done',
-        unknown    : 'unknown',
-    }
-    
 @unique
 class DCStatus(Enum):
     """Wrapper to hold status information of a DC supply.
@@ -52,13 +40,6 @@ class DCStatus(Enum):
     overvoltage    = auto() # Input supply present but voltage is way too high.
     unknown        = auto() # Status is unknown, cannot be determined
 
-    toStr = {
-        off            : 'off',
-        undervoltage   : 'under',
-        valid          : 'valid',
-        overvoltage    : 'over',
-    }
-
 class PowerSrc(Flag):
     """A power source describes a supplier of electrical energy that can\
     be used, e.g. to drive the system.
@@ -68,13 +49,6 @@ class PowerSrc(Flag):
     dc       = auto()  # dc supply
     bat      = auto()  # Battery
     dcBat    = dc | bat # Both, dc and Battery available
-
-    toStr = {
-        unknown  : 'unknown',
-        dc       : 'dc',
-        bat      : 'bat',
-        dcBat   : 'dc+bat',
-    }
 
 class TemperatureRating( Enum ):
     """This type qualitatively describes a temperature, e.g. of a chip.
@@ -88,17 +62,6 @@ class TemperatureRating( Enum ):
     coolOrWarm = (cool | warm)    # Not normal, but within range.
     coldOrHot  = (cold | hot)     # Outside the limits.
     unknown      = 0xFF             # Temperature is unknown, cannot be determined
-
-    toStr = {
-        cold        : 'cold',
-        cool        : 'cool',
-        ok          : 'ok',
-        warm        : 'warm',
-        hot         : 'hot',
-        coolOrWarm  : 'cool or warm',
-        coldOrHot   : 'cold or hot',
-        unknown     : 'unknown'
-    }
     
 @unique
 class ChargerError(Enum):
@@ -122,23 +85,6 @@ class ChargerError(Enum):
     batRemoved   = 43  # Battery is removed.
     timer        = 50  # General timer error.
     unknown      = auto()
-    
-    toStr = {
-        ok           : 'ok',
-        config       : 'config',
-        temp         : 'temp',
-        tempChg      : 'tempChg',
-        tempBat      : 'tempBat',
-        dc           : 'dc',
-        dcHigh       : 'dcHigh',
-        dcLow        : 'dcLow',
-        bat          : 'bat',
-        batLow       : 'batLow',
-        batBroken    : 'batBroken',
-        batRemoved   : 'batRemoved',
-        timer        : 'timer',
-        unknown      : 'unknown',
-    }
 
 @unique
 class EventSource(Flag):
@@ -161,23 +107,6 @@ class EventSource(Flag):
     all                     = 0x07FF
     none                    = 0x0000 # No interrupt fired
     unknown                 = 0x8000 # Unknown reason
-
-    int2Str = {
-        internal             : 'internal',
-        onOff                : 'onOff',
-        chargingPhase        : 'chargingPhase',
-        inputVoltage         : 'inputVoltage',
-        inputCurrentLimitOwn : 'inputCurrentLimitOwn',
-        inputCurrentLimitSrc : 'inputCurrentLimitSrc',
-        batteryTemperature   : 'batteryTemperature',
-        batteryOvercurrent   : 'batteryOvercurrent',
-        systemUndervoltage   : 'systemUndervoltage',
-        systemOvervoltage    : 'systemOvervoltage',
-        thermalShutdown      : 'thermalShutdown',
-        all                  : 'all',
-        none                 : 'none',
-        unknown              : 'unknown',
-    }
     
 @dataclass
 class EventContext( IntEventContext ):
