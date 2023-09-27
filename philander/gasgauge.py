@@ -241,6 +241,6 @@ class GasGauge():
         :rtype: String
         """
         lvl = self.getRatedSOC()
-        lvlStr = BatLevel.toStr.get( lvl, 'unknown' )
+        lvlStr = str( lvl )
         return lvlStr
 

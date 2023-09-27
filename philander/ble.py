@@ -36,12 +36,6 @@ class ConnectionState( Enum ):
     discovering  = auto()
     connected    = auto()
     
-    toStr = {
-        disconnected : 'Disconnected',
-        discovering  : 'Discovering',
-        connected    : 'Connected',
-    }
-        
 
 class BLE( Module, Interruptable ):
     """Implementation of an BLE device or subsystem.

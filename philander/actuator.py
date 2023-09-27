@@ -24,11 +24,6 @@ class Direction( Enum ):
     up                  = positive
     down                = negative
 
-    toStr = {
-        positive  : 'positive/counterclockwise/left/forth/up',
-        negative  : 'negative/clockwise/right/back/down',
-    }
-
 class Actuator():
     """Unified interface to parts and subsystems with mechanical capabilities.
     
