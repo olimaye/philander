@@ -98,6 +98,11 @@ def configure():
         default="fastgait.cfg",
         help="Configuration file name.",
         )
+    parser.add_argument(
+        "-o", "--output",
+        default="console",
+        help="Dump application log output to {console|file}.",
+        )
     
     options = parser.parse_args()
     
@@ -113,9 +118,13 @@ def configure():
     ### Logging
     nowStr = time.strftime('%Y%m%d-%H%M%S')
     # The general logging of application messages
-    fn = 'log/application-'+nowStr+'.log'
-    #logging.basicConfig( filename=fn, format='%(asctime)s %(levelname)s %(module)s: %(message)s', datefmt='%d.%m.%Y %H:%M:%S', level=options.loglevel.upper() )
-    logging.basicConfig( format='%(asctime)s %(levelname)s %(module)s: %(message)s', datefmt='%d.%m.%Y %H:%M:%S', level=options.loglevel.upper() )
+    sFormat = "%(asctime)s %(levelname)s %(module)s: %(message)s"
+    sDate = "%d.%m.%Y %H:%M:%S"
+    if (options.output.casefold()=="file".casefold()):
+        fn = 'log/application-'+nowStr+'.log'
+        logging.basicConfig( filename=fn, format=sFormat, datefmt=sDate, level=options.loglevel.upper() )
+    else:
+        logging.basicConfig( format=sFormat, datefmt=sDate, level=options.loglevel.upper() )
     logging.info( "Launching application." )
     logging.info( "Config file in use: %s", options.cfg )
     
