@@ -88,16 +88,18 @@ class Configuration( BaseConfiguration ):
 
     Pulses are emitted periodically in rectangle form and the low-level
     API allows to configure:
-        - the length of one period,
-        - the length of the on-part,
-        - an initial delay and
-        - the number of periods to run.
+    - the length of one period,
+    - the length of the on-part,
+    - an initial delay and
+    - the number of periods to run.
     
-                |< PULSE ON >|
-                _____________       _____________       ______     ON
-     ...........|            |______|            |______|     ...  OFF
+    ::
     
-    |<  DELAY  >|<      PERIOD     >|
+                    |< PULSE ON >|
+                    _____________       _____________       ______     ON
+         ...........|            |______|            |______|     ...  OFF
+        |<  DELAY  >|<      PERIOD     >|
+    
     """
     onDuration  : int = Default.PULSE_ON_DURATION
     """Length of the duty cycle, given in milliseconds."""
@@ -113,10 +115,11 @@ class Configuration( BaseConfiguration ):
     """Motor(s) to use for vibration. 0=none, 1=left, 2=right, 3=both.""" 
     resetTimer  : int = TimerControl.DEFAULT
     """Whether or not to reset the pulse timer. 0=keep, 1=reset."""
-    
-     
+
+
 class ActorUnit( BLE, Actuator, Configurable ):
     """Implementation of the vibration belt driver, also called ActorUnit.
+    
     """
 
     #
