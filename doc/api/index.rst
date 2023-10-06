@@ -5,7 +5,7 @@ Welcome to philander's documentation!
    :maxdepth: 2
    :caption: Contents:
 	
-   modules
+   modules.rst
 	
 
 Indices and tables
