@@ -7,7 +7,6 @@ Welcome to philander's documentation!
 	
    modules
 
-
 Indices and tables
 ==================
 
