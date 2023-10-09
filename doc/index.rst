@@ -6,7 +6,7 @@ Welcome to philander's documentation!
    :caption: Contents:
 	
    modules
-	
+
 
 Indices and tables
 ==================
