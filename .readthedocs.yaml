@@ -22,5 +22,5 @@ build:
 
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:
-  configuration: doc/api/conf.py
+  configuration: doc/api/
   fail_on_warning: true
