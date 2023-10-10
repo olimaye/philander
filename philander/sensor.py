@@ -209,14 +209,14 @@ class CalibrationData:
     used with :attr:`CalibrationType.offset` and
     :attr:`CalibrationType.shiftOffset`.
     """
-    linear:             _CalibrationData_linear = _CalibrationData_linear()
+    linear:             _CalibrationData_linear = None
     """Either new linear calibration parameters to replace the current
     ones, or corrective numbers to adjust the calibration parameters in
     effect, both given in measurement units. To be used with
     :attr:`CalibrationType.linear` and
     :attr:`CalibrationType.linearRel`.
     """
-    iLinear:            _CalibrationData_iLinear= _CalibrationData_iLinear()
+    iLinear:            _CalibrationData_iLinear= None
     """Either new linear calibration parameters to replace the current
     ones, or corrective numbers to adjust the calibration parameters in
     effect, both given in abstract integer units. To be used with
@@ -228,13 +228,13 @@ class CalibrationData:
     :attr:`CalibrationType.param` and
     :attr:`CalibrationType.paramRel`.
     """
-    trueMeasurement:    _CalibrationData_trueMeasurement = _CalibrationData_trueMeasurement()
+    trueMeasurement:    _CalibrationData_trueMeasurement = None
     """ Pair of measured and true value to support a one-point-calibration.
     Both values are given in measurement units. Note that the values do
     not relate to the current exposure. To be used with
     :attr:`CalibrationType.trueMeasurement`.
     """
-    trueMeasurement2:   _CalibrationData_trueMeasurement = _CalibrationData_trueMeasurement()
+    trueMeasurement2:   _CalibrationData_trueMeasurement = None
     """Two pairs of measured and true value to support a two-point-
     calibration. All values are given in measurement units. To be used
     with :attr:`CalibrationType.trueMeasurement2`.
@@ -254,7 +254,7 @@ class CalibrationData:
     :attr:`CalibrationType.calibKnownMeasurement2`,
     :attr:`CalibrationType.calibKnownMeasuremen3`.
     """
-    temp:               _CalibrationData_iLinear = _CalibrationData_iLinear()
+    temp:               _CalibrationData_iLinear = None
     """Temperature calibration data. To be used with
     :attr:`CalibrationType.temperature`.
     """
@@ -294,7 +294,7 @@ class Calibration:
     =================    =========================    
     """
     type:       CalibrationType = CalibrationType.default
-    data:       CalibrationData = CalibrationData()
+    data:       CalibrationData = None
         
 @unique
 class SelfTest(Enum):
