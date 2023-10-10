@@ -19,6 +19,9 @@ build:
   os: ubuntu-22.04
   tools:
     python: "3.11"
+  jobs:
+    pre_build:
+      - sphinx-apidoc -f -o $READTHEDOCS_OUTPUT philander
 
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:
