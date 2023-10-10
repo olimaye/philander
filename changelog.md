@@ -11,6 +11,10 @@ This is the summary of relevant changes throughout different releases.
 <!---### Security--->
 
 ## [Unreleased]
+- nothing yet.
+
+## [0.1.1] - 2023-10-10
+
 ### Added
 - change log file
 - project meta data URLs
@@ -18,6 +22,7 @@ This is the summary of relevant changes throughout different releases.
 
 ### Changed
 - structure of the doc directory
+- minor changes in the readme
 
 ### Fixed
 - Python 3.11 compatibility issues with dataclass default values in module sensor

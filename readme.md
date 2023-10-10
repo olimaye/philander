@@ -11,9 +11,9 @@ system or wireless sensor node. This includes but is not limited to:
   
 The code is completely written in Python and relies on low-level
 communication modules such as smbus, smbus2 or periphery and pymitter.
-As with all driver collections, it aims at making application
-development easier by providing a unified interface for parts that are
-expected to do the same or similar things.
+It aims at making application development easier by providing a
+unified interface for electronic parts that are expected to do
+similar things.
 
 The intended hardware platform is all kind of single-board computers
 such as Raspberry Pi, Arduino and Google Coral.
@@ -33,34 +33,25 @@ possible. References to philander objects should only be as specific as
 necessary!
 
 The API reference may be generated from the source code, through, e.g.
-sphinx.
+sphinx. It can be found at [https://philander.readthedocs.io](https://philander.readthedocs.io)
  
-The most relevant philander objects are derived from module. The life
-cycle of a module is as follows.
+The most relevant philander objects are derived from `module`. The life
+cycle of such an object is as follows.
 
-## Instantiation
-Instantiation is usually done by a default constructor without any
-parameter.
+* Instantiation: usually a default constructor without any parameter.
+* Params_init(): A class method to pre-populate a configuration dictionary
+with default entries.
+* open(): Configures an object and prepares it for use.
+* ...operation...: depends on the actual type and may be
+specified by other interfaces, such as sensor, charger or gasgauge.
+* close(): Shut down the instance and possibly release any hardware resources.
 
-## Params_init
-This is a class method to pre-populate an empty dictionary with a
-reasonable default configuration.
-
-## Open
-Configures an object and prepares it for use.
-Configuration is done through Python dictionaries, passed in as the
-first parameter. The dictionary can be pre-initialized by Params_init()
+Note that the configuration is done through Python dictionaries,
+passed in as the first parameter to the open() method.
+The dictionary can be pre-initialized by Params_init()
 or set by the application. Alternatively, parts of it could be read from
 config files, for example.
 
-## Operation
-Run time operation of a module depends on the actual type and my be
-specified by other interfaces, such as sensor, charger or gasgauge.
-
-## Close
-
-Shut down the instance and possibly release any hardware resources
-allocated by this object.
 
 # Example code
 ```
