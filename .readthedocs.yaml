@@ -19,10 +19,9 @@ build:
   os: ubuntu-22.04
   tools:
     python: "3.11"
+# Generate modules.rst and package top-level sources.
   jobs:
     pre_build:
-      - echo "Command run at 'pre_build' step"
-      - echo 'output dir:' $READTHEDOCS_OUTPUT
       - sphinx-apidoc -f -o doc philander
       
 
