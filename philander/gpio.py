@@ -4,6 +4,7 @@ Provide a convergence layer API to abstract from several different
 GPIO implementing driver modules possibly installed on the target
 system.
 """
+from systypes import ErrorCode
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["GPIO"]
@@ -78,6 +79,8 @@ class GPIO( Module, Interruptable ):
         self._dictTrigger = {}
         self._designator = None
         self._direction = GPIO.DIRECTION_OUT
+        self._inverted = False
+        self.isOpen = False
         self._trigger = GPIO.TRIGGER_EDGE_RISING
         self._bounce = GPIO.BOUNCE_NONE
         self._fIntEnabled = False
@@ -240,6 +243,7 @@ class GPIO( Module, Interruptable ):
         gpio.pinNumbering     GPIO.PINNUMBERING_[BCM | BOARD]                   GPIO.PINNUMBERING_BCM
         gpio.pinDesignator    pin name or number (e.g. 17 or "GPIO17")          None
         gpio.direction        GPIO.DIRECTION_[IN | OUT]                         GPIO.DIRECTION_OUT
+        gpio.inverted         [True | False]                                    False
         gpio.level            GPIO.LEVEL_[LOW | HIGH]                           GPIO.LEVEL_LOW
         gpio.pull             GPIO.PULL_[DEFAULT | NONE | UP | DOWN]            GPIO.PULL_DEFAULT (NONE)
         gpio.trigger          GPIO.TRIGGER_EDGE_[RISING | FALLING | ANY]        GPIO.TRIGGER_EDGE_RISING
@@ -256,6 +260,8 @@ class GPIO( Module, Interruptable ):
             paramDict["gpio.pinNumbering"] = GPIO.PINNUMBERING_BCM
         if not ("gpio.direction" in paramDict):
             paramDict["gpio.direction"] = GPIO.DIRECTION_OUT
+        if not ("gpio.inverted" in paramDict):
+            paramDict["gpio.inverted"] = False
         if not ("gpio.level" in paramDict):
             paramDict["gpio.level"] = GPIO.LEVEL_LOW
         if not ("gpio.pull" in paramDict):
@@ -294,15 +300,24 @@ class GPIO( Module, Interruptable ):
         self._designator = paramDict.get("gpio.pinDesignator", None)
         if self._designator is None:
             ret = ErrorCode.errInvalidParameter
-        numScheme = paramDict.get("gpio.pinNumbering", defaults["gpio.pinNumbering"])
-        self._direction = paramDict.get("gpio.direction", defaults["gpio.direction"])
-        level = paramDict.get("gpio.level", defaults["gpio.level"])
-        if self._direction == GPIO.DIRECTION_IN:
-            pull = paramDict.get("gpio.pull", defaults["gpio.pull"])
-            self._trigger = paramDict.get("gpio.trigger", defaults["gpio.trigger"])
-            self._bounce = paramDict.get("gpio.bounce", defaults["gpio.bounce"])
-            feedback = paramDict.get("gpio.feedback", defaults["gpio.feedback"])
-            handler = paramDict.get("gpio.handler", defaults["gpio.handler"])
+        elif self.isOpen:
+            ret = ErrorCode.errResourceConflict
+        else:
+            numScheme = paramDict.get("gpio.pinNumbering", defaults["gpio.pinNumbering"])
+            self._direction = paramDict.get("gpio.direction", defaults["gpio.direction"])
+            self._inverted = paramDict.get("gpio.inverted", defaults["gpio.inverted"])
+            level = paramDict.get("gpio.level", defaults["gpio.level"])
+            if (self._implpak != GPIO._IMPLPAK_NONE) and (self._inverted):
+                # If inverted, simply swap the entries of the level-dictionary
+                self._dictLevel[GPIO.LEVEL_LOW], self._dictLevel[GPIO.LEVEL_HIGH] = self._dictLevel[GPIO.LEVEL_HIGH], self._dictLevel[GPIO.LEVEL_LOW]
+                if self._implpak == GPIO._IMPLPAK_PERIPHERY:
+                    self._dictLevel2Dir[GPIO.LEVEL_LOW], self._dictLevel2Dir[GPIO.LEVEL_HIGH] = self._dictLevel2Dir[GPIO.LEVEL_HIGH], self._dictLevel2Dir[GPIO.LEVEL_LOW]
+            if self._direction == GPIO.DIRECTION_IN:
+                pull = paramDict.get("gpio.pull", defaults["gpio.pull"])
+                self._trigger = paramDict.get("gpio.trigger", defaults["gpio.trigger"])
+                self._bounce = paramDict.get("gpio.bounce", defaults["gpio.bounce"])
+                feedback = paramDict.get("gpio.feedback", defaults["gpio.feedback"])
+                handler = paramDict.get("gpio.handler", defaults["gpio.handler"])
         if ret == ErrorCode.errOk:
             if self._implpak == GPIO._IMPLPAK_RPIGPIO:
                 self._factory.setmode(self._dictNumScheme[numScheme])
@@ -367,6 +382,7 @@ class GPIO( Module, Interruptable ):
             else:
                 ret = ErrorCode.errNotImplemented
         if ret == ErrorCode.errOk:
+            self.isOpen = True
             if handler:
                 ret = self.registerInterruptHandler(
                     GPIO.EVENT_DEFAULT, feedback, handler
@@ -384,20 +400,24 @@ class GPIO( Module, Interruptable ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        ret = self.registerInterruptHandler(None)
-        if self._implpak == GPIO._IMPLPAK_RPIGPIO:
-            if not self._designator is None:
-                self._factory.cleanup(self._designator)
-        elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
-            self.pin.close()
-        elif self._implpak == GPIO._IMPLPAK_PERIPHERY:
-            self._stopWorker()
-            self.pin.close()
-        elif self._implpak == GPIO._IMPLPAK_SIM:
-            pass
+        if self.isOpen:
+            ret = self.registerInterruptHandler(None)
+            if self._implpak == GPIO._IMPLPAK_RPIGPIO:
+                if not self._designator is None:
+                    self._factory.cleanup(self._designator)
+            elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
+                self.pin.close()
+            elif self._implpak == GPIO._IMPLPAK_PERIPHERY:
+                self._stopWorker()
+                self.pin.close()
+            elif self._implpak == GPIO._IMPLPAK_SIM:
+                pass
+            else:
+                ret = ErrorCode.errNotImplemented
+            self.pin = None
+            self.isOpen = False
         else:
-            ret = ErrorCode.errNotImplemented
-        self.pin = None
+            ret = ErrorCode.errResourceConflict
         return ret
 
     def setRunLevel(self, level):
@@ -502,21 +522,22 @@ class GPIO( Module, Interruptable ):
         :rtype: int
         """
         level = GPIO.LEVEL_LOW
-        if self._implpak == GPIO._IMPLPAK_RPIGPIO:
-            status = self._factory.input(self._designator)
-        elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
-            status = self.pin.value
-        elif self._implpak == GPIO._IMPLPAK_PERIPHERY:
-            status = self.pin.read()
-        elif self._implpak == GPIO._IMPLPAK_SIM:
-            status = self._level
-        else:
-            status = 0
-
-        if status == self._dictLevel[GPIO.LEVEL_HIGH]:
-            level = GPIO.LEVEL_HIGH
-        else:
-            level = GPIO.LEVEL_LOW
+        if self.isOpen:
+            if self._implpak == GPIO._IMPLPAK_RPIGPIO:
+                status = self._factory.input(self._designator)
+            elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
+                status = self.pin.value
+            elif self._implpak == GPIO._IMPLPAK_PERIPHERY:
+                status = self.pin.read()
+            elif self._implpak == GPIO._IMPLPAK_SIM:
+                status = self._level
+            else:
+                status = 0
+    
+            if status == self._dictLevel[GPIO.LEVEL_HIGH]:
+                level = GPIO.LEVEL_HIGH
+            else:
+                level = GPIO.LEVEL_LOW
         return level
 
     def set(self, newLevel):
@@ -530,7 +551,9 @@ class GPIO( Module, Interruptable ):
         :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
-        if self._implpak == GPIO._IMPLPAK_RPIGPIO:
+        if not self.isOpen:
+            ret = ErrorCode.errResourceConflict
+        elif self._implpak == GPIO._IMPLPAK_RPIGPIO:
             self._factory.output(self._designator, self._dictLevel[newLevel])
         elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
             self.pin.value = self._dictLevel[newLevel]

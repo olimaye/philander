@@ -71,13 +71,19 @@ class LED( Module ):
             defaults = {}
             LED.Params_init(defaults)
             self.label = paramDict.get( "LED.label", defaults["LED.label"] )
+            # Overwrite the direction parameter
             paramDict["LED.gpio.direction"] = defaults["LED.gpio.direction"]
+            # Extract GPIO parameters
+            gpioParams = dict( [(k.replace("LED.", ""),v) for k,v in paramDict.items() if k.startswith("LED.")] )
             self.gpio = GPIO()
-            ret = self.gpio.open(paramDict)
-            # self.pwm = PWM( chip, channel )
-            # self.pwm.frequency = frequency
-            # self.pwm.enable()
-        logging.debug('LED <%s> created, returns: %s.', self.label, ret)
+            ret = self.gpio.open(gpioParams)
+            if( ret != ErrorCode.errOk ):
+                self.gpio = None
+            #else:
+                # self.pwm = PWM( chip, channel )
+                # self.pwm.frequency = frequency
+                # self.pwm.enable()
+        logging.debug('LED <%s> opened, returns: %s.', self.label, ret)
         return ret
     
     def close(self):

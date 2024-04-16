@@ -76,11 +76,14 @@ class Button( Module, EventEmitter ):
             defaults = {}
             Button.Params_init(defaults)
             self.label = paramDict.get( "Button.label", defaults["Button.label"] )
+            # Overwrite the direction parameter
             paramDict["Button.gpio.direction"] = defaults["Button.gpio.direction"]
             if not ("Button.gpio.bounce" in paramDict):
                 paramDict["Button.gpio.bounce"] = defaults["Button.gpio.bounce"]
+            # Extract GPIO parameters
+            gpioParams = dict( [(k.replace("Button.", ""),v) for k,v in paramDict.items() if k.startswith("Button.")] )
             self.gpio = GPIO()
-            ret = self.gpio.open(paramDict)
+            ret = self.gpio.open(gpioParams)
             if (ret == ErrorCode.errOk):
                 ret = self.gpio.registerInterruptHandler( \
                                 GPIO.EVENT_DEFAULT, None, \

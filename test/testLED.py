@@ -4,7 +4,6 @@ from philander.led import LED
 from philander.systypes import ErrorCode, Info
 
 from simple_term_menu import TerminalMenu
-from builtins import True
 
 
 def settings():
@@ -38,7 +37,7 @@ def open():
     if (led is None):
         print("LED is not instantiated!")
     else:
-        print("Trying to open the LED <{led.label}> with the following settings:")
+        print("Trying to open the LED <", setup["LED.label"], "> with the following settings:")
         try:
             if ("LED.gpio.pinDesignator" in setup):
                 print("LED.gpio.pinDesignator = " + str(setup["LED.gpio.pinDesignator"]))
