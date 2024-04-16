@@ -4,7 +4,6 @@ Provide a convergence layer API to abstract from several different
 GPIO implementing driver modules possibly installed on the target
 system.
 """
-from systypes import ErrorCode
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["GPIO"]
