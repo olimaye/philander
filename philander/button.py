@@ -22,6 +22,7 @@ class Button( Module, EventEmitter ):
     _POLL_TIMEOUT = 1
     _DEBOUNCE_MS  = 2000
     
+    EVENT_PRESSED = "buttonPressed"
     
     def __init__(self):
         """Initialize the instance with defaults.
@@ -30,8 +31,8 @@ class Button( Module, EventEmitter ):
         self.label = Button.LABEL_DEFAULT
         EventEmitter.__init__( self )
 
-    def _handleInterrupt(self):
-        self.emit( self.label )
+    def _handleInterrupt(self, _feedback=None, *_unused):
+        self.emit( Button.EVENT_PRESSED, self.label )
         logging.debug('Button <%s> emitted event.', self.label)
         return None
         
@@ -88,10 +89,9 @@ class Button( Module, EventEmitter ):
                 ret = self.gpio.registerInterruptHandler( \
                                 GPIO.EVENT_DEFAULT, None, \
                                 self._handleInterrupt )
-        logging.debug('Button <%s> created, pin:%s, trigger:%d, returns: %s.',
+        logging.debug('Button <%s> created, pin:%s, returns: %s.',
                       self.label,
-                      paramDict["Button.gpio.pinDesignator"],
-                      paramDict["Button.gpio.trigger"], ret)
+                      paramDict["Button.gpio.pinDesignator"], ret)
         return ret
             
     def close(self):

@@ -217,12 +217,14 @@ class ActorUnit( BLE, Actuator, Configurable ):
         if not isinstance(val, int):
             try:
                 intValue = int( val, 0 )
-            except ValueError as e:
+            except ValueError:
                 intValue = default
                 err = ErrorCode.errInvalidParameter
+        else:
+            intValue = val
         if (intValue < lowLimit) or (intValue > highLimit):
             intValue = default
-            result = ErrorCode.errInvalidParameter
+            err = ErrorCode.errInvalidParameter
         return intValue, err
     
     

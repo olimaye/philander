@@ -54,10 +54,10 @@ class SystemManagement( Module, EventEmitter ):
     _SYSJOB_AU_COUPLE = 0x01
     _SYSJOB_ANY       = 0xFFFF
     
-    _LED_SETTING_PREFIXES   = ("UI.LED.tmp", "UI.LED.bat", "UI.LED.ble",\
-                               "UI.LED.dc", "UI.LED.chg", "UI.LED.0",\
-                               "UI.LED.1", )
-    _BUTTON_SETTING_PREFIXES= ("UI.Button.cmd", )
+    _LED_SETTING_PREFIXES   = ("UI.tmp.LED", "UI.bat.LED", "UI.ble.LED",\
+                               "UI.dc.LED", "UI.chg.LED", "UI.aux0.LED",\
+                               "UI.aux1.LED", )
+    _BUTTON_SETTING_PREFIXES= ("UI.cmd.Button", )
     
     def __init__(self):
         # Call super class constructor(s)
@@ -76,7 +76,7 @@ class SystemManagement( Module, EventEmitter ):
         self.aux0LED = None
         self.aux1LED = None
         self.cmdBtn = None
-        self.ldoPGGPIO = None
+        self.sysPowerStatusGPIO = None
         self.monitor = Thread( target=self._manageSystem, name='System Management' )
 
     #
@@ -89,21 +89,21 @@ class SystemManagement( Module, EventEmitter ):
         
         The following settings are supported:
         
-        =================    ==========================================================================================================
-        Key name             Value type, meaning and default
-        =================    ==========================================================================================================
-        UI.LED.tmp.*         temperature LED; settings as documented at :meth:`.LED.Params_init`.
-        UI.LED.bat.*         battery status LED; see :meth:`.LED.Params_init`.
-        UI.LED.ble.*         BLE connection status LED; see :meth:`.LED.Params_init`.
-        UI.LED.dc.*          DC supply status LED; see :meth:`.LED.Params_init`.
-        UI.LED.chg.*         charger status LED; see :meth:`.LED.Params_init`.
-        UI.LED.0.*           aux #0 LED; see :meth:`.LED.Params_init`.
-        UI.LED.1.*           aux #1 LED; see :meth:`.LED.Params_init`.
-        UI.Button.cmd.*      user command button; see :meth:`.Button.Params_init`.
-        Power.LDO.PG.*       LDO's power good output; see :meth:`.GPIO.Params_init`.
-        Charger.*            as documented at the charger implementation.
-        ActorUnit.*          as documented at :meth:`.ActorUnit.Params_init`.
-        =================    ==========================================================================================================
+        =======================    ==========================================================================================================
+        Key name                   Value type, meaning and default
+        =======================    ==========================================================================================================
+        UI.tmp.LED.*               charger, battery or board temperature status LED; settings as documented at :meth:`.LED.Params_init`.
+        UI.bat.LED.*               battery level/status LED; see :meth:`.LED.Params_init`.
+        UI.ble.LED.*               BLE connection status LED; see :meth:`.LED.Params_init`.
+        UI.dc.LED.*                DC supply status LED; see :meth:`.LED.Params_init`.
+        UI.chg.LED.*               charger status LED; see :meth:`.LED.Params_init`.
+        UI.aux0.LED.*              aux #0 LED, semantics is defined by the application; see :meth:`.LED.Params_init`.
+        UI.aux1.LED.*              aux #1 LED, semantics is defined by the application; see :meth:`.LED.Params_init`.
+        UI.cmd.Button.*            user command button; see :meth:`.Button.Params_init`.
+        Sys.power.status.gpio.*    System power good indicator, e.g. LDO's PG output; see :meth:`.GPIO.Params_init`.
+        Charger.*                  as documented at the charger implementation.
+        ActorUnit.*                as documented at :meth:`.ActorUnit.Params_init`.
+        =======================    ==========================================================================================================
         
         Also see: :meth:`.LED.Params_init`, :meth:`.Button.Params_init`, :meth:`.GPIO.Params_init`, :meth:`.MAX77960.Params_init`. 
 
@@ -119,9 +119,8 @@ class SystemManagement( Module, EventEmitter ):
         for p in SystemManagement._LED_SETTING_PREFIXES:
             if not (p+".label") in paramDict:
                 paramDict[p+".label"] = p.replace("UI.", "")
-        # Common routine
-        for p in SystemManagement._LED_SETTING_PREFIXES:
             paramDict[p + ".gpio.direction"] = dflt.get("LED.gpio.direction")
+        # Common routine
         for key, value in dflt.items():
             if key.startswth("LED."):
                 keyBase = key.replace("LED.", ".")
@@ -136,9 +135,8 @@ class SystemManagement( Module, EventEmitter ):
         for p in SystemManagement._BUTTON_SETTING_PREFIXES:
             if not (p+".label") in paramDict:
                 paramDict[p+".label"] = p.replace("UI.", "")
-        # Common routine
-        for p in SystemManagement._BUTTON_SETTING_PREFIXES:
             paramDict[p + ".gpio.direction"] = dflt.get("Button.gpio.direction")
+        # Common routine
         for key, value in dflt.items():
             if key.startswth("Button."):
                 keyBase = key.replace("Button.", ".")
@@ -149,9 +147,9 @@ class SystemManagement( Module, EventEmitter ):
         # GPIO settings for the separate LDO's PowerGood pin.
         dflt = {}
         GPIO.Params_init( dflt )
-        paramDict["Power.LDO.PG.gpio.direction"] = GPIO.DIRECTION_IN
+        paramDict["Sys.power.status.gpio.direction"] = GPIO.DIRECTION_IN
         for key, value in dflt.items():
-            newKey = "Power.LDO.PG." + key
+            newKey = "Sys.power.status." + key
             if not newKey in paramDict:
                 paramDict[newKey] = value
         # Charger settings
@@ -164,37 +162,46 @@ class SystemManagement( Module, EventEmitter ):
         result = ErrorCode.errOk
 
         # LEDs first:
-        if "UI.LED.tmp.gpio.pinDesignator" in paramDict:
+        if "UI.tmp.LED.gpio.pinDesignator" in paramDict:
+            tmpParams = dict( [(k.replace("UI.tmp.", ""),v) for k,v in paramDict.items() if k.startswith("UI.tmp.LED.")] )
             self.tmpLED = LED()
-            result = self.tmpLED.open( paramDict )
-        if "UI.LED.bat.gpio.pinDesignator" in paramDict:
+            result = self.tmpLED.open( tmpParams )
+        if "UI.bat.LED.gpio.pinDesignator" in paramDict:
+            tmpParams = dict( [(k.replace("UI.bat.", ""),v) for k,v in paramDict.items() if k.startswith("UI.bat.LED.")] )
             self.batLED = LED()
-            result = self.batLED.open( paramDict )
-        if "UI.LED.ble.gpio.pinDesignator" in paramDict:
+            result = self.batLED.open( tmpParams )
+        if "UI.ble.LED.gpio.pinDesignator" in paramDict:
+            tmpParams = dict( [(k.replace("UI.ble.", ""),v) for k,v in paramDict.items() if k.startswith("UI.ble.LED.")] )
             self.bleLED = LED()
-            result = self.bleLED.open( paramDict )
-        if "UI.LED.dc.gpio.pinDesignator" in paramDict:
+            result = self.bleLED.open( tmpParams )
+        if "UI.dc.LED.gpio.pinDesignator" in paramDict:
+            tmpParams = dict( [(k.replace("UI.dc.", ""),v) for k,v in paramDict.items() if k.startswith("UI.dc.LED.")] )
             self.dcLED = LED()
-            result = self.dcLED.open( paramDict )
-        if "UI.LED.chg.gpio.pinDesignator" in paramDict:
+            result = self.dcLED.open( tmpParams )
+        if "UI.chg.LED.gpio.pinDesignator" in paramDict:
+            tmpParams = dict( [(k.replace("UI.chg.", ""),v) for k,v in paramDict.items() if k.startswith("UI.chg.LED.")] )
             self.chgLED = LED()
-            result = self.chgLED.open( paramDict )
-        if "UI.LED.0.gpio.pinDesignator" in paramDict:
+            result = self.chgLED.open( tmpParams )
+        if "UI.aux0.LED.gpio.pinDesignator" in paramDict:
+            tmpParams = dict( [(k.replace("UI.aux0.", ""),v) for k,v in paramDict.items() if k.startswith("UI.aux0.LED.")] )
             self.aux0LED = LED()
-            result = self.aux0LED.open( paramDict )
-        if "UI.LED.1.gpio.pinDesignator" in paramDict:
+            result = self.aux0LED.open( tmpParams )
+        if "UI.aux1.LED.gpio.pinDesignator" in paramDict:
+            tmpParams = dict( [(k.replace("UI.aux1.", ""),v) for k,v in paramDict.items() if k.startswith("UI.aux1.LED.")] )
             self.aux1LED = LED()
-            result = self.aux1LED.open( paramDict )
+            result = self.aux1LED.open( tmpParams )
         # Button
-        if "UI.Button.cmd.gpio.pinDesignator" in paramDict:
+        if "UI.cmd.Button.gpio.pinDesignator" in paramDict:
+            tmpParams = dict( [(k.replace("UI.cmd.", ""),v) for k,v in paramDict.items() if k.startswith("UI.cmd.Button.")] )
             self.cmdBtn = Button()
-            result = self.cmdBtn.open( paramDict )
-            self.cmdBtn.on( self.cmdBtn.label, func=self.uiHandleButtonPressed )
+            result = self.cmdBtn.open( tmpParams )
+            self.cmdBtn.on( Button.EVENT_PRESSED, func=self.uiHandleButtonPressed )
             #self.cmdBtn.asyncWait4Press()
-        # LDO PG pin
-        if "Power.LDO.PG.gpio.pinDesignator" in paramDict:
-            self.ldoPGGPIO = GPIO()
-            result = self.ldoPGGPIO. open( paramDict )
+        # System power status pin (GPIO)
+        if "Sys.power.status.gpio.pinDesignator" in paramDict:
+            tmpParams = dict( [(k.replace("Sys.power.status.", ""),v) for k,v in paramDict.items() if k.startswith("Sys.power.status.gpio.")] )
+            self.sysPowerStatusGPIO = GPIO()
+            result = self.sysPowerStatusGPIO. open( tmpParams )
         # Charger
         if (result == ErrorCode.errOk):
             result = self.charger.open( paramDict )
@@ -224,7 +231,7 @@ class SystemManagement( Module, EventEmitter ):
                     self.tmpLED, self.batLED, self.bleLED, self.dcLED,\
                     self.chgLED, self.aux0LED, self.aux1LED, \
                     self.cmdBtn, \
-                    self.ldoPGGPIO, ):
+                    self.sysPowerStatusGPIO, ):
             if mod:
                 err = mod.close()
                 if (err != ErrorCode.errOk):
@@ -237,7 +244,7 @@ class SystemManagement( Module, EventEmitter ):
         self.aux0LED = None
         self.aux1LED = None
         self.cmdBtn = None
-        self.ldoPGGPIO = None
+        self.sysPowerStatusGPIO = None
         return result
     
     #
@@ -252,11 +259,11 @@ class SystemManagement( Module, EventEmitter ):
 
         oldStatus = None   # Note that the BLE status is maintained in a separate loop
         batStatus = None
+        batLevel = None     # Run-Time based level estimation
         chgStatus = None
         dcStatus  = None
         tmpStatus = None    # chg + bat temperature rating
         ldoStatus = None
-        batLvlStatus = None     # Run-Time based level estimation
         startTime = time.time()
 
         while not self.done:
@@ -297,8 +304,8 @@ class SystemManagement( Module, EventEmitter ):
                     chgStatus = val
                     self._displayChgStatus( chgStatus )
                 
-                if self.ldoPGGPIO:
-                    val = self.ldoPGGPIO.get()
+                if self.sysPowerStatusGPIO:
+                    val = self.sysPowerStatusGPIO.get()
                     if val != ldoStatus:
                         ldoStatus = val
                         self._displayLdoStatus( ldoStatus )
@@ -311,9 +318,9 @@ class SystemManagement( Module, EventEmitter ):
                 if dcStatus != DCStatus.valid:   # Battery only
                     now = time.time()
                     dur = now - startTime 
-                    if batLvlStatus == Level.empty:
+                    if batLevel == Level.empty:
                         val = Level.empty
-                    elif batLvlStatus == Level.low:
+                    elif batLevel == Level.low:
                         if dur >= SystemManagement.BAT_WARN_TIME_LOW2EMPTY:
                             val = Level.empty
                             startTime = now
@@ -333,9 +340,9 @@ class SystemManagement( Module, EventEmitter ):
                     val = Level.low
                 else:
                     val = Level.full
-                if val != batLvlStatus:
-                    batLvlStatus = val
-                    self._displayBatLvlStatus( batLvlStatus )
+                if val != batLevel:
+                    batLevel = val
+                    self._displayBatLevel( batLevel )
                     
                 self._executeSystemJobs()
             except RuntimeError as exc:
@@ -375,6 +382,19 @@ class SystemManagement( Module, EventEmitter ):
         logging.info('BAT state: %s', str(newStatus))
         return None
         
+    def _displayBatLevel( self, newStatus: Level ):
+        logging.info('BAT Level: %s', str(newStatus) )
+        if self.batLED:
+            if newStatus in (Level.min, Level.empty, ):
+                self.batLED.blink( cycle_length=LED.CYCLEN_FAST )
+            elif newStatus in (Level.low, Level.medium, ):
+                self.batLED.blink( cycle_length=LED.CYCLEN_SLOW )
+            elif newStatus in (Level.good, Level.full, Level.max, ):
+                self.batLED.off()
+            else:   # Errors
+                self.batLED.on()
+        return None
+
     def _displayBleStatus( self, newStatus: ConnectionState ):
         logging.info('BLE state: %s', str(newStatus) )
         if self.bleLED:
@@ -414,19 +434,6 @@ class SystemManagement( Module, EventEmitter ):
         logging.info('LDO state: %d', newStatus )
         return None
         
-    def _displayBatLvlStatus( self, newStatus: Level ):
-        logging.info('BAT Level: %s', str(newStatus) )
-        if self.batLED:
-            if newStatus in (Level.min, Level.empty, ):
-                self.batLED.blink( cycle_length=LED.CYCLEN_FAST )
-            elif newStatus in (Level.low, Level.medium, ):
-                self.batLED.blink( cycle_length=LED.CYCLEN_SLOW )
-            elif newStatus in (Level.good, Level.full, Level.max, ):
-                self.batLED.off()
-            else:   # Errors
-                self.batLED.on()
-        return None
-
 
     def _executeSystemJobs( self ):
         if self._systemJob & SystemManagement._SYSJOB_AU_COUPLE:
@@ -454,7 +461,7 @@ class SystemManagement( Module, EventEmitter ):
             
     def uiHandleButtonPressed( self, *args ):
         logging.info('UI button pressed.')
-        self.emit( SystemManagement.EVT_BUTTON_PRESSED )
+        self.emit( SystemManagement.EVT_BUTTON_PRESSED, args )
         
         
         

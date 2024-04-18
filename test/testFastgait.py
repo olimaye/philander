@@ -1,17 +1,17 @@
 # Sample application for the BMA456 sensor driver, and the fastGait uiPowerSys management
 from philander.bma456 import BMA456 as SensorDriver
 from philander.fastgait.sysman import SystemManagement
+from philander.led import LED
 from philander.max77960 import MAX77960		# Just for the constants
 from philander.systypes import ErrorCode
 
 from os.path import exists
 import sys
 import time # Depending on the measurement strategy, this is not really necessary
-import math # To use sqrt()
+#import math # To use sqrt()
 import logging
 import argparse
 import configparser
-from pickle import NONE
 import random
 
 DEFAULT_SCORE_LIMIT	= 0.004
@@ -21,7 +21,7 @@ gDone = False
 setupSensor = {
     "SerialBus.designator": "/dev/i2c-3", 
     "SerialBusDevice.address": 0x19,
-    "Sensor.dataRange"    : 4000,
+    "Sensor.dataRange"    : 2000,
     "Sensor.dataRate"     : 100,
     }
 
@@ -52,17 +52,29 @@ setupSystemManagement = {
     #"BLE.discovery.timeout": 5.0, # Timeout for the BLE discovery phase, given in seconds.
     #
     ### User interface settings ###
-    #"UI.LED.tmp.gpio.pinDesignator" : 11,   # LED_RED, pin 15. GPIO11.
-    #"UI.LED.bat.gpio.pinDesignator" : 13,  # LED_ORANGE, pin 36, GPIO13
-    #"UI.LED.ble.gpio.pinDesignator" : 12,   # LED_BLUE, pin 32, GPIO12
-    #"UI.LED.dc.gpio.pinDesignator"  : 'BOARD33', # Actually hard-wired. Leave as comment!
-    #"UI.LED.chg.gpio.pinDesignator" : 25,     # LED_GREEN, pin 33, GPIO25
-    #"UI.LED.0.gpio.pinDesignator"   : 25,     # LED_GREEN at pin #33, GPIO25
-    #"UI.LED.1.gpio.pinDesignator"   : 13,     # LED_ORANGE at pin #36, GPIO13
+    "UI.tmp.LED.label"              : "TEMPERATURE-LED",
+    "UI.tmp.LED.gpio.pinDesignator" : 11,   # LED_RED, pin 15. GPIO11.
+    "UI.tmp.LED.gpio.inverted"      : True, 
+    "UI.bat.LED.label"              : "BATTERY-LED",
+    "UI.bat.LED.gpio.pinDesignator" : 13,   # LED_ORANGE, pin 36, GPIO13
+    "UI.bat.LED.gpio.inverted"      : True, 
+    "UI.ble.LED.label"              : "BLE-LED",
+    "UI.ble.LED.gpio.pinDesignator" : 12,   # LED_BLUE, pin 32, GPIO12
+    "UI.ble.LED.gpio.inverted"      : True, 
+    "UI.aux0.LED.label"             : "AUX0-LED",
+    "UI.aux0.LED.gpio.pinDesignator": 25,   # LED_GREEN, pin 33, GPIO25
+    "UI.aux0.LED.gpio.inverted"     : True, 
     #    Definition of the button.
-    #"UI.Button.cmd.gpio.pinDesignator" : 39,     # USER_BTN at pin #40, GPIO39
+    "UI.cmd.Button.label"           : "USER-BUTTON",
+    "UI.cmd.Button.gpio.pinDesignator" : 39, # USER_BTN at pin #40, GPIO39
     #    Definition of the LDO power-good pin.
-    #"Power.LDO.PG.gpio.pinDesignator"  : 22,      # PG_PIN at pin #7, GPIO22
+    "Sys.power.status.gpio.pinDesignator"  : 22, # PG_PIN at pin #7, GPIO22
+    #"Sys.power.status.gpio.inverted" : False,
+    #    Other system / ui hardware
+    #"UI.dc.status.gpio.pinDesignator" : 1,       #INOK at pin #18, GPIO1 
+    #"UI.chg.stat.gpio.pinDesignator" : 0,       #STAT at pin #16, GPIO0
+    #"UI.aux0.gpio.pinDesignator"    : 60,       free GPIO at pin #27, GPIO60
+    #"UI.aux1.gpio.pinDesignator"    : 61,       free GPIO at pin #28, GPIO61
     }
 
 config = None
@@ -75,10 +87,37 @@ scoreLimit = DEFAULT_SCORE_LIMIT
 # Helper functions - just handlers
 #
 
-def hdlButtonPressed():
+def hdlBleConnected():
+    logging.info("BLE connected.")
+
+def hdlBleDisconnected():
+    logging.info("BLE disconnected.")
+
+def hdlDCPlugged():
+    logging.info("DC plugged.")
+
+def hdlDCUnplugged():
+    logging.info("DC unplugged.")
+
+def hdlTempCritical():
+    logging.info("Temperature critical.")
+
+def hdlTempNormal():
+    logging.info("Temperature normal.")
+
+def hdlButtonPressed(btnLabel, *_unused):
     global gDone
+    logging.info("UI button %s pressed.", btnLabel)
     gDone = True
-    logging.info('Button pressed.')
+
+def hdlPowerCritical():
+    global gDone
+    logging.info("LDO power critical.")
+    #gDone = True
+
+def hdlPowerNormal():
+    logging.info("LDO power good (normal).")
+
 
 #
 # Step 0: Configuration
@@ -160,7 +199,7 @@ def prepare():
             scoreLimit = cfgModelAI.get( "scorelimit", scoreLimit )
             try:
                 scoreLimit = float( scoreLimit )
-            except ValueError as e:
+            except ValueError:
                 scoreLimit = DEFAULT_SCORE_LIMIT
 
             if ("filename" in cfgModelAI):
@@ -170,14 +209,14 @@ def prepare():
         logging.debug( "Effective score limit = %s", str(scoreLimit) )
         
         if ("sensor" in config):
-            setupSensor |= config["sensor"]    
+            setupSensor.update( config["sensor"] )    
         logging.debug( "Effective sensor setup = %s", str(setupSensor) )
         err = sensorDevice.open( setupSensor )
         logging.debug( "Open sensor device, error = %s", str(err) )
         logging.debug( "Returned sensor setup = %s", str(setupSensor) )
         
         if ("system.management" in config):
-            setupSystemManagement |= config["system.management"]
+            setupSystemManagement.update( config["system.management"] )
         logging.debug( "Effective system management setup = %s", str(setupSystemManagement) )
         err = uiPowerSys.open( setupSystemManagement )
         logging.debug( "Open system management, error = %s", str(err) )
@@ -187,14 +226,14 @@ def prepare():
     except KeyError as exc:
         logging.debug( 'Configuration key error: %s', exc )
         
-    #uiPowerSys.on( SystemManagement.EVT_BLE_CONNECTED, hdlBleConnected )
-    #uiPowerSys.on( SystemManagement.EVT_BLE_DISCONNECTED, hdlBleDisconnected )
-    #uiPowerSys.on( SystemManagement.EVT_DC_PLUGGED, hdlDCPlugged )
-    #uiPowerSys.on( SystemManagement.EVT_DC_UNPLUGGED, hdlDCUnplugged )
-    #uiPowerSys.on( SystemManagement.EVT_TEMP_CRITICAL, hdlTempCritical )
-    #uiPowerSys.on( SystemManagement.EVT_TEMP_NORMAL, hdlTempNormal )
-    #uiPowerSys.on( SystemManagement.EVT_POWER_CRITICAL, hdlPowerCritical )
-    #uiPowerSys.on( SystemManagement.EVT_POWER_NORMAL, hdlPowerNormal )
+    uiPowerSys.on( SystemManagement.EVT_BLE_CONNECTED, hdlBleConnected )
+    uiPowerSys.on( SystemManagement.EVT_BLE_DISCONNECTED, hdlBleDisconnected )
+    uiPowerSys.on( SystemManagement.EVT_DC_PLUGGED, hdlDCPlugged )
+    uiPowerSys.on( SystemManagement.EVT_DC_UNPLUGGED, hdlDCUnplugged )
+    uiPowerSys.on( SystemManagement.EVT_TEMP_CRITICAL, hdlTempCritical )
+    uiPowerSys.on( SystemManagement.EVT_TEMP_NORMAL, hdlTempNormal )
+    uiPowerSys.on( SystemManagement.EVT_POWER_CRITICAL, hdlPowerCritical )
+    uiPowerSys.on( SystemManagement.EVT_POWER_NORMAL, hdlPowerNormal )
     uiPowerSys.on( SystemManagement.EVT_BUTTON_PRESSED, hdlButtonPressed )
     return None
 
@@ -208,7 +247,6 @@ def doTheJob():
         logging.info('Measurement started.')
         gDone = False
         while not gDone:
-            tNow = time.time()
             data, err = sensorDevice.getNextData()
             if not (err == ErrorCode.errOk):
                 logging.debug( 'Measurement error: ', err )
@@ -223,6 +261,8 @@ def doTheJob():
                 if score < scoreLimit:
                     uiPowerSys.actorUnit.action()
                     logging.info('FOG alarm triggered.')
+                    if uiPowerSys.aux0LED:
+                        uiPowerSys.aux0LED.blink( LED.CURVE_BLINK_CLASSIC, LED.CYCLEN_NORMAL, 1 )
         
     except KeyboardInterrupt:
         logging.info('Interrupted by console input.')
