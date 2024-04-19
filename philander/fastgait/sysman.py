@@ -459,9 +459,9 @@ class SystemManagement( Module, EventEmitter ):
             self._systemJob = self._systemJob | SystemManagement._SYSJOB_AU_COUPLE
             self._sysjobLock.release()
             
-    def uiHandleButtonPressed( self, *args ):
+    def uiHandleButtonPressed( self, label, *_unused ):
         logging.info('UI button pressed.')
-        self.emit( SystemManagement.EVT_BUTTON_PRESSED, args )
+        self.emit( SystemManagement.EVT_BUTTON_PRESSED, label )
         
         
         
