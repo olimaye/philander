@@ -13,6 +13,15 @@ This is the summary of relevant changes throughout different releases.
 ## [Unreleased]
 - nothing yet.
 
+## [0.2] - 2024-04-19
+
+### Added
+- GPIO configuration option to invert the interpretation of a pin-state (LOW-active)
+
+### Fixed
+- Button and LED now strip their configuration key prefixes before passing to GPIO.
+- Bugs found, when running on a Google Coral mini board.
+
 ## [0.1.1] - 2023-10-10
 
 ### Added
