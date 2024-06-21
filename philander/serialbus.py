@@ -1064,7 +1064,7 @@ class SerialBus( _SerialBusIface ):
                 ret = SerialBusProvider.SMBUS2
             except ModuleNotFoundError:
                 try:
-                    from smbus import SMBus, i2c_msg
+                    from smbus import SMBus
                     ret = SerialBusProvider.SMBUS
                 except ModuleNotFoundError:
                     try:
