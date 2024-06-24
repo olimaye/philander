@@ -18,7 +18,7 @@ class Potentiometer( Module ):
     """
     
     DEFAULT_RESISTANCE_MAX = 10000
-    DEFAULT_RESOLUTION = 7
+    DEFAULT_RESOLUTION = 128
     
     @classmethod
     def Params_init(cls, paramDict):
@@ -30,7 +30,7 @@ class Potentiometer( Module ):
         Key name                         Value type, meaning and default
         =============================    =====================================================================================================
         Potentiometer.resistance.max     ``int``; Maximum resistance in Ohm; :attr:`DEFAULT_RESISTANCE_MAX`.
-        Potentiometer.resolution         ``int``; Number of bits used to set resistance value.
+        Potentiometer.resolution         ``int``; Number of possible steps to set resistance value to (2^(bits used for resistance)). :attr:`DEFAULT_RESOLUTION`.
         ======================================================================================================================================
         """
         defaults = {
@@ -63,56 +63,78 @@ class Potentiometer( Module ):
         """
         return NotImplementedError
     
-    def _digitalize_resistance_value(value, isAbsolute=False, max_resistance=None, isDigital=False, resolution=None):
-        """Converts an either digital, absolute or relative resistance value into a digital value. It also checks for it's validity.
-
+    def _digitalize_resistance_value(percentage=None, absolute=None, digital=None, resolution=None, max_resistance=None): 
+        """Converts an either digital, absolute or relative resistance value into a digital value. It also checks for it's validity.\
+        There must only be one out of the parameters percentage, absolute and digital given.
+        
         Also see: :meth:`.potentiometer._eval_resistance_value`.
         
-        :param int value: Resistance value, interpreted as percentage (0 to 100) by default.\
-        Will be inpreted as absolute resistance in ohms, if isAbsolute is set true.
-        :param bool isAbsolute: Set true if value is in ohms.
-        :return: An error code indicating either success or the reason of failure.
-        :rtype: int
-        """
-        Potentiometer._eval_resistance_value(value, isAbsolute, max_resistance, isDigital, resolution)
-        pot_steps = 2 ** resolution # number of available steps, dependent on number of bits for resolution
-        if isAbsolute:
-            return round((value / max_resistance) * (pot_steps - 1))
-        elif isDigital:
-            return value
-        else:
-            return round((value / 100) * (pot_steps - 1))
-    
-    def _eval_resistance_value(value, isAbsolute=False, max_resistance=None, isDigital=False, resolution=None):
-        """Evaluate values given to set method. Raises error if values are invalid (e.g. over 100% or over maximum resistance).
-        
-        :param int value: Resistance value, interpreted as percentage (0 to 100) by default.\
-        Will be inpreted as absolute resistance in ohms, if isAbsolute is set true.
-        :param bool isAbsolute: Set true if value is in ohms.
+        :param percentage percentage: Resistance value, interpreted as percentage (0 to 100) by default.
+        :param int absolute: Resistance value in Ohms. Must be between 0 and the set maximum value.
+        :param int digital: Digital resistance value to be sent directly to the potentiometer without conversion.
+        :param int resolution: Number of possible steps to set resistance value to (2^(bits used for resistance)).
+        :param int max_resistance: Maximum resistance of Potentiometer in Ohm.
         :return: An error code indicating either success or the reason of failure.
         :rtype: None
         """
-        if isAbsolute and (value < 0 or value > max_resistance):
-            print(f"Given absolute resistance value was {value} ohm must be between 0 ohm and the given maximum ({max_resistance} is currently set)")
-            raise ValueError
-        elif isDigital and (value < 0 or value >= (2**resolution)):
-            print(f"Digital value must be between 0 and the given resolution (currently {resolution} bit -> {2**resolution}).")
-            raise ValueError
-        elif not isAbsolute and not isDigital and (value < 0 or value > 100):
-            print("Percentage value must be between 0 and 100.")
-            raise ValueError
+        err = Potentiometer._eval_resistance_value(percentage, absolute, digital, resolution, max_resistance)
+        if err:
+            return err, None
+        elif percentage:
+            return None, round((percentage / 100) * (resolution - 1)) # TODO: rethink this formular for equistant steps
+        elif absolute:
+            return None, round((absolute / max_resistance) * (resolution - 1)) # TODO: rethink this formular for equistant steps
+        elif digital:
+            return None, digital
         return None
     
-    def set(self, value, isAbsolute=False):
-        """Set resistance of potentiometer to a relative (percentage) or absolute (ohms) value.
+    def _eval_resistance_value(percentage=None, absolute=None, digital=None, resolution=None, max_resistance=None):
+        """Evaluate values given to set method. Raises error if values are invalid (e.g. over 100% or over maximum resistance).\
+        There must only be one out of the parameters percentage, absolute and digital given.
+
+        :param percentage percentage: Resistance value, interpreted as percentage (0 to 100) by default.
+        :param int absolute: Resistance value in Ohms. Must be between 0 and the set maximum value.
+        :param int digital: Digital resistance value to be sent directly to the potentiometer without conversion.
+        :param int resolution: Number of possible steps to set resistance value to (2^(bits used for resistance)).
+        :param int max_resistance: Maximum resistance of Potentiometer in Ohm.
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: None
+        """
+        if bool(percentage) ^ bool(absolute) ^ bool(digital): # check if exactly one parameter is given
+            if percentage and (percentage < 0 or percentage > 100):
+                raise ValueError("Percentage value must be between 0 and 100.")
+            elif absolute and (absolute < 0 or absolute > max_resistance):
+                raise ValueError(f"Given absolute resistance value was {value} ohm must be between 0 ohm and the given maximum ({max_resistance} is currently set)")
+            elif digital and (digital < 0 or digital >= (resolution-1)):
+                raise ValueError(f"Digital value must be between 0 and the given resolution.")
+            return None
+        else:
+            return ValueError("There must only be one parameter given.")
+    
+    def set(self, percentage=None, absolute=None, digital=None):
+        """Set resistance of potentiometer to a relative (percentage), absolute (ohms), or digital value.\
+        There must only be one parameter given. When implementing this method,\
+        consider using :meth:`.potentiometer._eval_resistance_value`. 
         
-        :param int value: Resistance value, interpreted as percentage (0 to 100) by default.\
-        Will be inpreted as absolute resistance in ohms, if isAbsolute is set true.
-        :param bool isAbsolute: Set true if value is in ohms.
+        :param percentage percentage: Resistance value, interpreted as percentage (0 to 100) by default.
+        :param int absolute: Resistance value in Ohms. Must be between 0 and the set maximum value.
+        :param int digital: Digital resistance value to be sent directly to the potentiometer without conversion.
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
         self.__eval_resistance_value(value, isAbsolute, max_resistance)
+        return NotImplementedError
+    
+    def get(self, asPercentage=True, asAbsolute=False, asDigital=False):
+        """Get current resistance setting of potentiometer as ative (percentage), absolute (ohms), or digital value.\
+        There must only be one parameter set to true.
+        
+        :param bool asPercentage: Set true to convert value into a relative percent value. (default).
+        :param bool asAblsolute: Set true to convert value into ohms. False for a percentage value (default).
+        :param bool asDigital: Set true to return value as digital value.
+        :return: The resistance value and an error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
         return NotImplementedError
         
         

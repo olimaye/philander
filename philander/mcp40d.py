@@ -16,26 +16,6 @@ from .potentiometer import Potentiometer
 from .serialbus import SerialBusDevice
 from .systypes import ErrorCode, RunLevel
 
-'''
-@unique
-class PackageTypes(Enum):
-    """Data class to decide which PackageType of sensor is being
-    """
-    MCP40D17 = auto()
-    MCP40D18 = auto()
-    MCP40D19 = auto()
-    
-@unique
-class ResistanceCode(Enum):
-    """Data class to decide which resistance code the device has\
-    and which resistance thus must be it's maximum value.
-    """
-    _502 = 5000
-    _103 = 10000
-    _503 = 50000
-    _104 = 100000
-'''
-
 class MCP40D( SerialBusDevice, Potentiometer ):
     """MCP40D17/18/19 driver implementation.
 
@@ -67,7 +47,7 @@ class MCP40D( SerialBusDevice, Potentiometer ):
         =============================    ==========================================================================================================
         SerialBusDevice.address          ``int`` I2C serial device address; default is :attr:`ADDRESSES_ALLOWED` [0].
         Potentiometer.resistance.max     ``int``; Maximum resistance in Ohm; :attr:`DEFAULT_RESISTANCE_MAX`.
-        Potentiometer.resolution         ``int``; Number of bits used to set resistance value.
+        Potentiometer.resolution         ``int``; Number of possible steps to set resistance value to (2^(bits used for resistance)).
         ===========================================================================================================================================
         
         For the ``SerialBusDevice.address`` value, also 0 or 1
@@ -115,44 +95,57 @@ class MCP40D( SerialBusDevice, Potentiometer ):
         ret = super().close()
         return ret
     
-    def set(self, value, isAbsolute=False, isDigital=False):
-        """Set resistance of potentiometer to a relative (percentage) or absolute (Ohms) value via I2C.
+    def _digitalize_resistance_value(self, value, percentage=None, absolute=None, digital=None): 
+        """Converts an either digital, absolute or relative resistance value into a digital value. It also checks for it's validity.\
+        There must only be one parameter given.
+
+        Also see: :meth:`.potentiometer._digitalize_resistance_value`.
+        
+        :param percentage percentage: Resistance value, interpreted as percentage (0 to 100) by default.
+        :param int absolute: Resistance value in Ohms. Must be between 0 and the set maximum value.
+        :param int digital: Digital resistance value to be sent directly to the potentiometer without conversion.
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: int
+        """
+        return Potentiometer._digitalize_resistance_value(percentage, absolute, digital, self._potentiometer_resolution, self._potentiometer_resistance_max)
+    
+    def set(self, percentage=None, absolute=None, digital=None):
+        """Set resistance of potentiometer to a relative (percentage), absolute (ohms), or digital value.\
+        There must only be one parameter given.
         
         Also see: :meth:`.Potentiometer.set`.
         
-        :param int value: Resistance value, interpreted as percentage (0 to 100) by default.\
-        Will be inpreted as absolute resistance in ohms, if isAbsolute is set true,\
-        or as digital value if isDigital is true.
-        :param bool isAbsolute: Set true if value is in ohms.
+        :param percentage percentage: Resistance value, interpreted as percentage (0 to 100) by default.
+        :param int absolute: Resistance value in Ohms. Must be between 0 and the set maximum value.
+        :param int digital: Digital resistance value to be sent directly to the potentiometer without conversion.
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        value = Potentiometer._digitalize_resistance_value(value, isAbsolute, self._potentiometer_resistance_max, isDigital, self._potentiometer_resolution)
-        print(value)
+        err, value = self._digitalize_resistance_value(percentage, absolute, digital)
+        if err:
+            return err
         err = SerialBusDevice.writeByteRegister(self, 0x00, value)
         return err
     
-    def get(self, asAbsolute=False, asDigital=False):
-        """Get current resistance setting of potentiometer as relative (percentage) or absolute (Ohms) or digital value via I2C.
+    def get(self, asPercentage=True, asAbsolute=False, asDigital=False):
+        """Get current resistance setting of potentiometer as ative (percentage), absolute (ohms), or digital value via I2C.\
+        There must only be one parameter set to true.
         
         Also see: :meth:`.Potentiometer.get`.
         
+        :param bool asPercentage: Set true to convert value into a relative percent value. (default).
         :param bool asAblsolute: Set true to convert value into ohms. False for a percentage value (default).
         :param bool asDigital: Set true to return value as digital value.
         :return: The resistance value and an error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        data, err = SerialBusDevice.readByteRegister(self, 0x00)
-        if asDigital:
+        if asPercentage ^ asAbsolute ^ asDigital: # check if exactly one parameter is given
+            data, err = SerialBusDevice.readByteRegister(self, 0x00)
+            # convert data into percentage or ohms
+            if asPercentage:
+                data *= (100/self._potentiometer_resolution) # TODO: rethink this formular for equistant steps
+            elif asAbsolute:
+                data *= (self._potentiometer_resistance_max / self._potentiometer_resolution) # TODO: rethink this formular for equistant steps
             return data, err
-        # convert data into percentage or ohms
-        pot_steps = 2 ** self._potentiometer_resolution # number of available steps, dependent on number of bits for resolution
-        if asAbsolute:
-            data *= (self._potentiometer_resistance_max / pot_steps)
         else:
-            data *= (100/pot_steps)
-        return data, err
-    
-    def _get_digital(self):
-         data, err = SerialBusDevice.readByteRegister(self, 0x00)
-         return data, err
+            return None, ValueError("There must only be one parameter given.")

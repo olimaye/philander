@@ -14,7 +14,7 @@ def main():
         "SerialBus.designator": "/dev/i2c-1",
         "SerialBusDevice.address": 0x2E,
         "Potentiometer.resistance.max": 100000,
-        "Potentiometer.resolution": 7
+        "Potentiometer.resolution": 128
         }
     pot_steps = 2 ** conf["Potentiometer.resolution"]
     err_counter = 0
@@ -36,7 +36,7 @@ def main():
         if err != ErrorCode.errOk:
             print(f"Error while get(): {err}")
             err_counter += 1
-        expected_val = Potentiometer._digitalize_resistance_value(i, resolution=conf["Potentiometer.resolution"])
+        expected_val = poti._digitalize_resistance_value(percentage=i) # TODO: do with actual percentage value
         actual_val = data
         expected_val_percent = i
         actual_val_percent = (data * 100) / (pot_steps - 1)
@@ -62,7 +62,7 @@ def main():
         if err != ErrorCode.errOk:
             print(f"Error while get(): {err}")
             err_counter += 1
-        expected_val = Potentiometer._digitalize_resistance_value(i, isAbsolute=True, max_resistance=conf["Potentiometer.resistance.max"], resolution=conf["Potentiometer.resolution"])
+        expected_val = poti._digitalize_resistance_value(absolute=i)
         actual_val = data
         expected_val_ohms = i
         actual_val_ohms = data * (conf['Potentiometer.resistance.max'] / pot_steps)
