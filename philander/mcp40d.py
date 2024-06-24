@@ -95,13 +95,13 @@ class MCP40D( SerialBusDevice, Potentiometer ):
         ret = super().close()
         return ret
     
-    def _digitalize_resistance_value(self, value, percentage=None, absolute=None, digital=None): 
+    def _digitalize_resistance_value(self, percentage=None, absolute=None, digital=None): 
         """Converts an either digital, absolute or relative resistance value into a digital value. It also checks for it's validity.\
         There must only be one parameter given.
 
         Also see: :meth:`.potentiometer._digitalize_resistance_value`.
         
-        :param percentage percentage: Resistance value, interpreted as percentage (0 to 100) by default.
+        :param percentage percentage: Resistance value, interpreted as percentage (0 to 100).
         :param int absolute: Resistance value in Ohms. Must be between 0 and the set maximum value.
         :param int digital: Digital resistance value to be sent directly to the potentiometer without conversion.
         :return: An error code indicating either success or the reason of failure.
@@ -115,37 +115,42 @@ class MCP40D( SerialBusDevice, Potentiometer ):
         
         Also see: :meth:`.Potentiometer.set`.
         
-        :param percentage percentage: Resistance value, interpreted as percentage (0 to 100) by default.
+        :param percentage percentage: Resistance value, interpreted as percentage (0 to 100).
         :param int absolute: Resistance value in Ohms. Must be between 0 and the set maximum value.
         :param int digital: Digital resistance value to be sent directly to the potentiometer without conversion.
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        err, value = self._digitalize_resistance_value(percentage, absolute, digital)
+        value, err = self._digitalize_resistance_value(percentage, absolute, digital)
         if err:
             return err
         err = SerialBusDevice.writeByteRegister(self, 0x00, value)
         return err
     
-    def get(self, asPercentage=True, asAbsolute=False, asDigital=False):
+    def get(self, asPercentage=False, asAbsolute=False, asDigital=False):
         """Get current resistance setting of potentiometer as ative (percentage), absolute (ohms), or digital value via I2C.\
         There must only be one parameter set to true.
         
         Also see: :meth:`.Potentiometer.get`.
         
-        :param bool asPercentage: Set true to convert value into a relative percent value. (default).
-        :param bool asAblsolute: Set true to convert value into ohms. False for a percentage value (default).
+        :param bool asPercentage: Set true to convert value into a relative percent valued.
+        :param bool asAblsolute: Set true to convert value into ohms.
         :param bool asDigital: Set true to return value as digital value.
         :return: The resistance value and an error code indicating either success or the reason of failure.
-        :rtype: ErrorCode
+        :rtype: Tuple(ErrorCode, data)
         """
         if asPercentage ^ asAbsolute ^ asDigital: # check if exactly one parameter is given
             data, err = SerialBusDevice.readByteRegister(self, 0x00)
+            if err != ErrorCode.errOk:
+                return None, err
             # convert data into percentage or ohms
-            if asPercentage:
-                data *= (100/self._potentiometer_resolution) # TODO: rethink this formular for equistant steps
+            elif asPercentage:
+                data *= (100/self._potentiometer_resolution)
+                return Percentage(data). err
             elif asAbsolute:
-                data *= (self._potentiometer_resistance_max / self._potentiometer_resolution) # TODO: rethink this formular for equistant steps
-            return data, err
-        else:
-            return None, ValueError("There must only be one parameter given.")
+                data *= (self._potentiometer_resistance_max / self._potentiometer_resolution)
+                return data, err
+            elif asDigital:
+                return data, err
+        return None, ValueError("There must only be one parameter given.")
+    

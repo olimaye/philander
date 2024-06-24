@@ -79,14 +79,16 @@ class Potentiometer( Module ):
         """
         err = Potentiometer._eval_resistance_value(percentage, absolute, digital, resolution, max_resistance)
         if err:
-            return err, None
-        elif percentage:
-            return None, round((percentage / 100) * (resolution - 1)) # TODO: rethink this formular for equistant steps
-        elif absolute:
-            return None, round((absolute / max_resistance) * (resolution - 1)) # TODO: rethink this formular for equistant steps
-        elif digital:
-            return None, digital
-        return None
+            return None, err
+        elif percentage != None:
+            val = resolution * percentage // 100
+            return min(val, resolution-1), err
+        elif absolute != None:
+            val = resolution * percentage // max_resistance
+            return min(val, resolution-1), err
+        elif digital != None:
+            return digital, err
+        return None, Exception("What happened here?")
     
     def _eval_resistance_value(percentage=None, absolute=None, digital=None, resolution=None, max_resistance=None):
         """Evaluate values given to set method. Raises error if values are invalid (e.g. over 100% or over maximum resistance).\
@@ -100,7 +102,7 @@ class Potentiometer( Module ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: None
         """
-        if bool(percentage) ^ bool(absolute) ^ bool(digital): # check if exactly one parameter is given
+        if (percentage != None) ^ bool(absolute != None) ^ bool(digital != None): # check if exactly one parameter is given
             if percentage and (percentage < 0 or percentage > 100):
                 raise ValueError("Percentage value must be between 0 and 100.")
             elif absolute and (absolute < 0 or absolute > max_resistance):
