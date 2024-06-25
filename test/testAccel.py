@@ -72,8 +72,7 @@ def sopen():
             else:
                 print("Error: ", err)
         except Exception as exc:
-            print("Exception:", exc)
-            #traceback.print_exc()
+            print(f"{type(exc).__name__}: {exc}")
     return None
 
 def sclose():

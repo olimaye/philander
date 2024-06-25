@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""A module t reflect fundamental physical units and scales.
+"""A module to reflect fundamental physical units and scales.
 """
 __author__ = "Oliver Maye"
 __version__ = "0.1"
@@ -28,7 +28,7 @@ class Temperature(int):
     invalid = -128
 
 class PreciseTemperature(int):
-    """Temperature [-70...+125]in degree Celsius [°C], given a s a\
+    """Temperature [-70...+125]in degree Celsius [°C], given as a\
     Q8.8 fixed-point number with 8-bit decimals.
     """
     invalid = -32768
