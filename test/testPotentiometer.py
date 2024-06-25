@@ -7,17 +7,17 @@ from philander.mcp40d import MCP40D as potentiometer
 from philander.potentiometer import Potentiometer
 from philander.primitives import Percentage
 
-WAIT_BETWEEN_SET_GET = .5
-WAIT_BETWEEN_NEXT_TEST = 2.5
+WAIT_BETWEEN_SET_GET = .1#.5
+WAIT_BETWEEN_NEXT_TEST = .1#2.5
 
 def main():
     conf = {
         "SerialBus.designator": "/dev/i2c-1",
         "SerialBusDevice.address": 0x2E,
         "Potentiometer.resistance.max": 100000,
-        "Potentiometer.resolution": 128
         } 
     err_counter = 0
+    poti_digital_max = 128
     
     poti = potentiometer()
     poti.open(conf)
@@ -39,7 +39,7 @@ def main():
         expected_val, _ = poti._digitalize_resistance_value(percentage=Percentage(i))
         actual_val = data
         expected_val_percent = i
-        actual_val_percent = data * (100/conf["Potentiometer.resolution"])
+        actual_val_percent = data * (100/poti_digital_max)
         
         if actual_val == expected_val:
             print(f"Read value is correct.")
@@ -65,12 +65,12 @@ def main():
         expected_val, _ = poti._digitalize_resistance_value(absolute=i)
         actual_val = data
         expected_val_ohms = i
-        actual_val_ohms = data * (conf['Potentiometer.resistance.max'] / conf["Potentiometer.resolution"])
+        actual_val_ohms = data * (conf['Potentiometer.resistance.max'] / poti_digital_max)
         
         if actual_val == expected_val:
             print(f"Read value is correct.")
         else:
-            print(f"VALUE NOT CORRECT: Potentiometer resistance value should be {expected_val} ({round(actual_val_ohms)} ohms) but is set to {actual_val} ({round(actual_val_ohms)} ohms)")
+            print(f"VALUE NOT CORRECT: Potentiometer resistance value should be {expected_val} ({round(expected_val_ohms)} ohms) but is set to {actual_val} ({round(actual_val_ohms)} ohms)")
         sleep(WAIT_BETWEEN_NEXT_TEST)
 
     print("Closing connection.")

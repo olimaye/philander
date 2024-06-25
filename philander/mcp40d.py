@@ -9,12 +9,9 @@ __author__ = "Carl Bellgardt"
 __version__ = "0.1"
 __all__ = ["MCP40D"]
 
-import time
-from enum import unique, auto, Enum
-
 from .potentiometer import Potentiometer
 from .serialbus import SerialBusDevice
-from .systypes import ErrorCode, RunLevel
+from .systypes import ErrorCode
 
 class MCP40D( SerialBusDevice, Potentiometer ):
     """MCP40D17/18/19 driver implementation.
@@ -24,13 +21,12 @@ class MCP40D( SerialBusDevice, Potentiometer ):
     """
     
     ADDRESSES_ALLOWED = [0x2E, 0x3E]
-    _potentiometer_resolution = None
+    _potentiometer_digital_max = 128 # should apply for all mcp40dxx boards
     _potentiometer_resistance_max = None
 
     def __init__(self):
         # Create instance attributes and initialize parent classes and interfaces
         SerialBusDevice.__init__(self)
-        Potentiometer.__init__(self)
 
     #
     # Module API
@@ -46,14 +42,8 @@ class MCP40D( SerialBusDevice, Potentiometer ):
         Key name                         Value type, meaning and default
         =============================    ==========================================================================================================
         SerialBusDevice.address          ``int`` I2C serial device address; default is :attr:`ADDRESSES_ALLOWED` [0].
-        Potentiometer.resistance.max     ``int``; Maximum resistance in Ohm; :attr:`DEFAULT_RESISTANCE_MAX`.
-        Potentiometer.resolution         ``int``; Number of possible steps to set resistance value to (2^(bits used for resistance)).
+        Potentiometer.resistance.max     ``int`` Maximum resistance in Ohm; :attr:`DEFAULT_RESISTANCE_MAX`.
         ===========================================================================================================================================
-        
-        For the ``SerialBusDevice.address`` value, also 0 or 1
-        can be specified alternatively to the absolute addresses to reflect
-        the level of the ``SDO`` pin. In this case, 0 will be mapped to
-        0x18, while 1 maps to 0x19.
         
         Also see: :meth:`.SerialBusDevice.Params_init`, :meth:`.Potentiometer.Params_init`. 
         """
@@ -79,7 +69,6 @@ class MCP40D( SerialBusDevice, Potentiometer ):
         # Open the bus device
         ret = SerialBusDevice.open(self, paramDict)
         # Store potentiometer properties
-        self._potentiometer_resolution = paramDict["Potentiometer.resolution"]
         self._potentiometer_resistance_max = paramDict["Potentiometer.resistance.max"]
         return ret
 
@@ -105,9 +94,9 @@ class MCP40D( SerialBusDevice, Potentiometer ):
         :param int absolute: Resistance value in Ohms. Must be between 0 and the set maximum value.
         :param int digital: Digital resistance value to be sent directly to the potentiometer without conversion.
         :return: An error code indicating either success or the reason of failure.
-        :rtype: int
+        :rtype: Tuple(ErrorCode, data)
         """
-        return Potentiometer._digitalize_resistance_value(percentage, absolute, digital, self._potentiometer_resolution, self._potentiometer_resistance_max)
+        return Potentiometer._digitalize_resistance_value(percentage, absolute, digital, self._potentiometer_digital_max, self._potentiometer_resistance_max)
     
     def set(self, percentage=None, absolute=None, digital=None):
         """Set resistance of potentiometer to a relative (percentage), absolute (ohms), or digital value.\
@@ -122,9 +111,8 @@ class MCP40D( SerialBusDevice, Potentiometer ):
         :rtype: ErrorCode
         """
         value, err = self._digitalize_resistance_value(percentage, absolute, digital)
-        if err:
-            return err
-        err = SerialBusDevice.writeByteRegister(self, 0x00, value)
+        if err == ErrorCode.errOk:
+            err = SerialBusDevice.writeByteRegister(self, 0x00, value)
         return err
     
     def get(self, asPercentage=False, asAbsolute=False, asDigital=False):
@@ -139,18 +127,18 @@ class MCP40D( SerialBusDevice, Potentiometer ):
         :return: The resistance value and an error code indicating either success or the reason of failure.
         :rtype: Tuple(ErrorCode, data)
         """
+        data = None
         if asPercentage ^ asAbsolute ^ asDigital: # check if exactly one parameter is given
             data, err = SerialBusDevice.readByteRegister(self, 0x00)
-            if err != ErrorCode.errOk:
-                return None, err
-            # convert data into percentage or ohms
-            elif asPercentage:
-                data *= (100/self._potentiometer_resolution)
-                return Percentage(data). err
-            elif asAbsolute:
-                data *= (self._potentiometer_resistance_max / self._potentiometer_resolution)
-                return data, err
-            elif asDigital:
-                return data, err
-        return None, ValueError("There must only be one parameter given.")
+            if err == ErrorCode.errOk:
+                # convert data into percentage or ohms (or digital value)
+                if asPercentage:
+                    data = Percentage(data * 100 / self._potentiometer_digital_max)
+                elif asAbsolute:
+                    data = data * self._potentiometer_resistance_max / self._potentiometer_digital_max
+                elif asDigital:
+                    pass # nothing to do here
+        else:
+            err = ErrorCode.errInvalidParameter
+        return data, err
     
