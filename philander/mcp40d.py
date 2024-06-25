@@ -81,7 +81,7 @@ class MCP40D( SerialBusDevice, Potentiometer ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        ret = super().close()
+        ret = SerialBusDevice.close(self)
         return ret
     
     def _digitalize_resistance_value(self, percentage=None, absolute=None, digital=None): 

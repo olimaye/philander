@@ -7,8 +7,8 @@ from philander.mcp40d import MCP40D as potentiometer
 from philander.potentiometer import Potentiometer
 from philander.primitives import Percentage
 
-WAIT_BETWEEN_SET_GET = .1#.5
-WAIT_BETWEEN_NEXT_TEST = .1#2.5
+WAIT_BETWEEN_SET_GET = .5
+WAIT_BETWEEN_NEXT_TEST = 2.5
 
 def main():
     conf = {
