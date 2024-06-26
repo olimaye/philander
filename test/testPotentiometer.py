@@ -3,7 +3,7 @@ from philander.serialbus import SerialBusDevice
 from philander.systypes import ErrorCode
 
 # Replace this with any other potentiometer to test (conf might need to be adjusted accordingly)
-from philander.mcp40d import MCP40D as potentiometer
+from philander.mcp40 import MCP40 as potentiometer
 from philander.potentiometer import Potentiometer
 from philander.primitives import Percentage
 

@@ -1,27 +1,28 @@
 # -*- coding: utf-8 -*-
-"""Driver implementation for the MCP40D 17/18/19 digital potentiometers.
+"""Driver implementation for the MCP40 17/18/19 digital potentiometers.
 
 More information on the functionality of the chip can be found at
 the microchip's site for the 18 series chip with download for data sheet of all three chips:
-https://www.microchip.com/en-us/product/MCP40D18
+https://www.microchip.com/en-us/product/MCP4018
 """
 __author__ = "Carl Bellgardt"
 __version__ = "0.1"
-__all__ = ["MCP40D"]
+__all__ = ["MCP40"]
 
 from .potentiometer import Potentiometer
 from .serialbus import SerialBusDevice
 from .systypes import ErrorCode
 
-class MCP40D( SerialBusDevice, Potentiometer ):
-    """MCP40D17/18/19 driver implementation.
+class MCP40( SerialBusDevice, Potentiometer ):
+    """MCP40 family and MCP40D family driver implementation.\
+    This implementation was tested using a MCP40D18T-104E/LT. It should also work for any other specified chip.
 
-    The CMP40D17/18/19 chips are digital potentiometers that are controlled via an I2C interface. Their difference lies in their terminal configurations.
-    The all come in different resistances of 5kOhm, 10kOhm, 50kOhm and 100kOhm. Read more under https://www.microship.com/en-us/product/MCP40D17
+    The MCP40 and MCP40D family's chips are digital potentiometers that are controlled via an I2C interface. Their difference lies in their terminal configurations.
+    The all come in different resistances of 5kOhm, 10kOhm, 50kOhm and 100kOhm. Read more under https://www.microship.com/en-us/product/MCP4017
     """
     
-    ADDRESSES_ALLOWED = [0x2E, 0x3E]
-    _potentiometer_digital_max = 128 # should apply for all mcp40dxx boards
+    ADDRESSES_ALLOWED = [0x2E, 0x3E, 0x2F]
+    _potentiometer_digital_max = 128 # should apply for all MCP40xx boards
     _potentiometer_resistance_max = None
 
     def __init__(self):
@@ -65,7 +66,7 @@ class MCP40D( SerialBusDevice, Potentiometer ):
         :rtype: ErrorCode
         """
         # Get default parameters
-        MCP40D.Params_init( paramDict )
+        MCP40.Params_init( paramDict )
         # Open the bus device
         ret = SerialBusDevice.open(self, paramDict)
         # Store potentiometer properties
