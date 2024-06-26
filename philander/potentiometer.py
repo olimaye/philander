@@ -12,9 +12,10 @@ from .module import Module
 class Potentiometer( Module ):
     """Generic digital potentiometer driver class.
 
-    A digital potentiometer is able to adjust a resistance divider's wiper by sending a resistance value to set digitalky, e.g. using I2C.\
+    A digital potentiometer is able to adjust a resistance divider's wiper to a received value, e.g. using I2C.\
     It can be used as a variable resistor or for more complex things. Depending on the specific chip it can feature different terminals\
-    to make use of it's resistance divider functionality.
+    to make use of it's resistance divider functionality. The resistance is generally defined as the relative resistance between ground and the wiper.\
+    To comply with this standard, some implementations may need to invert the given value before sending it out.
     """
     
     DEFAULT_RESISTANCE_MAX = 10000
@@ -30,7 +31,7 @@ class Potentiometer( Module ):
         Key name                         Value type, meaning and default
         =============================    =====================================================================================================
         Potentiometer.resistance.max     ``int`` Maximum resistance in Ohm; :attr:`DEFAULT_RESISTANCE_MAX`.
-        Potentiometer.digital_max         ``int`` Number of possible steps to set resistance value to (2^(bits used for resistance)). :attr:`DEFAULT_digital_max`.
+        Potentiometer.digital_max        ``int`` Number of possible steps to set resistance value to (2^(bits used for resistance)). :attr:`DEFAULT_digital_max`.
         ======================================================================================================================================
         """
         defaults = {
