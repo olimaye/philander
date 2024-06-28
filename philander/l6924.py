@@ -112,7 +112,7 @@ class L6924(Charger):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        return ErrorCode.errNotImplemented
+        return ErrorCode.errOk # nothing to do here
     
     def getInfo(self):
         """Retrieves an information block from the charging device.
@@ -122,7 +122,7 @@ class L6924(Charger):
         :return: The information object and an error code indicating either success or the reason of failure.
         :rtype: Info, ErrorCode
         """
-        return ErrorCode.errNotImplemented
+        return None, ErrorCode.errOk
     
     def isBatteryPresent(self):
         """Checks, if the battery is present.
@@ -141,7 +141,8 @@ class L6924(Charger):
         :return: An error code.
         :rtype: ErrorCode
         """
-        return ErrorCode.errOk if getChgStatus() != Status.unknown else Error.errUnavailable
+        err = ErrorCode.errOk if getChgStatus() != Status.unknown else Error.errUnavailable
+        return err
     
     def getNumCells(self):
         """Retrieves the number of battery cells configured.
@@ -164,7 +165,16 @@ class L6924(Charger):
         :return: The battery state.
         :rtype: battery.Status
         """
-        return BatStatus.normal if getChgStatus() != Status.unknown else BatStatus.problemPhysical
+        chg_status = getChgStatus()
+        if chg_status == Status.off:
+            status = BatStatus.unknown
+        elif chg_status == Status.fastCharge:
+            status = BatStatus.low | BatStatus.empty
+        elif chg_status == Status.done:
+            status = BatStatus.nomal
+        else:
+            status = BatStatus.removed | BatStatus.broken | BatStatus.problemThermal
+        return status
     
     def getChgStatus(self):
         """Retrieves the charging phase or status.
@@ -193,7 +203,16 @@ class L6924(Charger):
         :return: A status code to indicate the DC supply status.
         :rtype: DCStatus
         """
-        return DCStatus.unknown
+        chg_status = getChgStatus()
+        if chg_status == Status.off:
+            status = DCStatus.off
+        elif chg_status == Status.fastCharge:
+            status = DCStatus.valid
+        elif chg_status == Status.done:
+            status = DCStatus.nomal
+        else:
+            status = DCStatus.unknown
+        return status
     
     def getPowerSrc(self):
         """Retrieves the power source, that presumably drives the\
@@ -204,7 +223,16 @@ class L6924(Charger):
         :return: A code to indicate the power source.
         :rtype: PowerSrc
         """
-        return PowerSrc.unknown
+        chg_status = getChgStatus()
+        if chg_status == Status.off:
+            status = PowerSrc.bat
+        elif chg_status == Status.fastCharge:
+            status = PowerSrc.dc
+        elif chg_status == Status.done:
+            status = PowerSrc.dcBat
+        else:
+            status = PowerSrc.unknown
+        return status
 
     def getChargerTempStatus(self):
         """Retrieves the charger's temperature state.
@@ -236,7 +264,8 @@ class L6924(Charger):
         :return: A charger error code to further describe reason for the error.
         :rtype: ChargerError
         """
-        return ChargerError.ok if getChgStatus() != Status.unknown else ChargerError.bat 
+        err = ChargerError.ok if getChgStatus() != Status.unknown else ChargerError.bat 
+        return err
 
     def restartCharging(self):
         """Tries to restart the charging phase.
@@ -246,6 +275,6 @@ class L6924(Charger):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        return ErrorCode.errNotImplemented
+        return ErrorCode.errOk # nothing to do here
 
     
