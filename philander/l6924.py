@@ -1,4 +1,4 @@
-"""Driver implementation for the L6924 battery chargers.
+"""Driver implementation for the L6924D/U battery chargers.
 
 More information on the functionality of the chip can be found at
 the ST website under e.g. https://www.st.com/en/power-management/l6942d.html
@@ -7,14 +7,16 @@ __author__ = "Carl Bellgardt"
 __version__ = "0.1"
 __all__ = ["L6924"]
 
-from .charger import Charger, Status, ChargerError
+from .charger import Charger, Status, ChargerError, TemperatureRating
 from .battery import Status as BatStatus
 from .gpio import GPIO
 from .systypes import ErrorCode
 
 class L6924(Charger):
     """L6924 driver implementation.
-    This implementation was ttested using STEVAL-ISA076V1 board (based on L6924D) but also should work for other devices.
+
+    This implementation was tested using STEVAL-ISA076V1 board (based on L6924D) but also should work for other devices.
+    This implementation does only read information on two gpio pins, and thus cannot communicate with the charger in any way.
     """
 
     def __init__(self):
@@ -52,6 +54,8 @@ class L6924(Charger):
 
         Allocate necessary hardware resources and configure
         user-adjustable parameters to meaningful defaults.
+        In this case the two GPIO-Pins for reading the charger status
+        are initialized.
         This function must be called prior to any further usage of the
         instance. Involving it in the system ramp-up procedure could be
         a good choice. After usage of this instance is finished, the
@@ -66,24 +70,18 @@ class L6924(Charger):
         # init St1 and St2
         self._pinSt1 = GPIO()
         self._pinSt2 = GPIO()
-        St1_params = {"gpio.pull": GPIO.PULL_UP} # collector requires pull-up to be readable
-        St2_params = {"gpio.pull": GPIO.PULL_UP}
+        st1_params = {} # collector requires pull-up to be readable
+        st2_params = {}
         for key, value in paramDict.items():
             if key.startswith("L6924.St1"):
-                St1_params[key.replace("L6924.St1.", '')] = value
+                st1_params[key.replace("L6924.St1.", '')] = value
             elif key.startswith("L6924.St2"):
-                St2_params[key.replace("L6924.St2.", '')] = value
-        # check if mandatory parameter are given
-        for param in ["gpio.pinDesignator", "gpio.direction"]:
-            for pin_params in [St1_params, St2_params]:
-                if param not in pin_params.keys():
-                    err = ErrorCode.errInvalidParameter
-                    break
+                st2_params[key.replace("L6924.St2.", '')] = value
         # open GPIO pins
         if err == ErrorCode.errOk:
-            err = self._pinSt1.open(St1_params)
+            err = self._pinSt1.open(st1_params)
         if err == ErrorCode.errOk:
-            err = self._pinSt2.open(St2_params)
+            err = self._pinSt2.open(st2_params)
         return err
         
     def close(self):
@@ -108,6 +106,9 @@ class L6924(Charger):
     def reset(self):
         """Soft resets the device.
         
+        As there is nothing to reset, this routine does not execute an actual reset.
+        It is just here to fulfill the interface.
+        
         The device is in some default state, afterwards and must be
         re-configured according to the application's needs.
         :return: An error code indicating either success or the reason of failure.
@@ -128,8 +129,13 @@ class L6924(Charger):
     def isBatteryPresent(self):
         """Checks, if the battery is present.
         
-        This does not tell anything about whether the battery is charged
-        or not.
+        Because there is only one error code without any differentiation,
+        if Error.errUnavailable is returned, it could be the case, that there is no battery present.
+        Specifically the following is true:
+        If there is no battery present, this function will return Error.errUnavailable.
+        If the function returns Error.errUnavailable, the reason could also be a high/low temperature, a faulty battery
+        or that the time limit has elapsed.
+        If the chip is not powered, it will always return ErrorCode.errOk, guessing that there is a battery present.
         
         Returns :attr:`ErrorCode.errOk` if a battery is present,
         :attr:`ErrorCode.errUnavailable` if the battery could possibly not be present.\
@@ -186,11 +192,11 @@ class L6924(Charger):
         st1 = self._pinSt1.get() # collector state is the inverted state of internal transistor (GPIO.inverted should be true)
         st2 = self._pinSt2.get() # (see data sheet table for possible states)
         
-        if not any((st1, st2)):
+        if not (st1 or st2):
             status = Status.off
-        elif not st1 and st2:
+        elif (not st1) and st2:
             status = Status.done
-        elif st1 and not st2:
+        elif st1 and (not st2):
             status = Status.fastCharge # The board only outputs a general charging status, thus this could mean any kind of charging
         else:
             status = Status.unknown # this could indicate any error
@@ -200,6 +206,7 @@ class L6924(Charger):
         """Retrieves the DC supply status.
 
         This device does not indicate it's status.
+        The given status is guessed based on the ChgStatus.
 
         :return: A status code to indicate the DC supply status.
         :rtype: DCStatus
@@ -220,6 +227,7 @@ class L6924(Charger):
         system at the moment that this function is executed.
         
         This device does not report it's power source.
+        The given status is guessed based on the ChgStatus.
         
         :return: A code to indicate the power source.
         :rtype: PowerSrc
@@ -250,17 +258,25 @@ class L6924(Charger):
         """Retrieves the battery's temperature status.
 
         This device does not report on the battery's temperature.
+        The given status is guessed based on the ChgStatus.
+        If the charger status is ok, the battery temperature is assumed to be ok too.
+        If the charger status is indicating any problem, the temperature rating is assumed to be unknown.
 
         :return: A rating code to indicate the temperature rating of the battery element.
         :rtype: TemperatureRating
         """
-        return TemperatureRating.unknown
+        chg_status = getChgStatus()
+        if chg_status == Status.unknown:
+            status = TemperatureRating.unknown
+        else:
+            status = TemperatureRating.ok
+        return status
 
     def getError(self):
         """Determines the error state for the charger chip, if one.
 
-        Because this device only has one error status, ChargerError.bat could indicate any kind of error\
-        e.g. thermal problems, battery absent or timer expired.
+        Because this device only has one error status, ChargerError.bat indicates any kind of error
+        e.g. thermal problems, battery absent or charge timer expired.
 
         :return: A charger error code to further describe reason for the error.
         :rtype: ChargerError
