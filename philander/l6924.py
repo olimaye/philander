@@ -57,8 +57,8 @@ class L6924(Charger):
         # init St1 and St2
         self._pinSt1 = GPIO()
         self._pinSt2 = GPIO()
-        St1_params = {}
-        St2_params = {}
+        St1_params = {"gpio.pull": GPIO.PULL_UP} # collector requires pull-up to be readable
+        St2_params = {"gpio.pull": GPIO.PULL_UP}
         for key, value in paramDict.items():
             if key.startswith("L6924.St1"):
                 St1_params[key.replace("L6924.St1.", '')] = value
@@ -164,8 +164,8 @@ class L6924(Charger):
         :return: A charger status code to indicate the current charger status.
         :rtype: charger.Status
         """
-        st1 = self._pinSt1.get()
-        st2 = self._pinSt2.get()
+        st1 = not self._pinSt1.get() # collector state is the inverted state of internal transistor
+        st2 = not self._pinSt2.get() # (see data sheet table for possible states)
         
         if not any((st1, st2)):
             status = Status.off
