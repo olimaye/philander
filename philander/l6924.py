@@ -48,7 +48,7 @@ class L6924(Charger):
         a good choice. After usage of this instance is finished, the
         application should call :meth:`close`.
         
-        :param dict(str, object) paramDict: Configuration parameters as obtained from :meth:`Params_init`, possibly.
+        :param paramDict(str, object) paramDict: Configuration parameters as obtained from :meth:`Params_init`, possibly.
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
@@ -84,9 +84,7 @@ class L6924(Charger):
         e.g. as part of the application exit procedure.
         The following steps are executed:
         
-        * shut down the device by switching to :attr:`.RunLevel.shutdown`
-        * close serial communication, detach from bus.
-        * close GPIO pins for int1 and int2
+        * close GPIO pins for st1 and st1
         
         After return, the device can still be re-used, by calling
         :meth:`.open` again.
@@ -168,8 +166,6 @@ class L6924(Charger):
         """
         st1 = self._pinSt1.get()
         st2 = self._pinSt2.get()
-        
-        print(str(st1)+str(st2))
         
         if not any((st1, st2)):
             status = Status.off
