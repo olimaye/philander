@@ -35,7 +35,15 @@ class L6924(Charger):
         
         Also see: :meth:`.Charger.Params_init`, :meth:`.SerialBusDevice.Params_init`, :meth:`.GPIO.Params_init`. 
         """
-        # TODO: check if stuff needed for GPIO is defined (does GPIO throw an error itself if e.g. Pin is not defined?)
+        gpio_dict = {
+            "gpio.direction": GPIO.DIRECTION_IN,
+            "gpio.pull": GPIO.PULL_UP
+            }
+        GPIO.Params_init(gpio_dict)
+        for key, value in gpio_dict.items():
+            for pin in ["L6924.St1.", "L6924.St2."]:
+                if not ((pin + key) in paramDict.keys()):
+                    paramDict[pin + key] = value
         return paramDict
 
     def open(self, paramDict):
