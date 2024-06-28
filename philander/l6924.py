@@ -37,7 +37,8 @@ class L6924(Charger):
         """
         gpio_dict = {
             "gpio.direction": GPIO.DIRECTION_IN,
-            "gpio.pull": GPIO.PULL_UP
+            "gpio.pull": GPIO.PULL_UP,
+            "gpio.inverted": True
             }
         GPIO.Params_init(gpio_dict)
         for key, value in gpio_dict.items():
@@ -182,8 +183,8 @@ class L6924(Charger):
         :return: A charger status code to indicate the current charger status.
         :rtype: charger.Status
         """
-        st1 = not self._pinSt1.get() # collector state is the inverted state of internal transistor
-        st2 = not self._pinSt2.get() # (see data sheet table for possible states)
+        st1 = self._pinSt1.get() # collector state is the inverted state of internal transistor (GPIO.inverted should be true)
+        st2 = self._pinSt2.get() # (see data sheet table for possible states)
         
         if not any((st1, st2)):
             status = Status.off
