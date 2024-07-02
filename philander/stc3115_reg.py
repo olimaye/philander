@@ -6,7 +6,7 @@ Externalized, just for clarity of the source code.
 """
 __author__ = "Carl Bellgardt"
 __version__ = "0.1"
-__all__ = ["STC311_Reg"]
+__all__ = ["STC3115_Reg"]
 
 from .systypes import Enum
 

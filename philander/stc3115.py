@@ -1,16 +1,17 @@
 # -*- coding: utf-8 -*-
 """A module to provide base classes and data types for gas gauge driver implementations.
 """
-__author__ = "Oliver Maye"
+__author__ = "Carl Bellgardt"
 __version__ = "0.1"
-__all__ = ["GasGauge","SOCChangeRate", "EventSource", "EventContext",\
-           "StatusID",]
+__all__ = ["STC3115"]
+
 from dataclasses import dataclass
 from enum import unique, Enum, auto
 
 from .sensor import Sensor
 from .serialbus import SerialBusDevice
-from .battery import Status as BatStatus, Level as BatLevel
+from .gasgauge import GasGauge, SOCChangeRate
+from .battery import Status as BatStatus, Level as BatLevel 
 from .primitives import Current, Voltage, Percentage
 from .systypes import ErrorCode, Info
 from .serialbus import SerialBusDevice
@@ -66,7 +67,7 @@ class StatusID(Enum):
     dieTemp     = auto()
 """
     
-class STC3115( SerialBusDevice ):
+class STC3115( GasGauge, SerialBusDevice ):
     """This is a driver base class for a gas gauge IC.
     
     A gas gauge allows to keep track of the state of charge
@@ -218,8 +219,9 @@ class STC3115( SerialBusDevice ):
         to indicate that this information could not be retrieved.
         :rtype: Percentage
         """
-        #self.readByteRegister(STC3115_Reg._REG_SOC)
-        return Percentage.invalid
+        soc, err =      self.readWordRegister(STC3115_Reg._REG_SOC)
+        ret = Percentage(soc) if (err == ErrorCode.errOk) else Percentage.invalid
+        return ret
 
     def getChangeRate( self ):
         """Retrieves the SOC change rate in milli C.
@@ -240,8 +242,9 @@ class STC3115( SerialBusDevice ):
         to indicate that this information could not be retrieved.
         :rtype: Voltage
         """
-        voltage = self.readByteRegister(STC3115_Reg._REG_VOLTAGE)
-        return Voltage.invalid
+        voltage, err = self.readWordRegister(STC3115_Reg._REG_VOLTAGE)
+        ret = Voltage(voltage) if (err == ErrorCode.errOk) else Voltage.invalid
+        return ret 
 
     def getBatteryCurrent( self ):
         """Retrieves the battery current in micro Ampere at the time this\
@@ -253,7 +256,9 @@ class STC3115( SerialBusDevice ):
         to indicate that this information could not be retrieved.
         :rtype: Current
         """
-        return Current.invalid
+        current, err = self.readWordRegister(STC3115_Reg._REG_CURRENT)
+        ret = Current(current) if (err == ErrorCode.errOk) else Current.invalid
+        return ret 
 
     def getBatteryCurrentAvg( self ):
         """Retrieves the average battery current.
