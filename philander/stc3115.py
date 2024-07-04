@@ -5,68 +5,17 @@ __author__ = "Carl Bellgardt"
 __version__ = "0.1"
 __all__ = ["STC3115"]
 
-from dataclasses import dataclass
-from enum import unique, Enum, auto
+#from enum import unique, Enum, auto
 
 from .sensor import Sensor
 from .serialbus import SerialBusDevice
 from .gasgauge import GasGauge, SOCChangeRate
 from .battery import Status as BatStatus, Level as BatLevel 
-from .primitives import Current, Voltage, Percentage
+from .primitives import Current, Voltage, Percentage, Temperature
 from .systypes import ErrorCode, Info
 from .serialbus import SerialBusDevice
 from .stc3115_reg import STC3115_Reg
 
-"""
-class SOCChangeRate(int):
-    \"""State of charge (SOC) change rate, given in milli-C rate [mC].
-
-    Remember 1C = 100% per 1 hour.
-    \"""
-
-    invalid = 0xFFFF
-
-@unique
-class EventSource(Enum):
-    \""" * Event source type to detail the reason for an interrupt occurrence.
-    
-    Not all implementations will support all types of interrupt.
-    \"""
-
-    none            = auto(),
-    \"""No event reason\"""
-    lowSOC          = auto(),
-    \"""SOC dropped below a threshold\"""
-    highSOC          = auto(),
-    \"""SOC reached a high/full info level\"""
-    lowVolt         = auto(),
-    \"""Battery voltage dropped below a threshold\"""
-    batFail         = auto(),
-    \"""General battery failure, e.g. battery swapped\"""
-    undervoltage    = auto(),
-    \"""Brown-out/Lockout due to low voltage\"""
-    hardReset       = auto(),
-    \"""Power-on reset detected\"""
-    unknown         = auto(),
-    \"""Unknown event reason\"""
-
-@dataclass
-class EventContext:
-    \"""Event context type to detail the context information for an interrupt occurrence.
-    \"""
-    source:     EventSource = EventSource.none
-    soc:        Percentage  = Percentage.invalid
-    voltage:    Voltage     = Voltage.invalid
-    batStatus:  BatStatus   = BatStatus.unknown
-
-@unique
-class StatusID(Enum):
-    \"""Data class to comprise different types of status information.
-    \"""
-    batTemp     = auto()
-    dieTemp     = auto()
-"""
-    
 class STC3115( GasGauge, SerialBusDevice ):
     """This is a driver base class for a gas gauge IC.
     
@@ -96,8 +45,8 @@ class STC3115( GasGauge, SerialBusDevice ):
             "SerialBusDevice.address": STC3115.ADDRESSES_ALLOWED[0]
             }
         def_dict.update(paramDict)
-        paramDict = def_dict
-        return None 
+        paramDict.update(def_dict) # update again to apply changes to original reference
+        return None
 
     def open(self, paramDict):
         """Opens the instance and sets it in a usable state.
@@ -320,4 +269,13 @@ class STC3115( GasGauge, SerialBusDevice ):
         lvlStr = str( lvl )
         return lvlStr
 
+    def getChipTemperature( self ):
+        """Retrieve the current temperature of the chip.
+        
+        :return: Temperature value.
+        :rtype: Temperature
+        """
+        temperature, err = self.readWordRegister(STC3115_Reg._REG_VOLTAGE)
+        ret = Temperature(temperature) if (err == ErrorCode.errOk) else Temperature.invalid
+        return ret
 
