@@ -23,11 +23,11 @@ class STC3115_Reg():
         VMODE = 0x01 # mixed mode
         CLR_VM_ADJ = 0x02 # clear ACC_VM_ADJ and REG_VM_ADJ
         CLR_CC_ADJ = 0x04 # clear ACC_CC_ADJ and REG_CC_ADJ
-        AML_ENA = 0x08 # enable alarm function
+        ALM_ENA = 0x08 # enable alarm function
         GG_RUN = 0x10 # standy / operating mode
         FORCE_CC = 0x20 # forces the relaxation timer to switch to the couomb counter (CC) state
         FORCE_VM = 0x40 # forces the relatxation timer to switch to voltage mode (VM) state
-        DEFAULT = VMODE or AML_ENA
+        DEFAULT = VMODE or ALM_ENA
         OFF = 0
         
     
@@ -159,7 +159,7 @@ class STC3115_Reg():
     
     # define configuration (defaults)
     
-    _RSENSE_FEAULT = 10 # sense resistor in milli OHm
+    _RSENSE_DEFAULT = 10 # sense resistor in milli OHm
     # if not defined(CONFIG_GASGAUGE_0_RSENSE) -> what is this?
     # ...
     

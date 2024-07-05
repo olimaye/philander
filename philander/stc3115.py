@@ -7,7 +7,6 @@ __all__ = ["STC3115"]
 
 #from enum import unique, Enum, auto
 
-from .sensor import Sensor
 from .serialbus import SerialBusDevice
 from .gasgauge import GasGauge, SOCChangeRate
 from .battery import Status as BatStatus, Level as BatLevel 
@@ -153,13 +152,13 @@ class STC3115( GasGauge, SerialBusDevice ):
         :rtype: Object, ErrorCode
         """
         del statusID
+        # TODO: not implemented yet
         return None, ErrorCode.errNotSupported
 
 
     
     def getStateOfCharge( self ):
         """Retrieves the state of charge.
-        
         That is the fraction of electric energy from the total capacity,
         that is still or already stored in the battery. This information
         is valid for both, the charging as well as the discharging process.
@@ -168,7 +167,9 @@ class STC3115( GasGauge, SerialBusDevice ):
         to indicate that this information could not be retrieved.
         :rtype: Percentage
         """
-        soc, err =      self.readWordRegister(STC3115_Reg._REG_SOC)
+        soc, err = self.readWordRegister(STC3115_Reg._REG_SOC)
+        if err == ErrorCode.errOk:
+            soc >>= 9 # value is 9 bit
         ret = Percentage(soc) if (err == ErrorCode.errOk) else Percentage.invalid
         return ret
 
@@ -182,6 +183,7 @@ class STC3115( GasGauge, SerialBusDevice ):
         to indicate that this information could not be retrieved.
         :rtype: SOCChangeRate
         """
+        # TODO: not implemented yet
         return SOCChangeRate.invalid
     
     def getBatteryVoltage( self ):
@@ -222,6 +224,7 @@ class STC3115( GasGauge, SerialBusDevice ):
         to indicate that this information could not be retrieved.
         :rtype: Current
         """
+        # TODO: not implemented yet
         return Current.invalid
 
 
@@ -269,13 +272,21 @@ class STC3115( GasGauge, SerialBusDevice ):
         lvlStr = str( lvl )
         return lvlStr
 
+    # additional functions that are part of the Gasgauge Interface
     def getChipTemperature( self ):
         """Retrieve the current temperature of the chip.
         
         :return: Temperature value.
         :rtype: Temperature
         """
+        # TODO: not implemented yet
         temperature, err = self.readWordRegister(STC3115_Reg._REG_VOLTAGE)
         ret = Temperature(temperature) if (err == ErrorCode.errOk) else Temperature.invalid
         return ret
+
+    def alarmcallback( self, pinIndex ):
+        # TODO: not implemented yet
+        pass
+
+    def 
 
