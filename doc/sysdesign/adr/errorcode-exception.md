@@ -12,31 +12,19 @@ Optionally, add a more elaborate info in prose on what the status of this decisi
 
 <!-- YYYY-MM-DD (no period!) Date when this decision was last updated -->
 
-2024-01-20
+2024-07-12
 
 ## Deciders <!-- optional -->
 
 <!-- List everyone actively involved in the decision! Do not assume any relation between order and importance. -->
-* G.Surname (Organisation if other than IHP)
+* O. Maye
+* C. Bellgardt
 
 ## Context
 
 <!-- Describe the context and problem statement, e.g., in free form using two to three sentences. You may want to articulate the problem in form of a question or give the technical story. What is the issue that is motivating this decision or change? How is the decision architecturally significant - warranting an ADR? What is the high level design Approach? Leave the details for the options section below! -->
 
-We need to decide for a computing platform. It must be lightweight and future proof as well as follow the standard xy … The whole picture is given in the following graph:
-
-``` mermaid
----
-title: Simple sample
----
-stateDiagram-v2
-	[*] --> Still
-	Still --> [*]
-	Still --> Moving
-	Moving --> Still
-	Moving --> Crash
-	Crash --> [*]
-```
+During execution, methods may encounter errorneous conditions that hinder or even prevent from fulfilling their original task. To allow the caller to correctly interprete the result or take counter measures to errors, it's necessary to inform higher layers on such conditions or anomalies. In software theory, several approaches exist. We have to decide for one of them and aplly it, consistently.
 
 ## Options <!-- optional -->
 
@@ -50,9 +38,18 @@ stateDiagram-v2
 * Bad, because [argument c]
 -->
 
-Among the computing platforms that are currently available, the following seem to be proper candidates:
+In Python, there are several ways to inform a caller on errors and malfunction of a method.
 
-### [option 1]
+### A: Throwing Exceptions
+
+The method throws an Exception. It must be well documented, under which condition which Excpetion is thrown. It's the responsibility of the caller to handle the exception appropriately. 
+
+* Good, because this is the pythonic way.
+* Good, because the general reason of error could be coded into the Exception type, while a detailed explanation could be provided in the exception message
+* Bad, because one must interprete the message in order get the reason. Problematic if the caller does not have access to the user interface or there is no UI to represent text messages.
+* Bad, because largely incompatible with other programming languages like plain C.
+
+### B: Returning an Error Code only
 
 [example | description | pointer to more information | …]
 
@@ -60,15 +57,7 @@ Among the computing platforms that are currently available, the following seem t
 * Good, because [argument b]
 * Bad, because [argument c]
 
-### [option 2]
-
-[example | description | pointer to more information | …]
-
-* Good, because [argument a]
-* Good, because [argument b]
-* Bad, because [argument c]
-
-### [option 3]
+### C: Returning an Error Code as part of a tuple
 
 [example | description | pointer to more information | …]
 
