@@ -10,7 +10,7 @@ proposed
 
 <!-- YYYY-MM-DD (no period!) Date when this decision was last updated -->
 
-2024-07-11
+2024-07-12
 
 ## Deciders <!-- optional -->
 
@@ -22,7 +22,7 @@ proposed
 
 <!-- Describe the context and problem statement, e.g., in free form using two to three sentences. You may want to articulate the problem in form of a question or give the technical story. What is the issue that is motivating this decision or change? How is the decision architecturally significant - warranting an ADR? What is the high level design Approach? Leave the details for the options section below! -->
 
-Some of the interface methods return values or objects to be processed further by the caller. Further, the success or reason of failure for a method call is indicated by an error code. It would violate good programming practice to let the return value implicitly encode the success-or failure indicator, e.g. by using NULL values or "-1". Further, the specific reason of failure would even be impossible to encode.
+Some of the (interface) methods return values or objects to be processed further by the caller. Further, the success or reason of failure for a method call is indicated by an error code. It would violate good programming practice to let the return value implicitly encode the success-or failure indicator, e.g. by using NULL values or "-1". Further, the specific reason of failure would even be impossible to encode.
 
 For that reason, these methods must return both, the semantic return value or object and an error code.
 
@@ -45,27 +45,21 @@ As far as we can see, there are only two options: Will the error code be the fir
 ### Option A
 
 The error code is placed first, as in:
-````return err, tmp, hum````
 
-* Good, because [argument a]
-* Good, because [argument b]
-* Bad, because [argument c]
+````return err, otherValue````
 
-### [option 2]
+* Good, because the status of the method call can always be interpreted, even without knowing the method's exact return signature.
+* Bad, because the error code must always be read or muted just to pick the interesting value (as in: ````_, val = foo(...)````
 
-[example | description | pointer to more information | …]
+### Option B
 
-* Good, because [argument a]
-* Good, because [argument b]
-* Bad, because [argument c]
+The error code is placed last, as in:
 
-### [option 3]
+````return otherValue, err````
 
-[example | description | pointer to more information | …]
-
-* Good, because [argument a]
-* Good, because [argument b]
-* Bad, because [argument c]
+* Good, because the caller gets the interesting value first
+* Good, because currently, slightly more implementations use this scheme
+* Bad, because for the correct interpretation, the error code is needed, anyway; Moreover, it must be interpreted, before even looking at the other return value(s).
 
 ## Considerations <!-- optional -->
 
@@ -74,11 +68,7 @@ The error code is placed first, as in:
 * [driver 1, e.g., a force, facing concern, …]
 * [driver 2, e.g., a force, facing concern, …]
 -->
-* Power consumption argues for option #1
-* Price is best for option #2
-* Availability is largely unknown for all of them
-* Programming experience must be weighted highest and exists only für option #3.
-
+* Currently, the implementation is inconsistent in this point. So we have to modify some of the methods and test applications.
 
 ## Decision
 
@@ -87,7 +77,7 @@ The error code is placed first, as in:
 Chosen option: "[option 1]", because [justification. e.g., only option, which meets k.o. criterion decision driver | which resolves force force | … | comes out best (see below)].
 -->
 
-Chosen option: "[option 1]", because [justification. e.g., only option, which meets k.o. criterion decision driver | which resolves force force | … | comes out best (see below)].
+Chosen option: "Option A", because the error code appears to be more relevant when interpreting the result of a method call.
 
 ## Consequences
 
@@ -98,8 +88,8 @@ Chosen option: "[option 1]", because [justification. e.g., only option, which me
 -->
 
 We are aware of the following:
-* we know, how to program it
-* it's expensive and hard to get.
+* We have to check the whole code, modify part of it and thoroughly test the result.
+* In orderto prevent from divergence, we have to stick to this decision, in the future.
 
 ## Related ADRs <!-- optional -->
 
@@ -107,7 +97,7 @@ We are aware of the following:
 * [Depends on|Refined by|...] [ADR Title](URL)
 --> 
 
-* Depends on [client-server](client-server.md)
+* Depends on [Error Code vs. Exception](errorcode-exception.md)
 
 ## References <!-- optional -->
 
@@ -115,12 +105,10 @@ We are aware of the following:
 * \[Title\]\(URL\)
 -->
 
-* \[Title\]\(URL\)
-
 ## Change Log <!-- optional -->
 
 <!-- List the changes to the document. Sort by date in descending order.
 * YYYY-MM-DD [Author]: [New status, if changed]. [Change]
 -->
 
-* 2024-01-20 G.Surname: PROPOSED. ADR created and first two options #1 and #2 outlined.
+* 2024-07-12 O. Maye: PROPOSED. ADR created and options A and B outlined.
