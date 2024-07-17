@@ -3,8 +3,9 @@ from philander.serialbus import SerialBusDevice
 from philander.systypes import ErrorCode
 from philander.primitives import Percentage
 # Replace this with any other gasgauge to test (conf might need to be adjusted accordingly)
-from philander.stc3115 import STC3115 as Gasgauge
+from philander.stc311 import STC3115 as Gasgauge
 from generalTestSuite import run, MenuFunction
+
 
 def main():
     # initialize Gasgauge
