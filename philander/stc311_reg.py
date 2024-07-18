@@ -8,36 +8,23 @@ Externalized, just for clarity of the source code.
 """
 __author__ = "Carl Bellgardt"
 __version__ = "0.1"
-__all__ = ["STC3115_Reg", "STC3117_Reg", "ModeValues", "CtrlValues"]
+__all__ = ["STC3115_Reg", "STC3117_Reg"]
 
 from .systypes import Enum
 from stc311 import ChipType
 
-class ModeValues(Enum):
+
+class _ModeValues:
     """This type describes different operating modes.
     """
     VMODE = 0x01  # 0: Mixed mode (Coulomb counter active); 1: Power saving voltage mode
-    # if defined(CONFIG_GASGAUGE_IS_STC3117)
-    # MODE_BATD_PU = 0x02        # BATD internal pull-up enable
-    # MODE_FORCE_CD = 0x04        # CD driven by internal logic / forced high
-    # else
-    CLR_VM_ADJ = 0x02  # Clear ACC_VM_ADJ and REG_VM_ADJ
-    CLR_CC_ADJ = 0x04  # Clear ACC_CC_ADJ and REG_CC_ADJ
-    # endif
     ALM_ENA = 0x08  # Alarm function enable
     GG_RUN = 0x10  # Standby / operating mode
     FORCE_CC = 0x20  # Forces the relaxation timer to switch to the Coulomb counter (CC) state.
     FORCE_VM = 0x40  # Forces the relaxation timer to switch to voltage mode (VM) state.
-    # if defined(CONFIG_GASGAUGE_IS_STC3117)
-    # MODE_DEFAULT = (MODE_VMODE | MODE_BATD_PU | MODE_ALM_ENA)
-    # MODE_OFF = MODE_BATD_PU
-    # else
-    DEFAULT = (VMODE or ALM_ENA)
-    OFF = 0
-    # endif
 
 
-class CtrlValues(Enum):
+class _CtrlValues:
     """This type describes different control commands.
     """
     IO0DATA = 0x01  # ALM pin status / ALM pin output drive
@@ -47,9 +34,6 @@ class CtrlValues(Enum):
     PORDET = 0x10  # Power on reset (POR) detection / Soft reset
     ALM_SOC = 0x20  # Set with a low-SOC condition
     ALM_VOLT = 0x40  # Set with a low-voltage condition
-    # if defined(CONFIG_GASGAUGE_IS_STC3117)
-    # CTRL_UVLOD = 0x80        # UVLO event detection
-    # endif
     DEFAULT = IO0DATA
 
 
@@ -57,7 +41,8 @@ class _STC311x_Reg:
     def __init__(self, Param_dict):
         # apply config
         self.CONFIG_GASGAUGE_0_RSENSE = Param_dict["Gasgauge.senseResistor"]
-        self.CONFIG_GASGAUGE_0_BATTERY_IDX = Param_dict["Gasgauge.battery_idx"]  # TODO: is this infact the battery index?
+        self.CONFIG_GASGAUGE_0_BATTERY_IDX = Param_dict["Gasgauge.battery_idx"]  # TODO: what is this pin used for?
+        self.CONFIG_GASGAUGE_0_GPIO_ALARM = Param_dict["Gasgauge.gpio_alarm_idx"]
         self.RELAX_MAX_DEFAULT = Param_dict["Gasgauge.cmonit_max"]
         self.SETUP_0_REG_CC_CNF = Param_dict["Gasgauge.cc_cnf"]
         self.SETUP_0_REG_VM_CNF = Param_dict["Gasgauge.vm_cnf"]
@@ -147,7 +132,8 @@ class _STC311x_Reg:
 
     # Define configuration (defaults)
 
-    CONFIG_GASGAUGE_0_RSENSE = None  # Sense resistor in milli Ohm
+    CONFIG_GASGAUGE_0_RSENSE = None  # Sense resistor in milli Ohm; set in __init__()
+    CONFIG_GASGAUGE_0_GPIO_ALARM = None  # GPIO pin index for interrupts; set in __init__()
 
     # TODO:? where does this come from?
     # -> from an external tool; use a config parameter for those that didn't formerly exist too
@@ -191,6 +177,21 @@ class _STC311x_Reg:
 
 
 class STC3115_Reg(_STC311x_Reg):
+
+    # ModeValues class to represent different operating modes
+    class ModeValues(_ModeValues):
+        # STC3115 exclusive values
+        CLR_VM_ADJ = 0x02  # Clear ACC_VM_ADJ and REG_VM_ADJ
+        CLR_CC_ADJ = 0x04  # Clear ACC_CC_ADJ and REG_CC_ADJ
+        DEFAULT = (_ModeValues.VMODE | _ModeValues.ALM_ENA)
+        OFF = 0
+
+    # CtrlValues class to describe different control commands
+    class CtrlValues(_CtrlValues):
+        # STC3115 exclusive values
+        # there are None.
+        pass
+
     # Definition of registers and their content
 
     CHIP_TYPE = ChipType.STC3115
@@ -229,6 +230,20 @@ class STC3115_Reg(_STC311x_Reg):
 
 
 class STC3117_Reg(_STC311x_Reg):
+
+    # ModeValues class to represent different operating modes
+    class ModeValues(_ModeValues):  # TODO: directly put these in Reg class
+        # STC3117 exclusive values
+        MODE_BATD_PU = 0x02  # BATD internal pull-up enable
+        MODE_FORCE_CD = 0x04  # CD driven by internal logic / forced high
+        MODE_DEFAULT = (_ModeValues.VMODE | MODE_BATD_PU | _ModeValues.ALM_ENA)
+        MODE_OFF = MODE_BATD_PU
+
+    # CtrlValues class to describe different control commands
+    class CtrlValues(_CtrlValues):
+        # STC3117 exclusive values
+        CTRL_UVLOD = 0x80  # UVLO event detection
+
     # Definition of registers and their content
 
     CHIP_TYPE = ChipType.STC3117
