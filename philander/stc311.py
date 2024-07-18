@@ -369,20 +369,18 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
     @staticmethod
     def _checkRamConsistency(self, data, length):
         # TODO: why is length never used? Refer to original implementation to see, what it does
-        IDX_RAM_CRC = None  # TODO: should this be part of STC3115_Reg?
         # check if RAM test register value is correct
         if data[self.REGISTER.IDX_RAM_TEST] != self.REGISTER.RAM_TEST:
             ret = ErrorCode.errCorruptData
         else:
             code = self._crc(data, self.REGISTER.RAM_SIZE - 1)
-            if code != data[IDX_RAM_CRC]:
+            if code != data[self.REGISTER.IDX_RAM_CRC]:
                 ret = ErrorCode.errCorruptData
             else:
                 ret = ErrorCode.errOk
         return ret
 
     def _getOperatingMode(self):
-        # TODO: read about and understand modes and mode config
         err, data = SerialBusDevice.readByteRegister(self,  self.REGISTER.REG_MODE)
         if err == ErrorCode.errOk:
             if data and self.REGISTER.MODE_GG_RUN:
@@ -407,9 +405,86 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
     #  * Start-up the chip and fill/restore configuration registers
     #  */
     def _initialize(self):
-        pass  # TODO: implement
+        ramContent = None  # TODO: where does RAM content come from?
+        params = None  # TODO: insert according confs where params is used
 
-    # API functions exported to the outside
+        # check communication
+        err = self._checkID()
+        # read RAM
+        if err == ErrorCode.errOk:
+            data, err = SerialBusDevice.readWriteBuffer(self, self.REGISTER.RAM_SIZE, 1)
+        # check RAM consistency
+        canRestore = False  # disable RAM restoration
+        if err == ErrorCode.errOk:
+            err = self._checkRamConsistency(ramContent, self.REGISTER.RAM_SIZE)
+            if err == ErrorCode.errOk:
+                # check CTRL_PORDET and CTRL_BATFAIL
+                data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_CTRL)
+                if err == ErrorCode.errOk:
+                    if data & (self.REGISTER.CTRL_BATFAIL | self.REGISTER.CTRL_PORDET):
+                        # battery removed / voltage dropped below threshold
+                        # no restoration, start anew, instead!
+                        canRestore = False
+            else:
+                canRestore = False
+                err = ErrorCode.errOk
+        if err == ErrorCode.errOk:
+            # common steps (pre-phase)
+            if canRestore:
+                # restore configuration from RAM
+                # ensure that GG_RUN is cleared
+                SerialBusDevice.writeByteRegister(self, self.REGISTER.REG_MODE, self.REGISTER.MODE_OFF)
+                # restore REG_CC_CNF
+                data16 = (ramContent[self.REGISTER.IDX_RAM_CC_CNF_H] << 8) | ramContent[self.REGISTER.IDX_RAM_CC_CNF_L]
+                SerialBusDevice.writeWordRegister(self, self.REGISTER.REG_CC_CNF, data16)
+                # restore REG_VM_CNF
+                data16 = (ramContent[self.REGISTER.IDX_RAM_VM_CNF_H] << 8) | ramContent[self.REGISTER.IDX_RAM_VM_CNF_L]
+                SerialBusDevice.writeWordRegister(self, self.REGISTER.REG_VM_CNF, data16)
+                # restore REG_SOC
+                data16 = (ramContent[self.REGISTER.IDX_RAM_SOC_H] << 8) | ramContent[self.REGISTER.IDX_RAM_SOC_L]
+                SerialBusDevice.writeWordRegister(self, self.REGISTER.REG_SOC, data16)
+            else:
+                # initialize configuration with defaults
+                # run gas gauge to get first OCV and current measurement
+                data8 = self.REGISTER.MODE_OFF | self.REGISTER.MODE_GG_RUN |self.REGISTER.MODE_FORCE_CC
+                SerialBusDevice.writeByteRegister(self, self.REGISTER.REG_MODE, data8)
+                # read OCV
+                data, _ = SerialBusDevice.readWordRegister(self, self.REGISTER.REG_OCV)
+                ocv = self._transfertOCV(data)
+                # read current
+                data, _ = SerialBusDevice.readWordRegister(self, self.REGISTER.REG_CURRENT)
+                current = self._transferCurrent(data)
+                # ensure that GG_RUN is cleared
+                SerialBusDevice.writeByteRegister(self, self.REGISTER.REG_MODE, self.REGISTER.MODE_OFF)
+                # REG_CC_CNF
+                SerialBusDevice.writeWordRegister(self, self.REGISTER.REG_CC_CNF, params.regCCcnf)  # TODO: get from params
+                # REG_VM_CNF
+                SerialBusDevice.writeWordRegister(self, self.REGISTER.REG_VM_CNF, params.regVMcnf)  # TODO: same as above
+                # compensate OCV
+                if current > 1000000:
+                    current /= 1000
+                    ocv = ocv - current * CFG_SUBSECTATR( BATTERY, CONFIG_GASGAUGE_0_BATTERY_IDX, IMPEDANCE ) / 1000
+                else:
+                    ocv = ocv - current * CFG_SUBSECTATR(BATTERY, CONFIG_GASGAUGE_0_BATTERY_IDX, IMPEDANCE) / (1000 * 1000)
+                data16 = self._invTransferOCV(ocv)
+                # write OCV back
+                SerialBusDevice.writeWordRegister(self, self.REGISTER.REG_OCV, data16)
+                # wait 1ßßms to get valid SOC
+                data, _ = SerialBusDevice.readWordRegister(self, self.REGISTER.REG_SOC)
+                # store new backup to RAM
+                memset(ramContent, 0, self.REGISTER.RAM_SIZE)
+                ramContent[self.REGISTER.IDX_RAM_TEST] = self.REGISTER.RAM_TEST
+                ramContent[self.REGISTER.IDX_RAM_SOC_L] = data16 & 0xFF
+                ramContent[self.REGISTER.IDX_RAM_SOC_H] = data16 >> 8
+                ramContent[self.REGISTER.IDX_RAM_CC_CNF_L] = params.regCCcnf & 0xFF
+                ramContent[self.REGISTER.IDX_RAM_CC_CNF_H] = params.regCCcnf >> 8
+                ramContent[self.REGISTER.IDX_RAM_VM_CNF_L] = params.regVMcnf & 0xFF
+                ramContent[self.REGISTER.IDX_RAM_VM_CNF_H] = params.regVMcnf >> 8
+                ramContent[self.REGISTER.IDX_RAM_CRC] = crc(ramContent, self.REGISTER.RAM_SIZE - 1)
+                buffer[0] = self.REGISTER.REG_RAM_FIRST
+                SerialBusDevice.writeBuffer(self, buffer, self.REGISTER.RAM_SIZE + 1)
+
+        # API functions exported to the outside
 
     def _setRunLevel(self, level):
         mode = self.REGISTER.MODE_OFF
