@@ -17,24 +17,24 @@ from stc311 import ChipType
 class _ModeValues:
     """This type describes different operating modes.
     """
-    VMODE = 0x01  # 0: Mixed mode (Coulomb counter active); 1: Power saving voltage mode
-    ALM_ENA = 0x08  # Alarm function enable
-    GG_RUN = 0x10  # Standby / operating mode
-    FORCE_CC = 0x20  # Forces the relaxation timer to switch to the Coulomb counter (CC) state.
-    FORCE_VM = 0x40  # Forces the relaxation timer to switch to voltage mode (VM) state.
+    MODE_VMODE = 0x01  # 0: Mixed mode (Coulomb counter active); 1: Power saving voltage mode
+    MODE_ALM_ENA = 0x08  # Alarm function enable
+    MODE_GG_RUN = 0x10  # Standby / operating mode
+    MODE_FORCE_CC = 0x20  # Forces the relaxation timer to switch to the Coulomb counter (CC) state.
+    MODE_FORCE_VM = 0x40  # Forces the relaxation timer to switch to voltage mode (VM) state.
 
 
 class _CtrlValues:
     """This type describes different control commands.
     """
-    IO0DATA = 0x01  # ALM pin status / ALM pin output drive
-    GG_RST = 0x02  # resets the conversion counter GG_RST is a self-clearing bit
-    GG_VM = 0x04  # Coulomb counter mode / Voltage mode active
-    BATFAIL = 0x08  # Battery removal (BATD high).
-    PORDET = 0x10  # Power on reset (POR) detection / Soft reset
-    ALM_SOC = 0x20  # Set with a low-SOC condition
-    ALM_VOLT = 0x40  # Set with a low-voltage condition
-    DEFAULT = IO0DATA
+    CTRL_IO0DATA = 0x01  # ALM pin status / ALM pin output drive
+    CTRL_GG_RST = 0x02  # resets the conversion counter GG_RST is a self-clearing bit
+    CTRL_GG_VM = 0x04  # Coulomb counter mode / Voltage mode active
+    CTRL_BATFAIL = 0x08  # Battery removal (BATD high).
+    CTRL_PORDET = 0x10  # Power on reset (POR) detection / Soft reset
+    CTRL_ALM_SOC = 0x20  # Set with a low-SOC condition
+    CTRL_ALM_VOLT = 0x40  # Set with a low-voltage condition
+    CTRL_DEFAULT = CTRL_IO0DATA
 
 
 class _STC311x_Reg:
@@ -135,9 +135,6 @@ class _STC311x_Reg:
     CONFIG_GASGAUGE_0_RSENSE = None  # Sense resistor in milli Ohm; set in __init__()
     CONFIG_GASGAUGE_0_GPIO_ALARM = None  # GPIO pin index for interrupts; set in __init__()
 
-    # TODO:? where does this come from?
-    # -> from an external tool; use a config parameter for those that didn't formerly exist too
-
     # if defined(Gasgauge.battery_idx):
     # TODO: -> make default in Param_dict None?
     # TODO: how does this function work: #SETUP_0_REG_CC_CNF = ((CONFIG_GASGAUGE_0_RSENSE) * ( CFG_SUBSECTATR(BATTERY, CONFIG_GASGAUGE_0_BATTERY_IDX, CAPACITY) ) * 250 + 6194) / 12389
@@ -176,21 +173,18 @@ class _STC311x_Reg:
     POR_DELAY_LOOPS_MAX = 2000  # Delay while doing a soft-reset.
 
 
-class STC3115_Reg(_STC311x_Reg):
+class STC3115_Reg(_STC311x_Reg, _ModeValues, _CtrlValues):
 
+    # STC3115 exclusive mode values (in addition to inherited values from _ModeValues)
     # ModeValues class to represent different operating modes
-    class ModeValues(_ModeValues):
-        # STC3115 exclusive values
-        CLR_VM_ADJ = 0x02  # Clear ACC_VM_ADJ and REG_VM_ADJ
-        CLR_CC_ADJ = 0x04  # Clear ACC_CC_ADJ and REG_CC_ADJ
-        DEFAULT = (_ModeValues.VMODE | _ModeValues.ALM_ENA)
-        OFF = 0
+    MODE_CLR_VM_ADJ = 0x02  # Clear ACC_VM_ADJ and REG_VM_ADJ
+    MODE_CLR_CC_ADJ = 0x04  # Clear ACC_CC_ADJ and REG_CC_ADJ
+    MODE_DEFAULT = (_ModeValues.MODE_VMODE | _ModeValues.MODE_ALM_ENA)
+    MODE_OFF = 0
 
+    # STC3115 exclusive control values (in addition to inherited values from _CtrlValues)
     # CtrlValues class to describe different control commands
-    class CtrlValues(_CtrlValues):
-        # STC3115 exclusive values
-        # there are None.
-        pass
+    # there are None.
 
     # Definition of registers and their content
 
@@ -229,20 +223,18 @@ class STC3115_Reg(_STC311x_Reg):
     OCV_DEFAULT = 0
 
 
-class STC3117_Reg(_STC311x_Reg):
+class STC3117_Reg(_STC311x_Reg, _ModeValues, _CtrlValues):
 
+    # STC3117 exclusive mode values (in addition to inherited values from _ModeValues)
     # ModeValues class to represent different operating modes
-    class ModeValues(_ModeValues):  # TODO: directly put these in Reg class
-        # STC3117 exclusive values
-        MODE_BATD_PU = 0x02  # BATD internal pull-up enable
-        MODE_FORCE_CD = 0x04  # CD driven by internal logic / forced high
-        MODE_DEFAULT = (_ModeValues.VMODE | MODE_BATD_PU | _ModeValues.ALM_ENA)
-        MODE_OFF = MODE_BATD_PU
+    MODE_BATD_PU = 0x02  # BATD internal pull-up enable
+    MODE_FORCE_CD = 0x04  # CD driven by internal logic / forced high
+    MODE_DEFAULT = (_ModeValues.MODE_VMODE | MODE_BATD_PU | _ModeValues.MODE_ALM_ENA)
+    MODE_OFF = MODE_BATD_PU
 
+    # STC3117 exclusive control values (in addition to inherited values from _CtrlValues)
     # CtrlValues class to describe different control commands
-    class CtrlValues(_CtrlValues):
-        # STC3117 exclusive values
-        CTRL_UVLOD = 0x80  # UVLO event detection
+    CTRL_UVLOD = 0x80  # UVLO event detection
 
     # Definition of registers and their content
 

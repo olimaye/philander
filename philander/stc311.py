@@ -38,8 +38,6 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
     """
 
     REGISTER = None
-    ModeValues = None
-    CtrlValues = None
     ADDRESSES_ALLOWED = [0x70]
     pinInt = None
 
@@ -55,7 +53,7 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
         See def_dict
         ===============================================================================================================================================
         
-        Also see: :meth:`.Charger.Params_init`, :meth:`.SerialBusDevice.Params_init`, :meth:`.GPIO.Params_init`. 
+        Also see: :meth:`.Gasgauge.Params_init`, :meth:`.SerialBusDevice.Params_init`, :meth:`.GPIO.Params_init`.
         """
         def_dict = {
             "SerialBusDevice.address": cls.ADDRESSES_ALLOWED[0],
@@ -70,7 +68,7 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
             "Gasgauge.current_thres": 10,  # Current monitoring threshold; +/-470 V drop
             "Gasgauge.cmonit_max": 120,  # Monitoring timing threshold; CC-VM: 4 minutes; VM->CC: 1 minute
             "Gasgauge.battery_idx": None,
-            "Gasgauge.pinInt.gpio.Direction": GPIO.DIRECTION_IN  # TODO: this option should be available to be configured and in docs
+            "Gasgauge.pinInt.gpio.Direction": GPIO.DIRECTION_IN  # TODO: these options should be available to be configured and in docs
         }
         def_dict.update(paramDict)
         paramDict.update(def_dict)  # update again to apply changes to original reference
@@ -95,13 +93,11 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
         self.Params_init(paramDict)
         err = ErrorCode.errOk
         if paramDict["Gasgauge.chip_type"] == ChipType.STC3115:
-            self.REGISTER = STC3115_Reg  # TODO: make this dynamic, maybe via a conf?
+            self.REGISTER = STC3115_Reg
         elif paramDict["Gasgauge.chip_type"] == ChipType.STC3117:
             self.REGISTER = STC3117_Reg
         else:
             err = ErrorCode.errInvalidParameter
-        self.ModeValues = self.REGISTER.ModeValues  # for shorter access
-        self.CtrlValues = self.REGISTER.CtrlValues  # for shorter access
         self._initialize()
         if err == ErrorCode.errOk:  # Extend ErrorCode class to have a ok() function to replace all these occurrences
             err = SerialBusDevice.open(self, {"SerialBusDevice.address": self.ADDRESSES_ALLOWED[0]})
@@ -164,6 +160,7 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
         """
         info = Info()
         chip_id, err = self.readByteRegister(self.REGISTER.REG_ID)
+        # TODO: not implement yet
         return info, err
 
     def getStatus(self, statusID):
@@ -237,8 +234,13 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
         to indicate that this information could not be retrieved.
         :rtype: Current
         """
-        # TODO: not implemented yet
-        return Current.invalid
+        ret = Current.invalid
+        if self.REGISTER.CHIP_TYPE == ChipType.STC3117:  # Function is STC3117 exclusive
+            if self._getOperatingMode() == OperatingMode.opModeMixed:
+                data, err = SerialBusDevice.readWordRegister(self, self.REGISTER.REG_AVG_CURRENT)
+                if err == ErrorCode.errOk:
+                    ret = self._transferCurrentAvg(data)
+        return ret
 
     def rateSOC(self, soc):
         """Convert a continuous SOC percentage into its next-lower battery level predicate.
@@ -309,15 +311,13 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
         ret = (data * 22 + 5) / 10
         return Voltage(ret)
 
-    @staticmethod
-    def _transferCurrent(data):
+    def _transferCurrent(self, data):
         # Actually, we read out the voltage drop over the sense resistor.
         # LSB is 5.88V, so first scaling factor is 5.88 = 294/50
         # Value is signed!
         # R = U/I  so we get I = U/R; Note that R is given in milliOhm!
         # So, finally we scale by 294 / 50 * 1000 / rs = 294 * 20 / rs = 5880 / rs.
-        rs = None  # TODO:? rs is stored in the device context (original implementation), how should this be done now?: rs = sContext[devIdx].senseResistor
-        # -> give as configuration parameter and store in object
+        rs = self.REGISTER.CONFIG_GASGAUGE_0_RSENSE
         if data >= 0:
             ret = (data * 5880 + (rs / 2)) / rs
         else:
@@ -335,7 +335,6 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
             # LSB is 1.47V, partial scaling factor is 1.47 = 147/100
             # Value is signed!
             # Total scaling factor is: 147 / 100 * 1000 / rs = 147 * 10 / rs = 1470 / rs.
-            # TODO: rs = sContext[devIdx].senseResistor;
             rs = self.REGISTER.CONFIG_GASGAUGE_0_RSENSE
             if data >= 0:
                 ret = (data * 1470 + rs/2) / rs
@@ -386,8 +385,8 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
         # TODO: read about and understand modes and mode config
         err, data = SerialBusDevice.readByteRegister(self,  self.REGISTER.REG_MODE)
         if err == ErrorCode.errOk:
-            if data and self.ModeValues.GG_RUN:
-                if data and self.ModeValues.VMODE:
+            if data and self.REGISTER.MODE_GG_RUN:
+                if data and self.REGISTER.MODE_VMODE:
                     ret = OperatingMode.opModeVoltage
                 else:
                     ret = OperatingMode.opModeMixed
@@ -413,22 +412,22 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
     # API functions exported to the outside
 
     def _setRunLevel(self, level):
-        mode = self.ModeValues.OFF
+        mode = self.REGISTER.MODE_OFF
         if level in [RunLevel.active, RunLevel.idle]:  # TODO: not sure if this is the best "pythonic^TM" way
             # Mixed mode: coulomb counter + voltage gas gauge -> Leave VMODE off
-            mode = self.ModeValues.OFF | self.ModeValues.GG_RUN | self.ModeValues.FORCE_CC
+            mode = self.REGISTER.MODE_OFF | self.REGISTER.MODE_GG_RUN | self.REGISTER.MODE_FORCE_CC
             if self.pinInt._fIntEnabled:
-                mode |= self.ModeValues.ALM_ENA
+                mode |= self.REGISTER.MODE_ALM_ENA
             ret = ErrorCode.errOk
         elif level in [RunLevel.relax, RunLevel.snooze, RunLevel.nap, RunLevel.sleep, RunLevel.deepSleep]:
             # Power saving mode: voltage gas gauge, only. -> VMODE = 1
-            mode = self.ModeValues.OFF | self.ModeValues.VMODE | self.ModeValues.GG_RUN | self.ModeValues.FORCE_VM
+            mode = self.REGISTER.MODE_OFF | self.REGISTER.MODE_VMODE | self.REGISTER.MODE_GG_RUN | self.REGISTER.MODE_FORCE_VM
             if self.pinInt._fIntEnabled:
-                mode |= self.ModeValues.ALM_ENA
+                mode |= self.REGISTER.MODE_ALM_ENA
             ret = ErrorCode.errOk
         elif level == RunLevel.shutdown:
             # ret = backupRam(self)
-            mode = self.ModeValues.VMODE | self.ModeValues.FORCE_VM
+            mode = self.REGISTER.MODE_VMODE | self.REGISTER.MODE_FORCE_VM
             ret = ErrorCode.errOk
         else:
             ret = ErrorCode.errNotSupported
@@ -450,9 +449,9 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
         # UNDOCUMENTED: At the end of the reset phase, the MODE_GG_RUN bit is cleared.
         # In order to detect this, we have to set it, first:
         data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_MODE)
-        if err == ErrorCode.errOk and not (data & self.ModeValues.GG_RUN):
+        if err == ErrorCode.errOk and not (data & self.REGISTER.MODE_GG_RUN):
             err, data = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_MODE)
-            data |= self.ModeValues.GG_RUN  # TODO:? do not understand what this does
+            data |= self.REGISTER.MODE_GG_RUN  # TODO:? do not understand what this does
             # -> read again, this is a write, not read
             # same applies for beneath
         # Do a soft reset by asserting CTRL:PORDET
@@ -511,7 +510,7 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
         else:
             opMode = self._getOperatingMode()
             if opMode == opMode.opModeVoltage:
-                data, err = SerialBusDevice.readWordRegister(self, self.REGISTER._REG_AVG_CURRENT)
+                data, err = SerialBusDevice.readWordRegister(self, self.REGISTER.REG_AVG_CURRENT)
                 if err == ErrorCode.errOk:
                     ret = self._transferChangeRate(data)
                 else:
@@ -546,7 +545,7 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
             if err == ErrorCode.errOk:
                 data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_MODE)
                 if err == ErrorCode.errOk:
-                    data |= self.ModeValues.ALM_ENA
+                    data |= self.REGISTER.MODE_ALM_ENA
                     err = SerialBusDevice.writeByteRegister(self, self.REGISTER.REG_MODE, data)
                 if err == ErrorCode.errOk:  # check if there already is an interrupt present
                     data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_CTRL)
@@ -559,7 +558,7 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
         else:  # Disable; from hardware to app.
             data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_MODE)
             if err == ErrorCode.errOk:
-                data &= ~self.ModeValues.ALM_ENA  # TODO: ModeValues class need to be adjusted to work with all binary operations as expected
+                data &= ~self.REGISTER.MODE_ALM_ENA  # TODO: ModeValues class need to be adjusted to work with all binary operations as expected
                 err = SerialBusDevice.writeByteRegister(self, self.REGISTER.REG_MODE, data)
             self.disableInterrupt()
         return err
