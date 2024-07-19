@@ -18,29 +18,6 @@ class ChipType(Enum):
     STC3117 = auto()
 
 
-class _ModeValues:
-    """This type describes different operating modes.
-    """
-    MODE_VMODE = 0x01  # 0: Mixed mode (Coulomb counter active); 1: Power saving voltage mode
-    MODE_ALM_ENA = 0x08  # Alarm function enable
-    MODE_GG_RUN = 0x10  # Standby / operating mode
-    MODE_FORCE_CC = 0x20  # Forces the relaxation timer to switch to the Coulomb counter (CC) state.
-    MODE_FORCE_VM = 0x40  # Forces the relaxation timer to switch to voltage mode (VM) state.
-
-
-class _CtrlValues:
-    """This type describes different control commands.
-    """
-    CTRL_IO0DATA = 0x01  # ALM pin status / ALM pin output drive
-    CTRL_GG_RST = 0x02  # resets the conversion counter GG_RST is a self-clearing bit
-    CTRL_GG_VM = 0x04  # Coulomb counter mode / Voltage mode active
-    CTRL_BATFAIL = 0x08  # Battery removal (BATD high).
-    CTRL_PORDET = 0x10  # Power on reset (POR) detection / Soft reset
-    CTRL_ALM_SOC = 0x20  # Set with a low-SOC condition
-    CTRL_ALM_VOLT = 0x40  # Set with a low-voltage condition
-    CTRL_DEFAULT = CTRL_IO0DATA
-
-
 class _STC311x_Reg:
     def __init__(self, Param_dict):
         # apply config
@@ -58,10 +35,23 @@ class _STC311x_Reg:
     # Definition of registers and their content
 
     REG_MODE = 0  # Mode register
-    # see MODE_VALUES for possible values
+    # possible values of the mode register
+    MODE_VMODE = 0x01  # 0: Mixed mode (Coulomb counter active); 1: Power saving voltage mode
+    MODE_ALM_ENA = 0x08  # Alarm function enable
+    MODE_GG_RUN = 0x10  # Standby / operating mode
+    MODE_FORCE_CC = 0x20  # Forces the relaxation timer to switch to the Coulomb counter (CC) state.
+    MODE_FORCE_VM = 0x40  # Forces the relaxation timer to switch to voltage mode (VM) state.
 
     REG_CTRL = 1  # Control and status register
-    # see CTRL_VALUES for possible values
+    # possible values of the control register
+    CTRL_IO0DATA = 0x01  # ALM pin status / ALM pin output drive
+    CTRL_GG_RST = 0x02  # resets the conversion counter GG_RST is a self-clearing bit
+    CTRL_GG_VM = 0x04  # Coulomb counter mode / Voltage mode active
+    CTRL_BATFAIL = 0x08  # Battery removal (BATD high).
+    CTRL_PORDET = 0x10  # Power on reset (POR) detection / Soft reset
+    CTRL_ALM_SOC = 0x20  # Set with a low-SOC condition
+    CTRL_ALM_VOLT = 0x40  # Set with a low-voltage condition
+    CTRL_DEFAULT = CTRL_IO0DATA
 
     REG_SOC_L = 2
     REG_SOC_H = 3
@@ -76,7 +66,7 @@ class _STC311x_Reg:
     REG_VOLTAGE_H = 9
     REG_VOLTAGE = REG_VOLTAGE_L  # Battery voltage
     REG_TEMPERATURE = 10  # Temperature [C]
-    # REG 11, 12 see __init__()
+    # REG 11, 12 set in chip specific implementation
     REG_OCV_L = 13
     REG_OCV_H = 14
     REG_OCV = REG_OCV_L  # OCV register
@@ -95,9 +85,9 @@ class _STC311x_Reg:
     REG_RELAX_MAX = REG_CMONIT_MAX
     RELAX_MAX_DEFAULT = None  # set in __init__()
     REG_ID = 24  # Part type ID = 16h
-    CHIP_ID = None  # Expected chip ID, set in chip specific implementation
+    CHIP_ID = None  # Expected chip ID, depends on specific chip
 
-    # REG 25 - 30, set in chip specific implementation
+    # REG 25 - 30 set in chip specific implementation
 
     # RAM registers: Working registers for gas gauge
     REG_RAM0 = 32
@@ -178,23 +168,23 @@ class _STC311x_Reg:
     POR_DELAY_LOOPS_MAX = 2000  # Delay while doing a soft-reset.
 
 
-class STC3115_Reg(_STC311x_Reg, _ModeValues, _CtrlValues):
+class STC3115_Reg(_STC311x_Reg):
+    CHIP_TYPE = ChipType.STC3115
 
-    # STC3115 exclusive mode values (in addition to inherited values from _ModeValues)
-    # ModeValues class to represent different operating modes
+    # STC3115 exclusive mode values (in addition to inherited values _STC311x_Reg._MODE_*)
+    # possible values of the mode register REG_MODE
     MODE_CLR_VM_ADJ = 0x02  # Clear ACC_VM_ADJ and REG_VM_ADJ
     MODE_CLR_CC_ADJ = 0x04  # Clear ACC_CC_ADJ and REG_CC_ADJ
-    MODE_DEFAULT = (_ModeValues.MODE_VMODE | _ModeValues.MODE_ALM_ENA)
+    MODE_DEFAULT = (_STC311x_Reg.MODE_VMODE | _STC311x_Reg.MODE_ALM_ENA)
     MODE_OFF = 0
 
-    # STC3115 exclusive control values (in addition to inherited values from _CtrlValues)
-    # CtrlValues class to describe different control commands
+    # STC3115 exclusive control values (in addition to inherited values _STC311x_Reg._CTRL_*)
+    # possible values of the control register REG_CTRL
     # there are None.
 
     # Definition of registers and their content
 
-    CHIP_TYPE = ChipType.STC3115
-    CHIP_ID = 0x14
+    CHIP_ID = 0x14  # Expected ID found in REG_ID
 
     REG_CC_ADJ_H = 11  # Coulomb counter adjustment factor
     REG_VM_ADJ_H = 12  # Voltage mode adjustment factor
@@ -228,23 +218,23 @@ class STC3115_Reg(_STC311x_Reg, _ModeValues, _CtrlValues):
     OCV_DEFAULT = 0
 
 
-class STC3117_Reg(_STC311x_Reg, _ModeValues, _CtrlValues):
+class STC3117_Reg(_STC311x_Reg):
+    CHIP_TYPE = ChipType.STC3117
 
-    # STC3117 exclusive mode values (in addition to inherited values from _ModeValues)
-    # ModeValues class to represent different operating modes
+    # STC3117 exclusive mode values (in addition to inherited values _STC311x_Reg._MODE_*)
+    # possible values of the mode register REG_MODE
     MODE_BATD_PU = 0x02  # BATD internal pull-up enable
     MODE_FORCE_CD = 0x04  # CD driven by internal logic / forced high
-    MODE_DEFAULT = (_ModeValues.MODE_VMODE | MODE_BATD_PU | _ModeValues.MODE_ALM_ENA)
+    MODE_DEFAULT = (_STC311x_Reg.MODE_VMODE | MODE_BATD_PU | _STC311x_Reg.MODE_ALM_ENA)
     MODE_OFF = MODE_BATD_PU
 
-    # STC3117 exclusive control values (in addition to inherited values from _CtrlValues)
-    # CtrlValues class to describe different control commands
+    # STC3117 exclusive control values (in addition to inherited values _STC311x_Reg._CTRL_*)
+    # possible values of the control register REG_CTRL
     CTRL_UVLOD = 0x80  # UVLO event detection
 
     # Definition of registers and their content
 
-    CHIP_TYPE = ChipType.STC3117
-    CHIP_ID = 0x16
+    CHIP_ID = 0x16  # Expected ID found in REG_ID
 
     REG_AVG_CURRENT_L = 11
     REG_AVG_CURRENT_H = 12

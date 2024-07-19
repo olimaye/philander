@@ -5,7 +5,7 @@
 """
 __author__ = "Carl Bellgardt"
 __version__ = "0.1"
-__all__ = ["STC311", "ChipType"]
+__all__ = ["STC311x", "ChipType"]
 
 from enum import Enum, auto
 from .serialbus import SerialBusDevice
@@ -15,7 +15,7 @@ from .primitives import Current, Voltage, Percentage, Temperature
 from .systypes import ErrorCode, RunLevel, Info
 from .interruptable import Interruptable, Event
 from .gpio import GPIO
-from .stc311_reg import STC3115_Reg, STC3117_Reg, ChipType
+from .stc311x_reg import STC3115_Reg, STC3117_Reg, ChipType
 
 
 class OperatingMode(Enum):
@@ -25,7 +25,7 @@ class OperatingMode(Enum):
     opModeMixed = auto()
 
 
-class STC311(GasGauge, SerialBusDevice, Interruptable):
+class STC311x(GasGauge, SerialBusDevice, Interruptable):
     """This is a driver base class for a gas gauge IC.
     
     A gas gauge allows to keep track of the state of charge
@@ -544,7 +544,7 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
                 err = ErrorCode.errMalfunction
         # Then, re-initialize the device
         if err == ErrorCode.errOk:
-            STC311._initialize(self)
+            STC311x._initialize(self)
         return err
 
     def getID(self):
