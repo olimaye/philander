@@ -50,7 +50,7 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
         =================================    ==========================================================================================================
         Key name                             Value type, meaning and default
         =================================    ==========================================================================================================
-        See def_dict
+        TODO: See def_dict
         ===============================================================================================================================================
         
         Also see: :meth:`.Gasgauge.Params_init`, :meth:`.SerialBusDevice.Params_init`, :meth:`.GPIO.Params_init`.
@@ -67,7 +67,6 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
             "Gasgauge.alarm_voltage": 170,  # Voltage lower threshold; 3.0 V
             "Gasgauge.current_thres": 10,  # Current monitoring threshold; +/-470 V drop
             "Gasgauge.cmonit_max": 120,  # Monitoring timing threshold; CC-VM: 4 minutes; VM->CC: 1 minute
-            "Gasgauge.battery_idx": None,
             "Gasgauge.pinInt.gpio.Direction": GPIO.DIRECTION_IN  # TODO: these options should be available to be configured and in docs
         }
         def_dict.update(paramDict)
@@ -203,7 +202,7 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
         :rtype: Voltage
         """
         voltage, err = self.readWordRegister(self.REGISTER.REG_VOLTAGE)
-        ret = Voltage(voltage) if (err == ErrorCode.errOk) else Voltage.invalid
+        ret = self._transferVoltage(voltage) if (err == ErrorCode.errOk) else Voltage.invalid
         return ret
 
     def getBatteryCurrent(self):
@@ -217,7 +216,7 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
         :rtype: Current
         """
         current, err = self.readWordRegister(self.REGISTER.REG_CURRENT)
-        ret = Current(current) if (err == ErrorCode.errOk) else Current.invalid
+        ret = self._transferCurrent(current) if (err == ErrorCode.errOk) else Current.invalid
         return ret
 
     def getBatteryCurrentAvg(self):
@@ -237,7 +236,7 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
         ret = Current.invalid
         if self.REGISTER.CHIP_TYPE == ChipType.STC3117:  # Function is STC3117 exclusive
             if self._getOperatingMode() == OperatingMode.opModeMixed:
-                data, err = SerialBusDevice.readWordRegister(self, self.REGISTER.REG_AVG_CURRENT)
+                data, err = SerialBusDevice.readWordRegister(self, self.REGISTER.REG_AVG_CURRENT)  # TODO: implement this register properly
                 if err == ErrorCode.errOk:
                     ret = self._transferCurrentAvg(data)
         return ret
@@ -287,7 +286,7 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
         return lvl_str
 
     def alarmCallback(self, pinIndex):
-        # TODO: This should not be needed anymore, right?#
+        # TODO: This should not be needed anymore, right?
         # see alarmCallback from original implementation and max77960
         pass
 
@@ -329,7 +328,7 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
     #  */
     def _transferCurrentAvg(self, data):  # STC3117 exclusive
         if self.REGISTER.CHIP_TYPE is not ChipType.STC3117:
-            ret = ErrorCode.errNotImplemented  # Function is not implemented for this chip
+            ret = Current.invalid  # Function is not implemented for this chip
         else:
             # Again, we actually read out the voltage drop over the sense resistor.
             # LSB is 1.47V, partial scaling factor is 1.47 = 147/100
@@ -340,6 +339,7 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
                 ret = (data * 1470 + rs/2) / rs
             else:
                 ret = (data * 1470 - rs/2) / rs
+            ret = Current(ret)
         return ret
 
     @staticmethod
@@ -405,8 +405,12 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
     #  * Start-up the chip and fill/restore configuration registers
     #  */
     def _initialize(self):
+        # TODO: this function is still Work In Progress and will not work at all
+        return ErrorCode.errNotImplemented
         ramContent = None  # TODO: where does RAM content come from?
         params = None  # TODO: insert according confs where params is used
+        memset = None  # TODO: see original implementation
+        buffer = None  # TODO: see original implementation
 
         # check communication
         err = self._checkID()
@@ -482,7 +486,7 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
                 ramContent[self.REGISTER.IDX_RAM_VM_CNF_H] = params.regVMcnf >> 8
                 ramContent[self.REGISTER.IDX_RAM_CRC] = crc(ramContent, self.REGISTER.RAM_SIZE - 1)
                 buffer[0] = self.REGISTER.REG_RAM_FIRST
-                SerialBusDevice.writeBuffer(self, buffer, self.REGISTER.RAM_SIZE + 1)
+                SerialBusDevice.writeBuffer(self, self.REGISTER.RAM_SIZE + 1)
 
         # API functions exported to the outside
 
@@ -523,20 +527,26 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
         """
         # UNDOCUMENTED: At the end of the reset phase, the MODE_GG_RUN bit is cleared.
         # In order to detect this, we have to set it, first:
-        data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_MODE)
-        if err == ErrorCode.errOk and not (data & self.REGISTER.MODE_GG_RUN):
-            err, data = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_MODE)
-            data |= self.REGISTER.MODE_GG_RUN  # TODO:? do not understand what this does
-            # -> read again, this is a write, not read
+        mode_data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_MODE)
+        if err == ErrorCode.errOk and not (mode_data & self.REGISTER.MODE_GG_RUN):
+            mode_data |= self.REGISTER.MODE_GG_RUN
+            err = SerialBusDevice.writeByteRegister(self, self.REGISTER.REG_MODE, mode_data)
             # same applies for beneath
         # Do a soft reset by asserting CTRL:PORDET
         if err == ErrorCode.errOk:
-            err, data = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_CTRL)
-            # TODO:? do not understand at all what is happening here :( Isn't there supposed to be a reference given? Why then is there this logic in the original implementation at that place?
+            # TODO: consider adding a set_ctrl / get_ctrl / add_ctrl method for this purpose; same for mdoe
+            ctrl_data = self.REGISTER.CTRL_IO0DATA | self.REGISTER.CTRL_GG_RST | self.REGISTER.CTRL_PORDET
+            err = SerialBusDevice.writeByteRegister(self, self.REGISTER.REG_CTRL, ctrl_data)
         # Delay: Loop until we see the MODE_GG_RUN bit cleared:
         if err == ErrorCode.errOk:
-            # TODO:? how should this waiting loop be implemented?
-            pass
+            has_timed_out = True
+            for i in range(self.REGISTER.POR_DELAY_LOOPS_MAX):
+                mode_data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_MODE)
+                if not (err == ErrorCode.errOk and (mode_data & self.REGISTER.MODE_GG_RUN)):
+                    has_timed_out = False  # loop ended before i == POR_DELAY_LOOPS_MAY
+                    break
+            if has_timed_out:
+                err = ErrorCode.errMalfunction
         # Then, re-initialize the device
         if err == ErrorCode.errOk:
             STC311._initialize(self)

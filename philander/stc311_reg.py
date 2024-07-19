@@ -10,7 +10,6 @@ __author__ = "Carl Bellgardt"
 __version__ = "0.1"
 __all__ = ["STC3115_Reg", "STC3117_Reg"]
 
-from .systypes import Enum
 from stc311 import ChipType
 
 
@@ -135,6 +134,7 @@ class _STC311x_Reg:
     CONFIG_GASGAUGE_0_RSENSE = None  # Sense resistor in milli Ohm; set in __init__()
     CONFIG_GASGAUGE_0_GPIO_ALARM = None  # GPIO pin index for interrupts; set in __init__()
 
+    # TODO: all these configs below should be set via the __init__ and calculated accordingly
     # if defined(Gasgauge.battery_idx):
     # TODO: -> make default in Param_dict None?
     # TODO: how does this function work: #SETUP_0_REG_CC_CNF = ((CONFIG_GASGAUGE_0_RSENSE) * ( CFG_SUBSECTATR(BATTERY, CONFIG_GASGAUGE_0_BATTERY_IDX, CAPACITY) ) * 250 + 6194) / 12389
