@@ -10,8 +10,7 @@ __author__ = "Carl Bellgardt"
 __version__ = "0.1"
 __all__ = ["STC3115_Reg", "STC3117_Reg", "ChipType"]
 
-from enum import auto
-from .systypes import Enum
+from enum import Enum, auto
 
 
 class ChipType(Enum):

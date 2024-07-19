@@ -7,12 +7,12 @@ __author__ = "Carl Bellgardt"
 __version__ = "0.1"
 __all__ = ["STC311", "ChipType"]
 
-from enum import auto
+from enum import Enum, auto
 from .serialbus import SerialBusDevice
 from .gasgauge import GasGauge, SOCChangeRate
 from .battery import Status as BatStatus, Level as BatLevel
 from .primitives import Current, Voltage, Percentage, Temperature
-from .systypes import ErrorCode, RunLevel, Info, Enum
+from .systypes import ErrorCode, RunLevel, Info
 from .interruptable import Interruptable, Event
 from .gpio import GPIO
 from .stc311_reg import STC3115_Reg, STC3117_Reg, ChipType
@@ -55,6 +55,7 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
             "Gasgauge.chip_type": ChipType.STC3115,
             "Gasgauge.gpio_alarm_idx": None,  # GPIO index for the reset pin
             "Gasgauge.gpio_cd_idx": None,  # PIO index for the charger driver pin
+            "Gasgauge.battery_idx": None,  # TODO: what is this pin used for?
             "Gasgauge.senseResistor": 10,  # Sense resistor in milli Ohm
             "Gasgauge.cc_cnf": 395,  # Coulomb-counter mode configuration
             "Gasgauge.vm_cnf": 321,  # Voltage mode configuration
@@ -87,9 +88,9 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
         self.Params_init(paramDict)
         err = ErrorCode.errOk
         if paramDict["Gasgauge.chip_type"] == ChipType.STC3115:
-            self.REGISTER = STC3115_Reg
+            self.REGISTER = STC3115_Reg(paramDict)
         elif paramDict["Gasgauge.chip_type"] == ChipType.STC3117:
-            self.REGISTER = STC3117_Reg
+            self.REGISTER = STC3117_Reg(paramDict)
         else:
             err = ErrorCode.errInvalidParameter
         self._initialize()
@@ -245,16 +246,15 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
         :return: The next-lower battery level mnemonic.
         :rtype: battery.Level
         """
-        blvl = BatLevel(soc)
-        if blvl >= BatLevel.full:
+        if soc >= BatLevel.full.value:
             ret = BatLevel.full
-        elif blvl >= BatLevel.good:
+        elif soc >= BatLevel.good.value:
             ret = BatLevel.good
-        elif blvl >= BatLevel.medium:
+        elif soc >= BatLevel.medium.value:
             ret = BatLevel.medium
-        elif blvl >= BatLevel.low:
+        elif soc >= BatLevel.low.value:
             ret = BatLevel.low
-        elif blvl >= BatLevel.empty:
+        elif soc >= BatLevel.empty.value:
             ret = BatLevel.empty
         else:
             ret = BatLevel.deepDischarge

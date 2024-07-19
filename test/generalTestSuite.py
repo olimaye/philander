@@ -9,6 +9,7 @@ from philander.systypes import ErrorCode
 from time import sleep
 import inspect
 import traceback
+from enum import EnumType
 
 def _exit():
     exit()
@@ -93,14 +94,20 @@ def _config(settings, title):
             key, descr = options[sel]
             cur_val = settings[key]
             val_type = type(cur_val)
+            val_class = cur_val.__class__
             print(f"{descr} [{val_type.__name__}]")
             print(f"Old value: {cur_val}")
+            if type(val_type) == EnumType:  # check type of type to get super class
+                print(f"Possible values for type \"{val_class.__name__}\":")
+                print(f" -> {', '.join(val_class.__members__.keys())}")
             # set new value dialogue
             try:
                 new_val = input("New value: ")
                 if val_type == bool:
                     if new_val.lower() in ["false", "none"]: # non-empty strings will be auto-casted to true, so this custom conversion makes it more intuitive
                         new_val = False
+                elif type(val_type) == EnumType:  # try to convert strings to enum values
+                    new_val = val_class[new_val]
                 settings[key] = val_type(new_val)
             except KeyboardInterrupt:
                 break

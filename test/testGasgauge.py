@@ -22,16 +22,23 @@ def main():
 
     # define available functions
     functions = [
-        MenuFunction(Gasgauge.open, args=(gg, settings)),
-        MenuFunction(Gasgauge.close, args=(gg,)),
-        MenuFunction(Gasgauge.reset,  args=(gg,)),
-        MenuFunction(Gasgauge.getInfo, args=(gg,)),
-        MenuFunction(Gasgauge.getStatus, args=(gg,)),
-        MenuFunction(Gasgauge.getBatteryCurrent, args=(gg,)),
-        MenuFunction(Gasgauge.getBatteryVoltage, args=(gg,)),
-        MenuFunction(Gasgauge._checkID, args=(gg,), name="ID-check",
+        # connectivity functions
+        MenuFunction(gg.open, args=(settings,)),
+        MenuFunction(gg.close),
+        MenuFunction(gg.reset),
+        # data functions
+        MenuFunction(gg.getInfo, name="get info"),
+        MenuFunction(gg.getStatus, args=(None,), name="get status"),
+        MenuFunction(gg.getBatteryVoltage, name="get voltage"),
+        MenuFunction(gg.getBatteryCurrent, name="get current"),
+        MenuFunction(gg.getBatteryCurrentAvg, name="get current (avg.)"),
+        MenuFunction(gg.getRatedSOCStr, name="get SOC-rating"),
+        MenuFunction(gg._checkID, name="ID-check",
             custom_output_processor=lambda err: print("ID correct" if err == ErrorCode.errOk else "ID incorrect")),
-    ]
+        MenuFunction(gg.getChangeRate, name="get change rate"),
+        MenuFunction(gg.getBatteryTemperature, name="get battery temperature"),
+        MenuFunction(gg.getChipTemperature, name="get chip temperature"),
+        ]
 
     # run test suite
     run(settings, functions, title)
