@@ -23,7 +23,10 @@ def main():
         MenuFunction(Gasgauge.open, args=(gg, settings)),
         MenuFunction(Gasgauge.close, args=(gg,)),
         MenuFunction(Gasgauge.reset,  args=(gg,)),
-        MenuFunction(gg.getInfo)
+        MenuFunction(Gasgauge.getInfo, args=(gg,)),
+        MenuFunction(Gasgauge.getStatus, args=(gg,)),
+        MenuFunction(Gasgauge.getBatteryCurrent, args=(gg,)),
+        MenuFunction(Gasgauge.getBatteryVoltage, args=(gg,)),
     ]
 
     # run test suite
