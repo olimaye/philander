@@ -8,6 +8,7 @@ from simple_term_menu import TerminalMenu
 from philander.systypes import ErrorCode 
 from time import sleep
 import inspect
+import traceback
 
 def _exit():
     exit()
@@ -43,7 +44,8 @@ def run(settings={}, functions=[], title=""):
                 break
             menu_functions[sel].run()
         except Exception as e:
-            print(f"Exited with Error: {e}")
+            traceback.print_exc()
+            print(f"TestSuite: Exited with Error: {e}")
             break
 
 """Generate all required arguments for a test and run the generalTestSuite
@@ -109,9 +111,11 @@ def _config(settings, title):
 def _output_processor(output_processor, output, custom_processor=None):
     # automatic output-processor determination
     if output_processor == "auto":
-        if output == None:
+        if custom_processor is not None:
+            output_processor = "custom"
+        elif output == None:
             output_processor = None
-        elif len(output) == 2:
+        elif type(output) in [list, tuple] and len(output) == 2:
             if type(output[0]) == ErrorCode:
                 if output[0] == ErrorCode.errOk:
                     output_processor = "print-second"

@@ -3,7 +3,7 @@ from philander.serialbus import SerialBusDevice
 from philander.systypes import ErrorCode
 from philander.primitives import Percentage
 # Replace this with any other gasgauge to test (conf might need to be adjusted accordingly)
-from philander.stc311 import STC3115 as Gasgauge
+from philander.stc311 import STC311 as Gasgauge
 from generalTestSuite import run, MenuFunction
 
 
@@ -12,7 +12,9 @@ def main():
     gg = Gasgauge()
 
     # get default settings
-    settings = {}
+    settings = {
+            "Gasgauge.pinInt.gpio.pinDesignator": 4  # board 7
+            }
     gg.Params_init(settings)
 
     # set title of test suite
@@ -27,6 +29,8 @@ def main():
         MenuFunction(Gasgauge.getStatus, args=(gg,)),
         MenuFunction(Gasgauge.getBatteryCurrent, args=(gg,)),
         MenuFunction(Gasgauge.getBatteryVoltage, args=(gg,)),
+        MenuFunction(Gasgauge._checkID, args=(gg,), name="ID-check",
+            custom_output_processor=lambda err: print("ID correct" if err == ErrorCode.errOk else "ID incorrect")),
     ]
 
     # run test suite

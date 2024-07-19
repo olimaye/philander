@@ -15,12 +15,7 @@ from .primitives import Current, Voltage, Percentage, Temperature
 from .systypes import ErrorCode, RunLevel, Info, Enum
 from .interruptable import Interruptable, Event
 from .gpio import GPIO
-from .stc311_reg import STC3115_Reg, STC3117_Reg
-
-
-class ChipType(Enum):
-    STC3115 = auto()
-    STC3117 = auto()
+from .stc311_reg import STC3115_Reg, STC3117_Reg, ChipType
 
 
 class OperatingMode(Enum):
@@ -57,7 +52,7 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
         """
         def_dict = {
             "SerialBusDevice.address": cls.ADDRESSES_ALLOWED[0],
-            "Gausgauge.chip_type": ChipType.STC3115,
+            "Gasgauge.chip_type": ChipType.STC3115,
             "Gasgauge.gpio_alarm_idx": None,  # GPIO index for the reset pin
             "Gasgauge.gpio_cd_idx": None,  # PIO index for the charger driver pin
             "Gasgauge.senseResistor": 10,  # Sense resistor in milli Ohm
@@ -395,7 +390,7 @@ class STC311(GasGauge, SerialBusDevice, Interruptable):
         return ret
 
     def _checkID(self):
-        err, data = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_ID)
+        data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_ID)
         if err == ErrorCode.errOk:
             err = ErrorCode.errOk if (data == self.REGISTER.CHIP_ID) else ErrorCode.errFailure
         return err

@@ -8,9 +8,15 @@ Externalized, just for clarity of the source code.
 """
 __author__ = "Carl Bellgardt"
 __version__ = "0.1"
-__all__ = ["STC3115_Reg", "STC3117_Reg"]
+__all__ = ["STC3115_Reg", "STC3117_Reg", "ChipType"]
 
-from stc311 import ChipType
+from enum import auto
+from .systypes import Enum
+
+
+class ChipType(Enum):
+    STC3115 = auto()
+    STC3117 = auto()
 
 
 class _ModeValues:
