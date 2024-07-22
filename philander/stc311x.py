@@ -26,15 +26,17 @@ class OperatingMode(Enum):
 
 
 class STC311x(GasGauge, SerialBusDevice, Interruptable):
-    """This is a driver base class for a gas gauge IC.
+    """Driver implementation for the stc3117 and stc3118 gas gauge chips by ST microelectronics.
     
     A gas gauge allows to keep track of the state of charge
     (SOC), remaining capacity, current voltage etc. of a battery.
+    Info about the specific gas gauge ICs can be found at https://www.st.com/en/power-management/stc3117.html
+    This class was tested using a STC3117 but should also work for STC3118 and possibly other similar chips.
     """
 
     REGISTER = None
     ADDRESSES_ALLOWED = [0x70]
-    pinInt = None
+    pinInt = GPIO()
 
     @classmethod
     def Params_init(cls, paramDict):
@@ -93,13 +95,13 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
             self.REGISTER = STC3117_Reg(paramDict)
         else:
             err = ErrorCode.errInvalidParameter
-        self._initialize()
+        self._setup()
         if err == ErrorCode.errOk:  # Extend ErrorCode class to have a ok() function to replace all these occurrences
-            err = SerialBusDevice.open(self, {"SerialBusDevice.address": self.ADDRESSES_ALLOWED[0]})
+            err = SerialBusDevice.open(self, paramDict)
         if err == ErrorCode.errOk:  # TODO: should I check for err or use .isAttached?
             # SerialBusDevice is attached
             # setup GPIO pin for interrupts
-            self.pinInt = GPIO()
+            # self.pinInt = GPIO() TODO: is this reusable and thus can be initialized only once?
             pinInt_params = {}
             for key, value in paramDict.items():
                 if key.startswith("Gasgauge.pinInt.gpio."):
@@ -127,7 +129,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         err = SerialBusDevice.close(self)
         if err == ErrorCode.errOk and self.pinInt is not None:  # TODO: should GPIO be closed, even if close of SerialBusDevice failed?
             err = self.pinInt.close()
-            self.pinInt = None
+            # self.pinInt = None  TODO: is this reusable and thus can be initialized only once?
         return err
 
     def getInfo(self):
@@ -155,6 +157,10 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         """
         info = Info()
         chip_id, err = self.readByteRegister(self.REGISTER.REG_ID)
+        if err == ErrorCode.errOk:
+            info.chipID = chip_id
+            if chip_id == self.REGISTER.CHIP_ID:
+                info |= Info.validChipID
         # TODO: not implement yet
         return info, err
 
@@ -198,7 +204,10 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         :rtype: Voltage
         """
         voltage, err = self.readWordRegister(self.REGISTER.REG_VOLTAGE)
-        ret = self._transferVoltage(voltage) if (err == ErrorCode.errOk) else Voltage.invalid
+        if err == ErrorCode.errOk:
+            ret = self._transferVoltage(voltage)
+        else:
+            ret = Voltage.invalid
         return ret
 
     def getBatteryCurrent(self):
@@ -212,7 +221,10 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         :rtype: Current
         """
         current, err = self.readWordRegister(self.REGISTER.REG_CURRENT)
-        ret = self._transferCurrent(current) if (err == ErrorCode.errOk) else Current.invalid
+        if err == ErrorCode.errOk:
+            ret = self._transferCurrent(current)
+        else:
+            ret = Current.invalid
         return ret
 
     def getBatteryCurrentAvg(self):
@@ -280,11 +292,6 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         lvl_str = str(lvl)
         return lvl_str
 
-    def alarmCallback(self, pinIndex):
-        # TODO: This should not be needed anymore, right?
-        # see alarmCallback from original implementation and max77960
-        pass
-
     # Local functions for internal use
 
     @staticmethod
@@ -339,7 +346,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
 
     @staticmethod
     def _transferTemperature(data):
-        # LSB is 1C, so we don't need any scaling.
+        # LSB is 1 °C, so we don't need any scaling.
         return Temperature(data)
 
     @staticmethod
@@ -365,7 +372,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
     def _checkRamConsistency(self, data, length):
         # TODO: why is length never used? Refer to original implementation to see, what it does
         # check if RAM test register value is correct
-        if data[self.REGISTER.IDX_RAM_TEST] != self.REGISTER.RAM_TEST:
+        if len(data) < length or data[self.REGISTER.IDX_RAM_TEST] != self.REGISTER.RAM_TEST:
             ret = ErrorCode.errCorruptData
         else:
             code = self._crc(data, self.REGISTER.RAM_SIZE - 1)
@@ -399,7 +406,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
     # /**
     #  * Start-up the chip and fill/restore configuration registers
     #  */
-    def _initialize(self):
+    def _setup(self):  # implement this function into open()?
         # TODO: this function is still Work In Progress and will not work at all
         return ErrorCode.errNotImplemented
         ramContent = None  # TODO: where does RAM content come from?
@@ -544,7 +551,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
                 err = ErrorCode.errMalfunction
         # Then, re-initialize the device
         if err == ErrorCode.errOk:
-            STC311x._initialize(self)
+            STC311x._setup(self)
         return err
 
     def getID(self):
