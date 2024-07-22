@@ -160,7 +160,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         if err == ErrorCode.errOk:
             info.chipID = chip_id
             if chip_id == self.REGISTER.CHIP_ID:
-                info |= Info.validChipID
+                info.validity = Info.validChipID
         # TODO: not implement yet
         return info, err
 
