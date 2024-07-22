@@ -15,7 +15,7 @@ from .primitives import Current, Voltage, Percentage, Temperature
 from .systypes import ErrorCode, RunLevel, Info
 from .interruptable import Interruptable, Event
 from .gpio import GPIO
-from .stc311x_reg import STC3115_Reg, STC3117_Reg, ChipType
+from .stc311x_reg import _STC311x_Reg, STC3115_Reg, STC3117_Reg, ChipType
 
 
 class OperatingMode(Enum):
@@ -34,9 +34,12 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
     This class was tested using a STC3117 but should also work for STC3118 and possibly other similar chips.
     """
 
-    REGISTER = None
+    def __init__(self):
+        super().__init__()
+        self.REGISTER = None  # chip specific register information, set in open() via a parameter
+
     ADDRESSES_ALLOWED = [0x70]
-    pinInt = GPIO()
+    pin_int = GPIO()
 
     @classmethod
     def Params_init(cls, paramDict):
@@ -54,18 +57,18 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         """
         def_dict = {
             "SerialBusDevice.address": cls.ADDRESSES_ALLOWED[0],
-            "Gasgauge.chip_type": ChipType.STC3115,
+            "Gasgauge.chip_type": ChipType.STC3115,  # TODO: implement auto
             "Gasgauge.gpio_alarm_idx": None,  # GPIO index for the reset pin
             "Gasgauge.gpio_cd_idx": None,  # PIO index for the charger driver pin
             "Gasgauge.battery_idx": None,  # TODO: what is this pin used for?
-            "Gasgauge.senseResistor": 10,  # Sense resistor in milli Ohm
-            "Gasgauge.cc_cnf": 395,  # Coulomb-counter mode configuration
-            "Gasgauge.vm_cnf": 321,  # Voltage mode configuration
-            "Gasgauge.alarm_soc": 2,  # SOC lower threshold; SOC alarm level [0.5%]
-            "Gasgauge.alarm_voltage": 170,  # Voltage lower threshold; 3.0 V
-            "Gasgauge.current_thres": 10,  # Current monitoring threshold; +/-470 V drop
-            "Gasgauge.cmonit_max": 120,  # Monitoring timing threshold; CC-VM: 4 minutes; VM->CC: 1 minute
-            "Gasgauge.pinInt.gpio.Direction": GPIO.DIRECTION_IN  # TODO: these options should be available to be configured and in docs
+            "Gasgauge.senseResistor": _STC311x_Reg.CONFIG_RSENSE_DEFAULT,  # Sense resistor in milli Ohm
+            "Gasgauge.cc_cnf": _STC311x_Reg.CC_CNF_DEFAULT,  # Coulomb-counter mode configuration
+            "Gasgauge.vm_cnf": _STC311x_Reg.VM_CNF_DEFAULT,  # Voltage mode configuration
+            "Gasgauge.alarm_soc": _STC311x_Reg.ALARM_SOC_DEFAULT,  # SOC lower threshold; SOC alarm level [0.5%]
+            "Gasgauge.alarm_voltage": _STC311x_Reg.ALARM_VOLTAGE_DEFAULT,  # Voltage lower threshold; 3.0 V
+            "Gasgauge.current_thres": _STC311x_Reg.CURRENT_THRES_DEFAULT,  # Current monitoring threshold; +/-470 V drop
+            "Gasgauge.cmonit_max": _STC311x_Reg.CMONIT_MAX_DEFAULT  # Monitoring timing threshold; CC-VM: 4 minutes; VM->CC: 1 minute
+            # TODO: GPIO options should be available to be configured and in docs
         }
         def_dict.update(paramDict)
         paramDict.update(def_dict)  # update again to apply changes to original reference
@@ -76,8 +79,8 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
 
         Allocate necessary hardware resources and configure
         user-adjustable parameters to meaningful defaults.
-        In this case the two GPIO-Pins for reading the charger status
-        are initialized.
+        In this case the registers for the specific chip are defined
+        and optionally the GPIO-Pin for interrupts is initialized.
         This function must be called prior to any further usage of the
         instance. Involving it in the system ramp-up procedure could be
         a good choice. After usage of this instance is finished, the
@@ -101,13 +104,12 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         if err == ErrorCode.errOk:  # TODO: should I check for err or use .isAttached?
             # SerialBusDevice is attached
             # setup GPIO pin for interrupts
-            # self.pinInt = GPIO() TODO: is this reusable and thus can be initialized only once?
-            pinInt_params = {}
+            pin_int_params = {}
             for key, value in paramDict.items():
                 if key.startswith("Gasgauge.pinInt.gpio."):
-                    pinInt_params[key.replace("Gasgauge.pinInt.", "")] = value
+                    pin_int_params[key.replace("Gasgauge.pinInt.", "")] = value
             # open GPIO pin
-            err = self.pinInt.open(pinInt_params)
+            err = self.pin_int.open(pin_int_params)
             self.enableInterrupt()
         return err
 
@@ -117,8 +119,9 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         This method should be called when the device is not used, anymore,
         e.g. as part of the application exit procedure.
         The following steps are executed:
-        
-        * close GPIO pins for st1 and st1
+
+        * close I2C-Bus connection
+        * close GPIO pin for interrupts
         
         After return, the device can still be re-used, by calling
         :meth:`.open` again.
@@ -127,9 +130,8 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         """
         self.setRunLevel(RunLevel.shutdown)
         err = SerialBusDevice.close(self)
-        if err == ErrorCode.errOk and self.pinInt is not None:  # TODO: should GPIO be closed, even if close of SerialBusDevice failed?
-            err = self.pinInt.close()
-            # self.pinInt = None  TODO: is this reusable and thus can be initialized only once?
+        if err == ErrorCode.errOk and self.pin_int is not None:  # TODO: should GPIO be closed, even if close of SerialBusDevice failed?
+            err = self.pin_int.close()
         return err
 
     def getInfo(self):
@@ -161,7 +163,6 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
             info.chipID = chip_id
             if chip_id == self.REGISTER.CHIP_ID:
                 info.validity = Info.validChipID
-        # TODO: not implement yet
         return info, err
 
     def getStatus(self, statusID):
@@ -192,7 +193,6 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         :return: The status object and an error code indicating either success or the reason of failure.
         :rtype: Object, ErrorCode
         """
-        del statusID
         # TODO: not implemented yet
         return None, ErrorCode.errNotSupported
 
@@ -216,7 +216,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         
         See also: :meth:`getBatteryCurrentAvg`
         
-        :return: A on-negative integer value [µA] or :attr:`Current.invalid`\
+        :return: A non-negative integer value [micro A] or :attr:`Current.invalid`\
         to indicate that this information could not be retrieved.
         :rtype: Current
         """
@@ -236,8 +236,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         
         See also: :meth:`getBatteryCurrent`
 
-        TODO: what non-ascii sign is supposed to be there
-        :return: A on-negative integer value [�A] or :attr:`Current.invalid`\
+        :return: A non-negative integer value [micro A] or :attr:`Current.invalid`\
         to indicate that this information could not be retrieved.
         :rtype: Current
         """
@@ -370,7 +369,6 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
 
     @staticmethod
     def _checkRamConsistency(self, data, length):
-        # TODO: why is length never used? Refer to original implementation to see, what it does
         # check if RAM test register value is correct
         if len(data) < length or data[self.REGISTER.IDX_RAM_TEST] != self.REGISTER.RAM_TEST:
             ret = ErrorCode.errCorruptData
@@ -402,11 +400,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
             err = ErrorCode.errOk if (data == self.REGISTER.CHIP_ID) else ErrorCode.errFailure
         return err
 
-    #
-    # /**
-    #  * Start-up the chip and fill/restore configuration registers
-    #  */
-    def _setup(self):  # implement this function into open()?
+    def _setup(self):  # TODO: implement this function into open()?
         # TODO: this function is still Work In Progress and will not work at all
         return ErrorCode.errNotImplemented
         ramContent = None  # TODO: where does RAM content come from?
@@ -490,20 +484,20 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
                 buffer[0] = self.REGISTER.REG_RAM_FIRST
                 SerialBusDevice.writeBuffer(self, self.REGISTER.RAM_SIZE + 1)
 
-        # API functions exported to the outside
+    # API functions exported to the outside
 
     def _setRunLevel(self, level):
         mode = self.REGISTER.MODE_OFF
         if level in [RunLevel.active, RunLevel.idle]:  # TODO: not sure if this is the best "pythonic^TM" way
             # Mixed mode: coulomb counter + voltage gas gauge -> Leave VMODE off
             mode = self.REGISTER.MODE_OFF | self.REGISTER.MODE_GG_RUN | self.REGISTER.MODE_FORCE_CC
-            if self.pinInt._fIntEnabled:
+            if self.pin_int._fIntEnabled:
                 mode |= self.REGISTER.MODE_ALM_ENA
             ret = ErrorCode.errOk
         elif level in [RunLevel.relax, RunLevel.snooze, RunLevel.nap, RunLevel.sleep, RunLevel.deepSleep]:
             # Power saving mode: voltage gas gauge, only. -> VMODE = 1
             mode = self.REGISTER.MODE_OFF | self.REGISTER.MODE_VMODE | self.REGISTER.MODE_GG_RUN | self.REGISTER.MODE_FORCE_VM
-            if self.pinInt._fIntEnabled:
+            if self.pin_int._fIntEnabled:
                 mode |= self.REGISTER.MODE_ALM_ENA
             ret = ErrorCode.errOk
         elif level == RunLevel.shutdown:
@@ -627,8 +621,8 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
 
     def registerInterruptHandler(self, onEvent=Event.evtInt1, callerFeedBack=None, handler=None):
         if handler is not None:  # Enable; from app (=sink) to hardware (=source)
-            self.pinInt.registerInterruptHandler(onEvent, callerFeedBack, handler)
-            err = self.pinInt.enableInterrupt()
+            self.pin_int.registerInterruptHandler(onEvent, callerFeedBack, handler)
+            err = self.pin_int.enableInterrupt()
             if err == ErrorCode.errOk:
                 data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_MODE)
                 if err == ErrorCode.errOk:

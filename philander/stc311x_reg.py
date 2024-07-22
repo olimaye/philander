@@ -1,14 +1,14 @@
 # TODO: all the comments
 
-"""Register definition for the STC311 battery gas gauge.
+"""Register definitions for the STC311x family battery gas gauges.
     
 Definition of registers and default values for the
-above-mentioned chip.
+above-mentioned chips.
 Externalized, just for clarity of the source code.
 """
 __author__ = "Carl Bellgardt"
 __version__ = "0.1"
-__all__ = ["STC3115_Reg", "STC3117_Reg", "ChipType"]
+__all__ = ["STC3115_Reg", "STC3117_Reg", "_STC311x_Reg", "ChipType"]
 
 from enum import Enum, auto
 
@@ -73,9 +73,11 @@ class _STC311x_Reg:
     REG_CC_CNF_L = 15
     REG_CC_CNF_H = 16
     REG_CC_CNF = REG_CC_CNF_L  # Coulomb counter gas gauge configuration
+    CC_CNF_DEFAULT = 395  # Coulomb-counter mode configuration default value
     REG_VM_CNF_L = 17
     REG_VM_CNF_H = 18
     REG_VM_CNF = REG_VM_CNF_L  # Voltage gas gauge algorithm parameter
+    VM_CNF_DEFAULT = 321  # Voltage mode configuration default value
     REG_ALARM_SOC = 19  # SOC alarm level [0.5%]
     REG_ALARM_VOLTAGE = 20  # Battery low voltage alarm level [17.6mV]
     REG_CURRENT_THRES = 21  # Current threshold for current monitoring
@@ -84,7 +86,7 @@ class _STC311x_Reg:
     REG_CMONIT_MAX = 23  # Maximum counter value for current monitoring
     REG_RELAX_MAX = REG_CMONIT_MAX
     RELAX_MAX_DEFAULT = None  # set in __init__()
-    REG_ID = 24  # Part type ID = 16h
+    REG_ID = 24  # Part type ID = 16 (hex)
     CHIP_ID = None  # Expected chip ID, depends on specific chip
 
     # REG 25 - 30 set in chip specific implementation
@@ -127,6 +129,7 @@ class _STC311x_Reg:
     # Define configuration (defaults)
 
     CONFIG_GASGAUGE_0_RSENSE = None  # Sense resistor in milli Ohm; set in __init__()
+    CONFIG_RSENSE_DEFAULT = 10  # default value
     CONFIG_GASGAUGE_0_GPIO_ALARM = None  # GPIO pin index for interrupts; set in __init__()
 
     # TODO: all these configs below should be set via the __init__ and calculated accordingly
@@ -145,22 +148,26 @@ class _STC311x_Reg:
     # if defined(CONFIG_GASGAUGE_0_ALARM_SOC):
     # SETUP_0_REG_ALARM_SOC = (CONFIG_GASGAUGE_0_ALARM_SOC << 1)
     # else
-    SETUP_0_REG_ALARM_SOC = None  # set in __init__()
+    SETUP_0_REG_ALARM_SOC = None  # SOC lower threshold; SOC alarm level [0.5%]; set in __init__
+    ALARM_SOC_DEFAULT = 2  # default value
 
     # if defined(CONFIG_GASGAUGE_0_ALARM_VOLTAGE):
     # SETUP_0_REG_ALARM_VOLTAGE = ((CONFIG_GASGAUGE_0_ALARM_VOLTAGE  # 5 + 44) / 88)
     # else
-    SETUP_0_REG_ALARM_VOLTAGE = None  # set in __init__()
+    SETUP_0_REG_ALARM_VOLTAGE = None  # Voltage lower threshold; 3.0 V; set in __init__()
+    ALARM_VOLTAGE_DEFAULT = 170  # default value
 
     # if defined(CONFIG_GASGAUGE_0_RELAX_CURRENT):
     # SETUP_0_REG_CURRENT_THRES = ((CONFIG_GASGAUGE_0_RELAX_CURRENT  # CFG_SUBSECTATR(BATTERY, CONFIG_GASGAUGE_0_BATTERY_IDX, IMPEDANCE) + 23520L) / 47040L)
     # else
-    SETUP_0_REG_CURRENT_THRES = None  # set in __init__()
+    SETUP_0_REG_CURRENT_THRES = None  # Current monitoring threshold; +/-470 V drop; set in __init__()
+    CURRENT_THRES_DEFAULT = 10  # default value
 
     # if defined(CONFIG_GASGAUGE_0_RELAX_TIMER):
     # SETUP_0_REG_CMONIT_MAX = ((_CONFIG_GASGAUGE_0_RELAX_TIMER + 2) >> 2)
     # else
-    SETUP_0_REG_CMONIT_MAX = None  # set in __init__()
+    SETUP_0_REG_CMONIT_MAX = None  # Monitoring timing threshold; CC-VM: 4 minutes; VM->CC: 1 minute; set in __init__()
+    CMONIT_MAX_DEFAULT = 120  # default value
 
     # Other defines
 
