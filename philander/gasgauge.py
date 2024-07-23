@@ -199,7 +199,6 @@ class GasGauge():
         """
         return Current.invalid
 
-
     def rateSOC( self, soc ):
         """Convert a continuous SOC percentage into its next-lower battery level predicate.
         
@@ -209,19 +208,8 @@ class GasGauge():
         :return: The next-lower battery level mnemonic.
         :rtype: battery.Level
         """
-        ret = BatLevel.medium
-        if soc >= BatLevel.full:
-            ret = BatLevel.full
-        elif soc >= BatLevel.good:
-            ret = BatLevel.good
-        elif soc >= BatLevel.medium:
-            ret = BatLevel.medium
-        elif soc >= BatLevel.low:
-            ret = BatLevel.low
-        elif soc >= BatLevel.empty:
-            ret = BatLevel.empty
-        else:
-            ret = BatLevel.deepDischarge
+        # TODO: this function is now redundant. Should it be removed and BatLevel.from_percentage be called directly?
+        ret = BatLevel.from_percentage(soc)
         return ret
     
     def getRatedSOC( self ):

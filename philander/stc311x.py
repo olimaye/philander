@@ -257,18 +257,8 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         :return: The next-lower battery level mnemonic.
         :rtype: battery.Level
         """
-        if soc >= BatLevel.full.value:
-            ret = BatLevel.full
-        elif soc >= BatLevel.good.value:
-            ret = BatLevel.good
-        elif soc >= BatLevel.medium.value:
-            ret = BatLevel.medium
-        elif soc >= BatLevel.low.value:
-            ret = BatLevel.low
-        elif soc >= BatLevel.empty.value:
-            ret = BatLevel.empty
-        else:
-            ret = BatLevel.deepDischarge
+        # TODO: why is here not this function in the superclass used and why is it not static there?
+        ret = BatLevel.from_percentage(soc)
         return ret
 
     def getRatedSOC(self):
@@ -277,6 +267,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         :return: The next-lower battery level corresponding to the current SOC.
         :rtype: battery.Level
         """
+        # TODO: why is here not this function in the superclass used and why is it not static there?
         soc = self.getStateOfCharge()
         lvl = self.rateSOC(soc)
         return lvl
@@ -287,6 +278,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         :return: The next-lower battery level corresponding to the current SOC.
         :rtype: String
         """
+        # TODO: why is here not this function in the superclass used and why is it not static there?
         lvl = self.getRatedSOC()
         lvl_str = str(lvl)
         return lvl_str
