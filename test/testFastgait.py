@@ -248,7 +248,7 @@ def doTheJob():
         gDone = False
         while not gDone:
             data, err = sensorDevice.getNextData()
-            if not (err == ErrorCode.errOk):
+            if not (err.is_ok()):
                 logging.debug( 'Measurement error: ', err )
             else:
                 # Log data

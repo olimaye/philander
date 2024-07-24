@@ -77,13 +77,13 @@ class VibraSense( EventEmitter, Sensor, Interruptable):
             gpioParams["gpio.pinDesignator"] = VibraSense.SLOT2_PIN_ENABLE
         else:
             ret = ErrorCode.errInvalidParameter
-        if (ret == ErrorCode.errOk):
+        if (ret.is_ok()):
             gpioParams["gpio.direction"] = GPIO.DIRECTION_OUT
             gpioParams["gpio.level"] = GPIO.LEVEL_HIGH
             self.gpioEnable = GPIO()
             ret = self.gpioEnable.open(gpioParams)
         # Setup the signal pin
-        if (ret == ErrorCode.errOk):
+        if (ret.is_ok()):
             if (slot == 1):
                 gpioParams["gpio.pinDesignator"] = VibraSense.SLOT1_PIN_SIGNAL
             elif (slot == 2):

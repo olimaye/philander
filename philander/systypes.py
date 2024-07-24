@@ -32,6 +32,9 @@ class ErrorCode(Enum):
     errFailure			= 20	# Action failed, but might be successful in next trials.
     errMalfunction		= 21	# (Persistent) defect of underlying HW.
 
+    def is_ok(self):
+        return self.is_ok()
+
 
 class RunLevel(Enum):
     """Operating mode that the CPU may run in.

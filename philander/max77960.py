@@ -669,7 +669,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
         info = Info()
         # Chip ID, silicon revision and OTP recipe version
         info.chipID, ret = self.readByteRegister(MAX77960.REG_CID)
-        if (ret == ErrorCode.errOk):
+        if (ret.is_ok()):
             # Get silicon revision from the same register
             info.revMajor = (info.chipID & MAX77960._CID_REVISION) >> 5
             info.revMinor = info.chipID & MAX77960._CID_VERSION
@@ -679,7 +679,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
 
     def isBatteryPresent(self):
         data, ret = self.readByteRegister( MAX77960._REG_CHG_DETAILS_01 )
-        if (ret == ErrorCode.errOk):
+        if (ret.is_ok()):
             data = data & MAX77960._BAT_DTLS
             if (data == MAX77960._BAT_DTLS_REMOVAL):
                 ret = ErrorCode.errUnavailable
@@ -690,7 +690,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
     def getNumCells(self):
         ret = -1
         data, err = self.readByteRegister( MAX77960._REG_CHG_DETAILS_02 )
-        if (err == ErrorCode.errOk):
+        if (err.is_ok()):
             data = data & MAX77960._NUM_CELL_DTLS
             if data == MAX77960._NUM_CELL_DTLS_3:
                 ret = 3
@@ -701,7 +701,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
     def getBatStatus(self):
         ret = BatStatus.unknown
         data, err = self.readByteRegister( MAX77960._REG_CHG_DETAILS_01 )
-        if (err == ErrorCode.errOk):
+        if (err.is_ok()):
             ds = data & MAX77960._BAT_DTLS
             if ds == MAX77960._BAT_DTLS_REMOVAL:
                 ret = BatStatus.removed
@@ -722,7 +722,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
     def getChgStatus(self):
         ret = ChgStatus.unknown
         data, err = self.readByteRegister( MAX77960._REG_CHG_DETAILS_01 )
-        if (err == ErrorCode.errOk):
+        if (err.is_ok()):
             cd = data & MAX77960._CHG_DTLS
             if cd == MAX77960._CHG_DTLS_PRECHRG:
                 bd = data & MAX77960._BAT_DTLS
@@ -745,7 +745,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
     def getDCStatus(self):
         ret = DCStatus.unknown
         data, err = self.readByteRegister( MAX77960._REG_CHG_DETAILS_00 )
-        if (err == ErrorCode.errOk):
+        if (err.is_ok()):
             ds = data & MAX77960._CHGIN_DTLS
             if ds == MAX77960._CHGIN_DTLS_GOOD:
                 ret = DCStatus.valid
@@ -758,7 +758,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
     def getPowerSrc(self):
         ret = PowerSrc.unknown
         data, err = self.readByteRegister( MAX77960._REG_CHG_DETAILS_00 )
-        if (err == ErrorCode.errOk):
+        if (err.is_ok()):
             chgin = data & MAX77960._CHGIN_DTLS
             qbat = data & MAX77960._QB_DTLS
             if (chgin == MAX77960._CHGIN_DTLS_GOOD):
@@ -771,7 +771,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
     def getChargerTempStatus(self):
         ret = TemperatureRating.unknown
         data, err = self.readByteRegister( MAX77960._REG_CHG_DETAILS_01 )
-        if (err == ErrorCode.errOk):
+        if (err.is_ok()):
             chg = data & MAX77960._CHG_DTLS
             if chg == MAX77960._CHG_DTLS_OFF_TEMP:
                 ret = TemperatureRating.hot
@@ -786,7 +786,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
     def getBatteryTempStatus(self):
         ret = TemperatureRating.unknown
         data, err = self.readByteRegister( MAX77960._REG_CHG_DETAILS_02 )
-        if (err == ErrorCode.errOk):
+        if (err.is_ok()):
             thm = data & MAX77960._THM_DTLS
             if thm == MAX77960._THM_DTLS_COLD:
                 ret = TemperatureRating.cold
@@ -805,7 +805,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
     def getError(self):
         ret = ChargerError.unknown
         data, err = self.readByteRegister( MAX77960._REG_CHG_DETAILS_01 )
-        if (err == ErrorCode.errOk):
+        if (err.is_ok()):
             chg = data & MAX77960._CHG_DTLS
             if chg == MAX77960._CHG_DTLS_OFF_RESIST:
                 ret = ChargerError.config
@@ -815,7 +815,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
                 ret = ChargerError.batBroken
             elif chg == MAX77960._CHG_DTLS_OFF_CHGIN:
                 data, err = self.readByteRegister( MAX77960._REG_CHG_DETAILS_00 )
-                if (err == ErrorCode.errOk):
+                if (err.is_ok()):
                     chgin = data & MAX77960._CHG_DTLS
                     if chgin == MAX77960._CHGIN_DTLS_TOO_HIGH:
                         ret = ChargerError.dcHigh
@@ -842,7 +842,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
         ret = self.writeByteRegister( MAX77960._REG_CHG_CNFG_00,
                                       data | MAX77960._MODE_DCDC_ONLY )
         # ... and on again.
-        if (ret == ErrorCode.errOk):
+        if (ret.is_ok()):
             ret = self.writeByteRegister( MAX77960._REG_CHG_CNFG_00,
                                           data | MAX77960._MODE_CHRG_DCDC )
         return ret
@@ -987,7 +987,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
                     chgStatus, ret = self.readByteRegister( MAX77960._REG_CHG_INT )
                     context.remainInt = self._mapIntImpl2Api( topStatus, chgStatus )
                     context.control = EventContextControl.evtCtxtCtrl_getPrevious
-                if (ret == ErrorCode.errOk):
+                if (ret.is_ok()):
                     if (context.remainInt == 0):
                         ret = ErrorCode.errFewData
                     else:
@@ -998,7 +998,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
                             # Find (value of) least bit set:
                             context.source = imath.vlbs( context.remainInt )
                         context.remainInt &= ~context.source
-                        if ((ret == ErrorCode.errOk) and (context.remainInt != 0) ):
+                        if ((ret.is_ok()) and (context.remainInt != 0) ):
                             ret = ErrorCode.errMoreData
         else:
             ret = ErrorCode.errInvalidParameter
@@ -1035,7 +1035,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
     
     def isWatchdogRunning(self):
         data, ret = self.readByteRegister( MAX77960._REG_CHG_CNFG_00 )
-        if (ret == ErrorCode.errOk):
+        if (ret.is_ok()):
             if (data & MAX77960._WDTEN) == MAX77960._WDTEN_ON:
                 ret = ErrorCode.errOk
             else:
@@ -1044,14 +1044,14 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
 
     def clearWatchdog(self):
         data, ret = self.readByteRegister( MAX77960._REG_CHG_CNFG_06 )
-        if (ret == ErrorCode.errOk):
+        if (ret.is_ok()):
             data = (data & ~MAX77960._WDTCLR) | MAX77960._WDTCLR_DO_CLEAR
             ret = self.writeByteRegister( MAX77960._REG_CHG_CNFG_06, data )
         return ret
 
     def isWatchdogElapsed(self):
         data, ret = self.readByteRegister( MAX77960._REG_CHG_DETAILS_01 )
-        if (ret == ErrorCode.errOk):
+        if (ret.is_ok()):
             if (data & MAX77960._CHG_DTLS) == MAX77960._CHG_DTLS_OFF_WDOG:
                 ret = ErrorCode.errOk
             else:

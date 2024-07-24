@@ -46,7 +46,7 @@ def open():
             else:
                 print("Button.gpio.pinDesignator not set.")
             err = button.open( setup )
-            if (err == ErrorCode.errOk):
+            if (err.is_ok()):
                 print("Success!")
                 button.on( Button.EVENT_PRESSED, hdlButtonPressed )
             else:
@@ -63,7 +63,7 @@ def close():
     else:
         try:
             err = button.close()
-            if (err == ErrorCode.errOk):
+            if (err.is_ok()):
                 print("Success!")
             else:
                 print("Error: ", err)

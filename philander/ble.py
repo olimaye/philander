@@ -125,7 +125,7 @@ class BLE( Module, Interruptable ):
         if not self.bleCharacteristicUUID:
             result = ErrorCode.errInvalidParameter
             
-        if (self.isCoupled() == ErrorCode.errOk):
+        if (self.isCoupled().is_ok()):
             result = self.decouple()
         
         self._evtEnabled = True
@@ -142,7 +142,7 @@ class BLE( Module, Interruptable ):
         :rtype: ErrorCode
         """
         result = ErrorCode.errOk
-        if (self.isCoupled() == ErrorCode.errOk):
+        if (self.isCoupled().is_ok()):
             result = self.decouple()
         elif self._worker:
             if self._worker.is_alive():

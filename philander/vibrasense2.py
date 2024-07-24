@@ -71,7 +71,7 @@ class VibraSense2( EventEmitter, Sensor, Interruptable, SerialBusDevice):
     def getNextData(self):
         # Read 2 bytes without prior writing of a register number
         data, err = self.readBuffer(2)
-        if (err == ErrorCode.errOk):
+        if (err.is_ok()):
             data = data[1]
         else:
             data = 0

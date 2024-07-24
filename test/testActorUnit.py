@@ -53,7 +53,7 @@ def open():
             print("BLE.characteristic.uuid = " + str(setup.get("BLE.characteristic.uuid")))
             
             err = device.open( setup )
-            if (err == ErrorCode.errOk):
+            if (err.is_ok()):
                 device.registerInterruptHandler( onEvent = Event.bleDisconnected, handler=bleDisconnected )
                 device.registerInterruptHandler( onEvent = Event.bleDiscovering, handler=bleDiscovering )
                 device.registerInterruptHandler( onEvent = Event.bleConnected, handler=bleConnected )
@@ -72,7 +72,7 @@ def close():
     else:
         try:
             err = device.close()
-            if (err == ErrorCode.errOk):
+            if (err.is_ok()):
                 print("Success!")
             else:
                 print("Error: ", err)
@@ -84,12 +84,12 @@ def couple():
     global device
     if (device is None):
         print("Actuator is not instantiated!")
-    elif (device.isCoupled() == ErrorCode.errOk):
+    elif (device.isCoupled().is_ok()):
         print("Actuator is already coupled!")
     else:
         try:
             err = device.couple()
-            if (err == ErrorCode.errOk):
+            if (err.is_ok()):
                 print("Success!")
             else:
                 print("Error: ", err)
@@ -101,12 +101,12 @@ def decouple():
     global device
     if (device is None):
         print("Actuator is not instantiated!")
-    elif not (device.isCoupled() == ErrorCode.errOk):
+    elif not (device.isCoupled().is_ok()):
         print("Actuator is not coupled!")
     else:
         try:
             err = device.decouple()
-            if (err == ErrorCode.errOk):
+            if (err.is_ok()):
                 print("Success!")
             else:
                 print("Error: ", err)
@@ -118,12 +118,12 @@ def getHWDefaults():
     global device
     if (device is None):
         print("Actuator is not instantiated!")
-    elif not (device.isCoupled() == ErrorCode.errOk):
+    elif not (device.isCoupled().is_ok()):
         print("Actuator is not coupled!")
     else:
         try:
             cfg, err = device.getDefault()
-            if (err == ErrorCode.errOk):
+            if (err.is_ok()):
                 print("Hardware defaults")
                 print("1st delay:", cfg.delay, "ms")
                 print("Period   :", cfg.period, "ms")
@@ -142,12 +142,12 @@ def action():
     global device
     if (device is None):
         print("Actuator is not instantiated!")
-    elif not (device.isCoupled() == ErrorCode.errOk):
+    elif not (device.isCoupled().is_ok()):
         print("Actuator is not coupled!")
     else:
         try:
             err = device.action()
-            if (err == ErrorCode.errOk):
+            if (err.is_ok()):
                 print("Success!")
             else:
                 print("Error: ", err)
@@ -159,12 +159,12 @@ def stop():
     global device
     if (device is None):
         print("Actuator is not instantiated!")
-    elif not (device.isCoupled() == ErrorCode.errOk):
+    elif not (device.isCoupled().is_ok()):
         print("Actuator is not coupled!")
     else:
         try:
             err = device.stopOperation()
-            if (err == ErrorCode.errOk):
+            if (err.is_ok()):
                 print("Success!")
             else:
                 print("Error: ", err)
@@ -176,7 +176,7 @@ def runAdjustDriver():
     global device, cfgDriver
     if (device is None):
         print("Actuator is not instantiated!")
-    elif not (device.isCoupled() == ErrorCode.errOk):
+    elif not (device.isCoupled().is_ok()):
         print("Actuator is not coupled!")
     else:
         title = "Run/adjust driver"
@@ -226,9 +226,9 @@ def runAdjustDriver():
                             pass
                 elif (selection == 7):
                     err = device.configure( cfgDriver )
-                    if (err == ErrorCode.errOk):
+                    if (err.is_ok()):
                         err = device.startOperation()
-                        if (err == ErrorCode.errOk):
+                        if (err.is_ok()):
                             print("Success!")
                         else:
                             print("Run error: ", err)
@@ -236,13 +236,13 @@ def runAdjustDriver():
                         print("Configuration error: ", err)
                 elif (selection == 8):
                     err = device.stopOperation()
-                    if (err == ErrorCode.errOk):
+                    if (err.is_ok()):
                         print("Success!")
                     else:
                         print("Error: ", err)
                 elif (selection == 9):
                     err = device.setDefault( cfgDriver )
-                    if (err == ErrorCode.errOk):
+                    if (err.is_ok()):
                         print("Success!")
                     else:
                         print("Error: ", err)
@@ -255,7 +255,7 @@ def runAdjustApp():
     global device, cfgApp
     if (device is None):
         print("Actuator is not instantiated!")
-    elif not (device.isCoupled() == ErrorCode.errOk):
+    elif not (device.isCoupled().is_ok()):
         print("Actuator is not coupled!")
     else:
         title = "Run/adjust app"
@@ -296,13 +296,13 @@ def runAdjustApp():
                                                  onSpeedDuty=cfgApp.onDuration,
                                                  ctrlInterval=cfgApp.period,
                                                  durationLengthCycles=cfgApp.numPulses )
-                    if (err == ErrorCode.errOk):
+                    if (err.is_ok()):
                         print("Success!")
                     else:
                         print("Error: ", err)
                 elif (selection == 5):
                     err = device.stopOperation()
-                    if (err == ErrorCode.errOk):
+                    if (err.is_ok()):
                         print("Success!")
                     else:
                         print("Error: ", err)

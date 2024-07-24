@@ -135,7 +135,7 @@ class Interruptable:
             if (onEvent == Event.evtAny):
                 self.eventEmitter.on_any( handler )
                 ret = self.enableInterrupt()
-                if (ret == ErrorCode.errOk):
+                if (ret.is_ok()):
                     self.dictFeedbacks[onEvent] = callerFeedBack
                 else:
                     self.disableInterrupt()
@@ -143,7 +143,7 @@ class Interruptable:
             else:
                 self.eventEmitter.on( onEvent, handler )
                 ret = self.enableInterrupt()
-                if (ret == ErrorCode.errOk):
+                if (ret.is_ok()):
                     self.dictFeedbacks[onEvent] = callerFeedBack
                 else:
                     self.disableInterrupt()

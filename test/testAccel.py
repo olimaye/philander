@@ -67,7 +67,7 @@ def sopen():
             else:
                 print("SerialBusDevice.address not set.")
             err = sensor.open( configSensor )
-            if (err == ErrorCode.errOk):
+            if (err.is_ok()):
                 print("Success!")
             else:
                 print("Error: ", err)
@@ -82,7 +82,7 @@ def sclose():
     else:
         try:
             err = sensor.close()
-            if (err == ErrorCode.errOk):
+            if (err.is_ok()):
                 print("Success!")
             else:
                 print("Error: ", err)
@@ -94,7 +94,7 @@ def getInfo():
     global sensor
     if not (sensor is None):
         info, err = sensor.getInfo()
-        if (err == ErrorCode.errOk):
+        if (err.is_ok()):
             if (info.validity == Info.validNothing):
                 print("No info provided.")
             else:
@@ -122,7 +122,7 @@ def getInfo():
 def _dumpStatus( id=0, format=0 ):
     global sensor
     status, err = sensor.getStatus( id )
-    if (err == ErrorCode.errOk):
+    if (err.is_ok()):
         if (format=="hex"):
             print(f"{id}:", hex(status) )
         else:
@@ -163,7 +163,7 @@ def startMeasurements():
         while not done:
             mdata, err = sensor.getNextData()
             now = time.time()
-            if (err == ErrorCode.errOk):
+            if err.is_ok():
                 print(now, mdata)
             else:
                 print("Error ", err)

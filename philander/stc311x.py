@@ -99,9 +99,9 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         else:
             err = ErrorCode.errInvalidParameter
         self._setup()
-        if err == ErrorCode.errOk:  # Extend ErrorCode class to have a ok() function to replace all these occurrences
+        if err.is_ok():  # Extend ErrorCode class to have a ok() function to replace all these occurrences
             err = SerialBusDevice.open(self, paramDict)
-        if err == ErrorCode.errOk:  # TODO: should I check for err or use .isAttached?
+        if err.is_ok():  # TODO: should I check for err or use .isAttached?
             # SerialBusDevice is attached
             # setup GPIO pin for interrupts
             pin_int_params = {}
@@ -130,7 +130,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         """
         self.setRunLevel(RunLevel.shutdown)
         err = SerialBusDevice.close(self)
-        if err == ErrorCode.errOk and self.pin_int is not None:  # TODO: should GPIO be closed, even if close of SerialBusDevice failed?
+        if err.is_ok() and self.pin_int is not None:  # TODO: should GPIO be closed, even if close of SerialBusDevice failed?
             err = self.pin_int.close()
         return err
 
@@ -159,7 +159,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         """
         info = Info()
         chip_id, err = self.readByteRegister(self.REGISTER.REG_ID)
-        if err == ErrorCode.errOk:
+        if err.is_ok():
             info.chipID = chip_id
             if chip_id == self.REGISTER.CHIP_ID:
                 info.validity = Info.validChipID
@@ -204,7 +204,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         :rtype: Voltage
         """
         voltage, err = self.readWordRegister(self.REGISTER.REG_VOLTAGE)
-        if err == ErrorCode.errOk:
+        if err.is_ok():
             ret = self._transferVoltage(voltage)
         else:
             ret = Voltage.invalid
@@ -221,7 +221,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         :rtype: Current
         """
         current, err = self.readWordRegister(self.REGISTER.REG_CURRENT)
-        if err == ErrorCode.errOk:
+        if err.is_ok():
             ret = self._transferCurrent(current)
         else:
             ret = Current.invalid
@@ -244,7 +244,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         if self.REGISTER.CHIP_TYPE == ChipType.STC3117:  # Function is STC3117 exclusive
             if self._getOperatingMode() == OperatingMode.opModeMixed:
                 data, err = SerialBusDevice.readWordRegister(self, self.REGISTER.REG_AVG_CURRENT)  # TODO: implement this register properly
-                if err == ErrorCode.errOk:
+                if err.is_ok():
                     ret = self._transferCurrentAvg(data)
         return ret
 
@@ -382,7 +382,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
 
     def _getOperatingMode(self):
         err, data = SerialBusDevice.readByteRegister(self,  self.REGISTER.REG_MODE)
-        if err == ErrorCode.errOk:
+        if err.is_ok():
             if data and self.REGISTER.MODE_GG_RUN:
                 if data and self.REGISTER.MODE_VMODE:
                     ret = OperatingMode.opModeVoltage
@@ -396,7 +396,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
 
     def _checkID(self):
         data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_ID)
-        if err == ErrorCode.errOk:
+        if err.is_ok():
             err = ErrorCode.errOk if (data == self.REGISTER.CHIP_ID) else ErrorCode.errFailure
         return err
 
@@ -411,16 +411,16 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         # check communication
         err = self._checkID()
         # read RAM
-        if err == ErrorCode.errOk:
+        if err.is_ok():
             data, err = SerialBusDevice.readWriteBuffer(self, self.REGISTER.RAM_SIZE, 1)
         # check RAM consistency
         canRestore = False  # disable RAM restoration
-        if err == ErrorCode.errOk:
+        if err.is_ok():
             err = self._checkRamConsistency(ramContent, self.REGISTER.RAM_SIZE)
-            if err == ErrorCode.errOk:
+            if err.is_ok():
                 # check CTRL_PORDET and CTRL_BATFAIL
                 data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_CTRL)
-                if err == ErrorCode.errOk:
+                if err.is_ok():
                     if data & (self.REGISTER.CTRL_BATFAIL | self.REGISTER.CTRL_PORDET):
                         # battery removed / voltage dropped below threshold
                         # no restoration, start anew, instead!
@@ -428,7 +428,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
             else:
                 canRestore = False
                 err = ErrorCode.errOk
-        if err == ErrorCode.errOk:
+        if err.is_ok():
             # common steps (pre-phase)
             if canRestore:
                 # restore configuration from RAM
@@ -507,7 +507,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         else:
             ret = ErrorCode.errNotSupported
         # set mode and return ErrorCode
-        if ret == ErrorCode.errOk:
+        if ret.is_ok():
             ret = SerialBusDevice.writeByteRegister(self,  self.REGISTER.REG_MODE, mode)
         return ret
 
@@ -524,33 +524,33 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         # UNDOCUMENTED: At the end of the reset phase, the MODE_GG_RUN bit is cleared.
         # In order to detect this, we have to set it, first:
         mode_data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_MODE)
-        if err == ErrorCode.errOk and not (mode_data & self.REGISTER.MODE_GG_RUN):
+        if err.is_ok() and not (mode_data & self.REGISTER.MODE_GG_RUN):
             mode_data |= self.REGISTER.MODE_GG_RUN
             err = SerialBusDevice.writeByteRegister(self, self.REGISTER.REG_MODE, mode_data)
             # same applies for beneath
         # Do a soft reset by asserting CTRL:PORDET
-        if err == ErrorCode.errOk:
+        if err.is_ok():
             # TODO: consider adding a set_ctrl / get_ctrl / add_ctrl method for this purpose; same for mdoe
             ctrl_data = self.REGISTER.CTRL_IO0DATA | self.REGISTER.CTRL_GG_RST | self.REGISTER.CTRL_PORDET
             err = SerialBusDevice.writeByteRegister(self, self.REGISTER.REG_CTRL, ctrl_data)
         # Delay: Loop until we see the MODE_GG_RUN bit cleared:
-        if err == ErrorCode.errOk:
+        if err.is_ok():
             has_timed_out = True
             for i in range(self.REGISTER.POR_DELAY_LOOPS_MAX):
                 mode_data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_MODE)
-                if not (err == ErrorCode.errOk and (mode_data & self.REGISTER.MODE_GG_RUN)):
+                if not (err.is_ok() and (mode_data & self.REGISTER.MODE_GG_RUN)):
                     has_timed_out = False  # loop ended before i == POR_DELAY_LOOPS_MAY
                     break
             if has_timed_out:
                 err = ErrorCode.errMalfunction
         # Then, re-initialize the device
-        if err == ErrorCode.errOk:
+        if err.is_ok():
             STC311x._setup(self)
         return err
 
     def getID(self):
         data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_ID)
-        ret = data if err == ErrorCode.errOk else err
+        ret = data if err.is_ok() else err
         return ret
 
     def getStateOfCharge(self):
@@ -567,7 +567,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         # But reading just the high-byte results in an inconsistent response.
         # So, read the full word.
         data, err = SerialBusDevice.readWordRegister(self, self.REGISTER.REG_SOC)
-        if err == ErrorCode.errOk:
+        if err.is_ok():
             ret = self._transferSOC(data)
             # future RAM-functions could be implemented here
             # if ret != Percentage.invalid:
@@ -592,7 +592,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
             opMode = self._getOperatingMode()
             if opMode == opMode.opModeVoltage:
                 data, err = SerialBusDevice.readWordRegister(self, self.REGISTER.REG_AVG_CURRENT)
-                if err == ErrorCode.errOk:
+                if err.is_ok():
                     ret = self._transferChangeRate(data)
                 else:
                     ret = SOCChangeRate.invalid
@@ -611,7 +611,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         :rtype: Temperature
         """
         data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_TEMPERATURE)
-        if err == ErrorCode.errOk:
+        if err.is_ok():
             ret = self._transferTemperature(data)
         else:
             ret = Temperature.invalid
@@ -623,12 +623,12 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         if handler is not None:  # Enable; from app (=sink) to hardware (=source)
             self.pin_int.registerInterruptHandler(onEvent, callerFeedBack, handler)
             err = self.pin_int.enableInterrupt()
-            if err == ErrorCode.errOk:
+            if err.is_ok():
                 data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_MODE)
-                if err == ErrorCode.errOk:
+                if err.is_ok():
                     data |= self.REGISTER.MODE_ALM_ENA
                     err = SerialBusDevice.writeByteRegister(self, self.REGISTER.REG_MODE, data)
-                if err == ErrorCode.errOk:  # check if there already is an interrupt present
+                if err.is_ok():  # check if there already is an interrupt present
                     data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_CTRL)
                     if data & self.REGISTER.CTRL_IO0DATA:
                         handler(Event.evtInt1, callerFeedBack)
@@ -638,7 +638,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
                 err = ErrorCode.errInvalidParameter  # TODO: is this the right error code?
         else:  # Disable; from hardware to app.
             data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_MODE)
-            if err == ErrorCode.errOk:
+            if err.is_ok():
                 data &= ~self.REGISTER.MODE_ALM_ENA  # TODO: ModeValues class need to be adjusted to work with all binary operations as expected
                 err = SerialBusDevice.writeByteRegister(self, self.REGISTER.REG_MODE, data)
             self.disableInterrupt()
@@ -646,7 +646,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
 
     def enableInterrupt(self):
         # err = GPIO.enableInterrupt(self, self.REGISTER.CONFIG_GASGAUGE_0_GPIO_ALARM)  # TODO: implement GPIO interrupt, check if it does infact return an error (not sure)
-        # if err == ErrorCode.errOk:  # TODO: do we really want these lines to override this error, and not just return the given error?
+        # if err.is_ok():  # TODO: do we really want these lines to override this error, and not just return the given error?
         #     ret = ErrorCode.errOk
         # else:
         #     ret = ErrorCode.errInvalidParameter
@@ -655,7 +655,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
 
     def disableInterrupt(self):
         # err = GPIO_disableInterrupt(self)  # TODO: implement GPIO interrupt, check if it does infact return an error (not sure)
-        # if err == ErrorCode.errOk:  # TODO: do we really want these lines to override this error, and not just return the given error?
+        # if err.is_ok():  # TODO: do we really want these lines to override this error, and not just return the given error?
         #     ret = ErrorCode.errOk
         # else:
         #     ret = ErrorCode.errInvalidParameter
