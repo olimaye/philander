@@ -198,19 +198,6 @@ class GasGauge():
         :rtype: Current
         """
         return Current.invalid
-
-    def rateSOC( self, soc ):
-        """Convert a continuous SOC percentage into its next-lower battery level predicate.
-        
-        Does not retrieve any information from the underlying hardware.
-
-        :param Percentage soc: The state of charge, given in percent.
-        :return: The next-lower battery level mnemonic.
-        :rtype: battery.Level
-        """
-        # TODO: this function is now redundant. Should it be removed and BatLevel.from_percentage be called directly?
-        ret = BatLevel.from_percentage(soc)
-        return ret
     
     def getRatedSOC( self ):
         """Retrieve the current state of charge as a discrete battery level predicate.
@@ -219,7 +206,7 @@ class GasGauge():
         :rtype: battery.Level
         """
         soc = self.getStateOfCharge()
-        lvl = self.rateSOC( soc )
+        lvl = BatLevel.from_percentage(soc)
         return lvl
     
     def getRatedSOCStr( self ):

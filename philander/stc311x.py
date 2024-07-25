@@ -248,41 +248,6 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
                     ret = self._transferCurrentAvg(data)
         return ret
 
-    def rateSOC(self, soc):
-        """Convert a continuous SOC percentage into its next-lower battery level predicate.
-        
-        Does not retrieve any information from the underlying hardware.
-
-        :param Percentage soc: The state of charge, given in percent.
-        :return: The next-lower battery level mnemonic.
-        :rtype: battery.Level
-        """
-        # TODO: why is here not this function in the superclass used and why is it not static there?
-        ret = BatLevel.from_percentage(soc)
-        return ret
-
-    def getRatedSOC(self):
-        """Retrieve the current state of charge as a discrete battery level predicate.
-
-        :return: The next-lower battery level corresponding to the current SOC.
-        :rtype: battery.Level
-        """
-        # TODO: why is here not this function in the superclass used and why is it not static there?
-        soc = self.getStateOfCharge()
-        lvl = self.rateSOC(soc)
-        return lvl
-
-    def getRatedSOCStr(self):
-        """Retrieve the remaining capacity as a battery level string.
-
-        :return: The next-lower battery level corresponding to the current SOC.
-        :rtype: String
-        """
-        # TODO: why is here not this function in the superclass used and why is it not static there?
-        lvl = self.getRatedSOC()
-        lvl_str = str(lvl)
-        return lvl_str
-
     # Local functions for internal use
 
     @staticmethod
