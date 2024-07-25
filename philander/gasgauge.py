@@ -206,7 +206,7 @@ class GasGauge():
         :rtype: battery.Level
         """
         soc = self.getStateOfCharge()
-        lvl = BatLevel.from_percentage(soc)
+        lvl = BatLevel.fromPercentage(soc)
         return lvl
     
     def getRatedSOCStr( self ):

@@ -23,10 +23,10 @@ class Level(Enum):
     invalid         = Percentage.invalid
 
     @staticmethod
-    def from_percentage(percentage):
+    def fromPercentage(percentage):
         new_lvl = Level.invalid
         for lvl in list(Level):
-            if lvl is Percentage.invalid:
+            if lvl is Level.invalid:
                 continue
             elif (percentage >= lvl) and (new_lvl is Level.invalid or lvl > new_lvl):
                 # check if percentage is above certain level
