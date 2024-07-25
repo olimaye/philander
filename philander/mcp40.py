@@ -113,7 +113,7 @@ class MCP40( SerialBusDevice, Potentiometer ):
         :rtype: ErrorCode
         """
         value, err = self._digitalize_resistance_value(percentage, absolute, digital)
-        if err.is_ok():
+        if err.isOk():
             err = SerialBusDevice.writeByteRegister(self, 0x00, value)
         return err
     
@@ -132,7 +132,7 @@ class MCP40( SerialBusDevice, Potentiometer ):
         data = None
         if asPercentage ^ asAbsolute ^ asDigital: # check if exactly one parameter is given
             data, err = SerialBusDevice.readByteRegister(self, 0x00)
-            if err.is_ok():
+            if err.isOk():
                 # convert data into percentage or ohms (or digital value)
                 if asPercentage:
                     data = Percentage(data * 100 / self._potentiometer_digital_max)

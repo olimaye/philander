@@ -78,9 +78,9 @@ class L6924(Charger):
             elif key.startswith("L6924.St2"):
                 st2_params[key.replace("L6924.St2.", '')] = value
         # open GPIO pins
-        if err.is_ok():
+        if err.isOk():
             err = self._pinSt1.open(st1_params)
-        if err.is_ok():
+        if err.isOk():
             err = self._pinSt2.open(st2_params)
         return err
         
@@ -99,7 +99,7 @@ class L6924(Charger):
         Also see: :meth:`.GPIO.close`, :meth:`.Module.close`.
         """
         err = self._pinSt1.close()
-        if err.is_ok():
+        if err.isOk():
             err = self._pinSt2.close()
         return err
 

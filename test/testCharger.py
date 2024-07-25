@@ -50,7 +50,7 @@ def chgOpen():
             else:
                 print("SerialBusDevice.address not set.")
             err = charger.open( setup )
-            if (err.is_ok()):
+            if (err.isOk()):
                 print("Success!")
             else:
                 print("Error: ", err)
@@ -66,7 +66,7 @@ def chgClose():
     else:
         try:
             err = charger.close()
-            if (err.is_ok()):
+            if (err.isOk()):
                 print("Success!")
             else:
                 print("Error: ", err)
@@ -83,7 +83,7 @@ def getInfo():
         except Exception as exc:
             print("Exception:", exc)
             bRaisedExc = True
-        if (not bRaisedExc) and (err.is_ok()):
+        if (not bRaisedExc) and (err.isOk()):
             if (info.validity == Info.validNothing):
                 print("No info provided.")
             else:
@@ -146,7 +146,7 @@ def reCharge():
     else:
         try:
             err = charger.restartCharging()
-            if (err.is_ok()):
+            if (err.isOk()):
                 print("Success!")
             else:
                 print("Error: ", err)
@@ -161,7 +161,7 @@ def reset():
     else:
         try:
             err = charger.reset()
-            if (err.is_ok()):
+            if (err.isOk()):
                 print("Success!")
             else:
                 print("Error: ", err)

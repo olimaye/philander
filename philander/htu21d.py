@@ -136,11 +136,11 @@ class HTU21D( Sensor, SerialBusDevice ):
         paramDict["SerialBusDevice.address"] = defaults["SerialBusDevice.address"]
         ret = SerialBusDevice.open(self, paramDict)
         # Reset sensor
-        if (ret.is_ok()):
+        if (ret.isOk()):
             self.timeStampLatest = 0
             ret = self.reset()
         # Open the sensor, configure rate and range
-        if (ret.is_ok()):
+        if (ret.isOk()):
             ret = Sensor.open( self, paramDict )
         # Configure the sensor
         if ("HTU21D.resolution" in paramDict):
@@ -156,7 +156,7 @@ class HTU21D( Sensor, SerialBusDevice ):
     
     def _heaterOn(self, flag=True):
         data, ret = self.readByteRegister( HTU21D.CMD_READ_USR_REG )
-        if (ret.is_ok()):
+        if (ret.isOk()):
             data = data & ~HTU21D.CNT_USR_CHIP_HEATER
             if flag:
                 data = data | HTU21D.CNT_USR_CHIP_HEATER_ON
@@ -180,7 +180,7 @@ class HTU21D( Sensor, SerialBusDevice ):
         :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
-        if ((tests & SelfTest.FUNCTIONAL) and (ret.is_ok())):
+        if ((tests & SelfTest.FUNCTIONAL) and (ret.isOk())):
             if (self.timeStampLatest > 0):
                 oldTemp = self.latestData.temperature
                 oldHum  = self.latestData.humidity
@@ -188,12 +188,12 @@ class HTU21D( Sensor, SerialBusDevice ):
                 oldTemp = self._getTemperature()
                 oldHum  = self._getHumidity( oldTemp )
             ret = self._heaterOn(True)
-            if (ret.is_ok()):
+            if (ret.isOk()):
                 time.sleep( HTU21D.SELFTEST_TIME_WAIT_S )
                 newTemp = self._getTemperature()
                 newHum  = self._getHumidity( newTemp )
                 ret = self._heaterOn( False )
-            if (ret.is_ok()):
+            if (ret.isOk()):
                 if (newTemp >= oldTemp + 0.5) and (newHum <= oldHum - 2):
                     ret = ErrorCode.errOk
                 else:
@@ -214,7 +214,7 @@ class HTU21D( Sensor, SerialBusDevice ):
         :rtype: ErrorCode
         """
         ret = self.writeBuffer( [HTU21D.CMD_SOFT_RESET] )
-        if (ret.is_ok()):
+        if (ret.isOk()):
             time.sleep( 2*HTU21D.RESET_TIME_MAX_MS / 1000 )
             self.timeStampLatest = 0
             self.latestData = None
@@ -240,7 +240,7 @@ class HTU21D( Sensor, SerialBusDevice ):
         
     def configure(self, configData):
         data, ret = self.readByteRegister( HTU21D.CMD_READ_USR_REG )
-        if (ret.is_ok()):
+        if (ret.isOk()):
             # Resolution
             if (configData.type == ConfigItem.resolution):
                 data = data & ~HTU21D.CNT_USR_RESOLUTION
@@ -254,10 +254,10 @@ class HTU21D( Sensor, SerialBusDevice ):
                     newResolution = HTU21D.CNT_USR_RESOLUTION_RH12_T14
                 else:
                     ret = ErrorCode.errSpecRange
-                if (ret.is_ok()):
+                if (ret.isOk()):
                     data = data | newResolution
                     ret  = self.writeByteRegister( HTU21D.CMD_WRITE_USR_REG, data )
-                if (ret.is_ok()):
+                if (ret.isOk()):
                     self.resolution = newResolution
                     maxTime = HTU21D._getMaxMeasurementTimeMS( self.resolution )
                     if( self.measInterval < maxTime ):
@@ -300,7 +300,7 @@ class HTU21D( Sensor, SerialBusDevice ):
         ret = ErrorCode.errOk
         if (statusID == StatusID.powerOk):
             data, ret = self.readByteRegister( HTU21D.CMD_READ_USR_REG )
-            if (ret.is_ok()):
+            if (ret.isOk()):
                 result = ((data & HTU21D.CNT_USR_POWER) == HTU21D.CNT_USR_POWER_GOOD)
         else:
             ret = ErrorCode.errNotSupported
@@ -332,9 +332,9 @@ class HTU21D( Sensor, SerialBusDevice ):
     def _getTemperature( self ):
         temp = 0
         data, err = self.readBufferRegister( HTU21D.CMD_GET_TEMP_HOLD, 3 )
-        if (err.is_ok()):
+        if (err.isOk()):
             reading, err = HTU21D._extractReading( data, True )
-        if (err.is_ok()):
+        if (err.isOk()):
             # Transfer function: temp = -46,85 + 175,72*reading/2^16
             temp = reading * 175.72 / 0x10000 - 46.85
         return temp, err
@@ -343,9 +343,9 @@ class HTU21D( Sensor, SerialBusDevice ):
     def _getHumidity( self, temp ):
         hum = 0
         data, err = self.readBufferRegister( HTU21D.CMD_GET_HUM_HOLD, 3 )
-        if (err.is_ok()):
+        if (err.isOk()):
             reading, err = HTU21D._extractReading( data, False )
-        if (err.is_ok()):
+        if (err.isOk()):
             # RH transfer function: rh = -6 + 125 * reading / 2^16
             hum = reading * 125 / 65536 - 6
             # Now, compensate by temperature
@@ -355,9 +355,9 @@ class HTU21D( Sensor, SerialBusDevice ):
     def _getMeasurement( self ):
         measurement = None
         temp, err = self._getTemperature()
-        if (err.is_ok()):
+        if (err.isOk()):
             hum, err = self._getHumidity(temp)
-            if (err.is_ok()):
+            if (err.isOk()):
                 measurement = Data()
                 measurement.temperature = temp
                 measurement.humidity = hum

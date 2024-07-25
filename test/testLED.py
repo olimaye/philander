@@ -48,7 +48,7 @@ def open():
             else:
                 print("LED.gpio.level not set.")
             err = led.open( setup )
-            if (err.is_ok()):
+            if (err.isOk()):
                 print("Success!")
             else:
                 print("Error: ", err)
@@ -64,7 +64,7 @@ def close():
     else:
         try:
             err = led.close()
-            if (err.is_ok()):
+            if (err.isOk()):
                 print("Success!")
             else:
                 print("Error: ", err)
