@@ -85,7 +85,7 @@ class Button( Module, EventEmitter ):
             gpioParams = dict( [(k.replace("Button.", ""),v) for k,v in paramDict.items() if k.startswith("Button.")] )
             self.gpio = GPIO()
             ret = self.gpio.open(gpioParams)
-            if (ret == ErrorCode.errOk):
+            if ret.isOk():
                 ret = self.gpio.registerInterruptHandler( \
                                 GPIO.EVENT_DEFAULT, None, \
                                 self._handleInterrupt )

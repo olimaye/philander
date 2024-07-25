@@ -121,9 +121,9 @@ class SerialBusDevice( Module ):
                     result = ErrorCode.errExhausted
                 else:
                     result = sb.open(paramDict)
-                if (result == ErrorCode.errOk):
+                if (result.isOk()):
                     paramDict["SerialBusDevice.bus"] = sb
-            if (result == ErrorCode.errOk):
+            if (result.isOk()):
                 result = sb.attach( self )
         else:
             result = ErrorCode.errResourceConflict
@@ -734,7 +734,7 @@ class _SerialBus_SMBus( _SerialBusIface ):
     def open( self, paramDict ):
         # Scan the parameters
         ret = super().open(paramDict)
-        if (ret == ErrorCode.errOk):
+        if (ret.isOk()):
             try:
                 if (self.provider == SerialBusProvider.SMBUS):
                     from smbus import SMBus
@@ -834,7 +834,7 @@ class _SerialBus_Periphery( _SerialBusIface ):
     def open( self, paramDict ):
         # Scan the parameters
         ret = super().open(paramDict)
-        if (ret == ErrorCode.errOk):
+        if (ret.isOk()):
             from periphery import I2C
             self.bus = I2C( self.designator )
         return ret
@@ -1147,7 +1147,7 @@ class SerialBus( _SerialBusIface ):
             
             # Allocate resources
             ret = self._impl.open( paramDict )
-            if (ret == ErrorCode.errOk):
+            if (ret.isOk()):
                 self._status = SerialBus._STATUS_OPEN
         return ret
 
@@ -1227,9 +1227,9 @@ class SerialBus( _SerialBusIface ):
                 self.Params_init(params)
                 result = self.open(params)
             # Attach it to the implementation
-            if (result == ErrorCode.errOk):
+            if (result.isOk()):
                 result = self._impl.attach( device )
-            if (result == ErrorCode.errOk):
+            if (result.isOk()):
                 # Mark the device as being attached
                 device.serialBus = self
         return result

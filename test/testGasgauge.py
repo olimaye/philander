@@ -34,7 +34,7 @@ def main():
         MenuFunction(gg.getBatteryCurrentAvg, name="get current (avg.)"),
         MenuFunction(gg.getRatedSOCStr, name="get SOC-rating"),
         MenuFunction(gg._checkID, name="ID-check",
-            custom_output_processor=lambda err: print("ID correct" if err == ErrorCode.errOk else "ID incorrect")),
+                     custom_output_processor=lambda err: print("ID correct" if err.isOk() else "ID incorrect")),
         MenuFunction(gg.getChangeRate, name="get change rate"),
         MenuFunction(gg.getBatteryTemperature, name="get battery temperature"),
         MenuFunction(gg.getChipTemperature, name="get chip temperature"),

@@ -129,12 +129,12 @@ def _output_processor(output_processor, output, custom_processor=None):
             output_processor = None
         elif type(output) in [list, tuple] and len(output) == 2:
             if type(output[0]) == ErrorCode:
-                if output[0] == ErrorCode.errOk:
+                if output[0].isOk():
                     output_processor = "print-second"
                 else:
                     output_processor = "print"
             elif type(output[1]) == ErrorCode:
-                if output[1] == ErrorCode.errOk:
+                if output[1].isOk():
                     output_processor = "print-first"
                 else:
                     output_processor = "print"

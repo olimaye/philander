@@ -12,6 +12,7 @@ __all__ = ["MCP40"]
 from .potentiometer import Potentiometer
 from .serialbus import SerialBusDevice
 from .systypes import ErrorCode
+from .primitives import Percentage
 
 class MCP40( SerialBusDevice, Potentiometer ):
     """MCP40 family and MCP40D family driver implementation.\
@@ -112,7 +113,7 @@ class MCP40( SerialBusDevice, Potentiometer ):
         :rtype: ErrorCode
         """
         value, err = self._digitalize_resistance_value(percentage, absolute, digital)
-        if err == ErrorCode.errOk:
+        if err.isOk():
             err = SerialBusDevice.writeByteRegister(self, 0x00, value)
         return err
     
@@ -131,7 +132,7 @@ class MCP40( SerialBusDevice, Potentiometer ):
         data = None
         if asPercentage ^ asAbsolute ^ asDigital: # check if exactly one parameter is given
             data, err = SerialBusDevice.readByteRegister(self, 0x00)
-            if err == ErrorCode.errOk:
+            if err.isOk():
                 # convert data into percentage or ohms (or digital value)
                 if asPercentage:
                     data = Percentage(data * 100 / self._potentiometer_digital_max)

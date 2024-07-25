@@ -317,7 +317,7 @@ class GPIO( Module, Interruptable ):
                 self._bounce = paramDict.get("gpio.bounce", defaults["gpio.bounce"])
                 feedback = paramDict.get("gpio.feedback", defaults["gpio.feedback"])
                 handler = paramDict.get("gpio.handler", defaults["gpio.handler"])
-        if ret == ErrorCode.errOk:
+        if ret.isOk():
             if self._implpak == GPIO._IMPLPAK_RPIGPIO:
                 self._factory.setmode(self._dictNumScheme[numScheme])
                 if self._direction == GPIO.DIRECTION_OUT:
@@ -380,7 +380,7 @@ class GPIO( Module, Interruptable ):
                 self._level = level
             else:
                 ret = ErrorCode.errNotImplemented
-        if ret == ErrorCode.errOk:
+        if ret.isOk():
             self.isOpen = True
             if handler:
                 ret = self.registerInterruptHandler(

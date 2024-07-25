@@ -80,7 +80,7 @@ class Potentiometer( Module ):
         """
         val = None
         err = Potentiometer._eval_resistance_value(percentage, absolute, digital, digital_max, max_resistance)
-        if err == ErrorCode.errOk:
+        if err.isOk():
             if percentage != None:
                 val = (digital_max * percentage) // 100
             elif absolute != None:
