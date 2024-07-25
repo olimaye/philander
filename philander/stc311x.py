@@ -248,49 +248,6 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
                     ret = self._transferCurrentAvg(data)
         return ret
 
-    def rateSOC(self, soc):
-        """Convert a continuous SOC percentage into its next-lower battery level predicate.
-        
-        Does not retrieve any information from the underlying hardware.
-
-        :param Percentage soc: The state of charge, given in percent.
-        :return: The next-lower battery level mnemonic.
-        :rtype: battery.Level
-        """
-        if soc >= BatLevel.full.value:
-            ret = BatLevel.full
-        elif soc >= BatLevel.good.value:
-            ret = BatLevel.good
-        elif soc >= BatLevel.medium.value:
-            ret = BatLevel.medium
-        elif soc >= BatLevel.low.value:
-            ret = BatLevel.low
-        elif soc >= BatLevel.empty.value:
-            ret = BatLevel.empty
-        else:
-            ret = BatLevel.deepDischarge
-        return ret
-
-    def getRatedSOC(self):
-        """Retrieve the current state of charge as a discrete battery level predicate.
-
-        :return: The next-lower battery level corresponding to the current SOC.
-        :rtype: battery.Level
-        """
-        soc = self.getStateOfCharge()
-        lvl = self.rateSOC(soc)
-        return lvl
-
-    def getRatedSOCStr(self):
-        """Retrieve the remaining capacity as a battery level string.
-
-        :return: The next-lower battery level corresponding to the current SOC.
-        :rtype: String
-        """
-        lvl = self.getRatedSOC()
-        lvl_str = str(lvl)
-        return lvl_str
-
     # Local functions for internal use
 
     @staticmethod

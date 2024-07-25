@@ -22,6 +22,19 @@ class Level(Enum):
     deepDischarge   = min
     invalid         = Percentage.invalid
 
+    @staticmethod
+    def fromPercentage(percentage):
+        new_lvl = Level.invalid
+        for lvl in list(Level):
+            if lvl is Level.invalid:
+                continue
+            elif (percentage >= lvl) and (new_lvl is Level.invalid or lvl > new_lvl):
+                # check if percentage is above certain level
+                # and if lvl is closer to percentage than previously set new_lvl
+                new_lvl = lvl
+        return new_lvl
+
+
 class Capacity(int):
     """Absolute capacity of a battery in mAh
     """
