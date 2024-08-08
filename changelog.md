@@ -13,6 +13,19 @@ This is the summary of relevant changes throughout different releases.
 ## [Unreleased]
 - nothing yet.
 
+## [0.3] - 2024-08-08
+
+### Added
+- interface for digital potentiometers and implementation for MCP4017/18/19
+- ST L6924 battery charger implementation
+- STC3115/17 gas gauge implementation, to be completed.
+- general test suite helper to ease testing driver implementations.
+- convenience function ErrorCode.isOk()
+- battery.Level.fromPercentage() to do the conversion
+
+### Fixed
+- documented design decisions on error codes vs. exceptions and the order of return values.
+
 ## [0.2] - 2024-04-19
 
 ### Added
