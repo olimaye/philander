@@ -28,47 +28,44 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Event", "EventContextControl", "EventContext", "Interruptable"]
 
-from dataclasses import dataclass
-from enum import Enum, unique, auto
-
 import pymitter
 
 from .systypes import ErrorCode
 
 
-@unique
-class Event(Enum):
+class Event():
     """Generic class to indicate the nature of an interrupt (source).
     
     Instances of this class are meant to be passed to the handling routine
     as an immediate response to interrupts. 
     """
-    evtNone   = auto()
-    evtAny	  = auto()
-    evtInt1   = auto()
-    evtInt2   = auto()
+    evtNone   = 0
+    evtAny	  = 1
+    evtInt1   = 2
+    evtInt2   = 3
 
 
-@unique
-class EventContextControl(Enum):
+class EventContextControl():
     """Control data to navigate through the list of event context items.
     """
-    evtCtxtCtrl_clearAll    = auto()
-    evtCtxtCtrl_getFirst    = auto()
-    evtCtxtCtrl_getNext     = auto()
-    evtCtxtCtrl_getLast     = auto()
-    evtCtxtCtrl_getPrevious = auto()
+    clearAll    = 0
+    getFirst    = 1
+    getNext     = 2
+    getLast     = 3
+    getPrevious = 4
 
-@dataclass
 class EventContext:
     """Details or quantifies the reason for an interrupt occurrence.
     
     Will probably be sub-classed to represent specifics of the implementing
     :class:`Interruptable` device.
     """
-    control:    EventContextControl = EventContextControl.evtCtxtCtrl_getFirst
-    remainInt:  int = 0
-
+    
+    def __init__(self,
+                 control: EventContextControl = EventContextControl.getFirst,
+                 remainInt:  int = 0):
+        self.control = control
+        self.remainInt = remainInt
 
 class Interruptable:
     """Generic interface to describe the capabilities of an event or interrupt source.
@@ -189,7 +186,7 @@ class Interruptable:
         That's why, it may be meaningful/necessary to call this method
         repeatedly, until all reasons were reported. Upon its first
         call after an event, the context's :attr:`.interruptable.EventContext.control`
-        attribute must be set to :attr:`.interruptable.EventContextControl.evtCtxtCtrl_getFirst`.
+        attribute must be set to :attr:`.interruptable.EventContextControl.getFirst`.
         Upon subsequent calls, this attribute should not be changed by
         the caller, anymore. In generally, event context information is
         retrieved in the order according to the priority of the

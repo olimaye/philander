@@ -971,27 +971,27 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
         elif ((event == Event.evtInt1) or (event == Event.evtAny)):
             ret = ErrorCode.errOk
             # Retrieving the interrupt status resets all bits in these registers!
-            if( context.control == EventContextControl.evtCtxtCtrl_clearAll ):
+            if( context.control == EventContextControl.clearAll ):
                 _, ret = self.readByteRegister( MAX77960._REG_TOP_INT )
                 _, ret = self.readByteRegister( MAX77960._REG_CHG_INT )
                 context.remainInt = 0;
                 context.source = EventSource.none
             else:
-                if (context.control == EventContextControl.evtCtxtCtrl_getFirst):
+                if (context.control == EventContextControl.getFirst):
                     topStatus, ret = self.readByteRegister( MAX77960._REG_TOP_INT )
                     chgStatus, ret = self.readByteRegister( MAX77960._REG_CHG_INT )
                     context.remainInt = self._mapIntImpl2Api( topStatus, chgStatus )
-                    context.control = EventContextControl.evtCtxtCtrl_getNext
-                elif (context.control == EventContextControl.evtCtxtCtrl_getLast):
+                    context.control = EventContextControl.getNext
+                elif (context.control == EventContextControl.getLast):
                     topStatus, ret = self.readByteRegister( MAX77960._REG_TOP_INT )
                     chgStatus, ret = self.readByteRegister( MAX77960._REG_CHG_INT )
                     context.remainInt = self._mapIntImpl2Api( topStatus, chgStatus )
-                    context.control = EventContextControl.evtCtxtCtrl_getPrevious
+                    context.control = EventContextControl.getPrevious
                 if (ret.isOk()):
                     if (context.remainInt == 0):
                         ret = ErrorCode.errFewData
                     else:
-                        if (context.control == EventContextControl.evtCtxtCtrl_getNext):
+                        if (context.control == EventContextControl.getNext):
                             # Find value of highest bit:
                             context.source = imath.iprevpowtwo( context.remainInt )
                         else:
