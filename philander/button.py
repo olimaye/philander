@@ -99,8 +99,8 @@ class Button( Module, EventEmitter ):
         if not (self.gpio is None):
             ret = self.gpio.registerInterruptHandler( None, None, None )
             ret = self.gpio.close()
-        logging.debug('Button <%s> closed, returns %s.',
-                      self.label, ret)
+            self.gpio = None
+        logging.debug('Button <%s> closed, returns %s.', self.label, ret)
         return ret
 
     def setRunLevel(self, level):
