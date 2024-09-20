@@ -5,11 +5,12 @@ GPIO implementing driver modules possibly installed on the target
 system.
 """
 __author__ = "Oliver Maye"
-__version__ = "0.1"
+__version__ = "0.2"
 __all__ = ["GPIO"]
 
 import logging
 from threading import Thread
+import time
 import warnings
 
 from .interruptable import Interruptable
@@ -27,11 +28,12 @@ class GPIO( Module, Interruptable ):
     implementing package.
     """
     
-    _IMPLPAK_NONE = 0
-    _IMPLPAK_RPIGPIO = 1
-    _IMPLPAK_GPIOZERO = 2
-    _IMPLPAK_PERIPHERY = 3
-    _IMPLPAK_SIM = 4
+    _IMPLPAK_NONE           = 0
+    _IMPLPAK_RPIGPIO        = 1
+    _IMPLPAK_GPIOZERO       = 2
+    _IMPLPAK_PERIPHERY      = 3
+    _IMPLPAK_MICROPYTHON    = 10
+    _IMPLPAK_SIM            = 100
 
     _POLL_TIMEOUT = 1
 
@@ -82,6 +84,8 @@ class GPIO( Module, Interruptable ):
         self.isOpen = False
         self._trigger = GPIO.TRIGGER_EDGE_RISING
         self._bounce = GPIO.BOUNCE_NONE
+        self._softDebounce = False
+        self._lastEventTime = 0
         self._fIntEnabled = False
         Interruptable.__init__(self)
         self._implpak = self._detectProvider()
@@ -102,6 +106,7 @@ class GPIO( Module, Interruptable ):
     #        be found.
     def _detectProvider(self):
         ret = GPIO._IMPLPAK_NONE
+        self._softDebounce = True
         # Check for RPi.GPIO
         if ret == GPIO._IMPLPAK_NONE:
             try:
@@ -130,8 +135,9 @@ class GPIO( Module, Interruptable ):
                     GPIO.TRIGGER_EDGE_FALLING: gpioFactory.FALLING,
                     GPIO.TRIGGER_EDGE_ANY: gpioFactory.BOTH,
                 }
+                self._softDebounce = False
                 ret = GPIO._IMPLPAK_RPIGPIO
-            except ModuleNotFoundError:
+            except ImportError:
                 pass    # Suppress the exception, use return, instead.
         # Check for gpiozero
         if ret == GPIO._IMPLPAK_NONE:
@@ -147,7 +153,7 @@ class GPIO( Module, Interruptable ):
                     GPIO.PULL_UP: True,
                 }
                 ret = GPIO._IMPLPAK_GPIOZERO
-            except ModuleNotFoundError:
+            except ImportError:
                 pass    # Suppress the exception, use return, instead.
         # Check for periphery
         if ret == GPIO._IMPLPAK_NONE:
@@ -172,7 +178,33 @@ class GPIO( Module, Interruptable ):
                     GPIO.TRIGGER_EDGE_ANY: "both",
                 }
                 ret = GPIO._IMPLPAK_PERIPHERY
-            except ModuleNotFoundError:
+            except ImportError:
+                pass    # Suppress the exception, use return, instead.
+        # Check for MicroPython
+        if ret == GPIO._IMPLPAK_NONE:
+            try:
+                from machine import Pin as gpioFactory
+                self._factory = gpioFactory
+                self._dictDirection = {
+                    GPIO.DIRECTION_IN: gpioFactory.IN,
+                    GPIO.DIRECTION_OUT: gpioFactory.OUT,
+                }
+                self._dictLevel = {GPIO.LEVEL_LOW: 0, GPIO.LEVEL_HIGH: 1}
+                self._dictPull = {
+                    GPIO.PULL_DEFAULT: None,
+                    GPIO.PULL_NONE: None,
+                    GPIO.PULL_DOWN: gpioFactory.PULL_DOWN,
+                    GPIO.PULL_UP: gpioFactory.PULL_UP,
+                }
+                self._dictTrigger = {
+                    GPIO.TRIGGER_EDGE_RISING: gpioFactory.IRQ_RISING,
+                    GPIO.TRIGGER_EDGE_FALLING: gpioFactory.IRQ_FALLING,
+                    GPIO.TRIGGER_EDGE_ANY: (gpioFactory.IRQ_RISING | gpioFactory.IRQ_FALLING),
+                    #GPIO.TRIGGER_LEVEL_HIGH: gpioFactory.IRQ_HIGH_LEVEL,
+                    #GPIO.TRIGGER_LEVEL_LOW: gpioFactory.IRQ_LOW_LEVEL,
+                }
+                ret = GPIO._IMPLPAK_MICROPYTHON
+            except ImportError:
                 pass    # Suppress the exception, use return, instead.
         # Failure
         if ret == GPIO._IMPLPAK_NONE:
@@ -194,10 +226,25 @@ class GPIO( Module, Interruptable ):
     # :type handin: implementation-specific 
     def _callback(self, handin):
         if self._implpak == GPIO._IMPLPAK_GPIOZERO:
-            argDes = handin.pin.number
+            argDes = handin.pin
         else:
             argDes = handin
-        super()._fire(GPIO.EVENT_DEFAULT, argDes)
+        if self._softDebounce and (self._bounce > 0):
+            if self._implpak == GPIO._IMPLPAK_PERIPHERY:
+                evt = self.pin.read_event()
+                now = evt.timestamp / 1000000
+                bounceOver = (now - self._lastEventTime) > self._bounce 
+            elif self._implpak == GPIO._IMPLPAK_MICROPYTHON:
+                now = time.ticks_ms()
+                bounceOver = time.ticks_diff(now, self._lastEventTime) > self._bounce 
+            else:
+                now = time.time() * 1000
+                bounceOver = (now - self._lastEventTime) > self._bounce 
+            if bounceOver: 
+                self._lastEventTime = now
+                self._fire(GPIO.EVENT_DEFAULT, argDes)
+        else:
+            self._fire(GPIO.EVENT_DEFAULT, argDes)
         return None
 
     # Thread working loop to poll for the pin state triggering an
@@ -207,15 +254,10 @@ class GPIO( Module, Interruptable ):
     def _workerLoop(self):
         logging.debug("gpio <%d> starts working loop.", self._designator)
         self._workerDone = False
-        lastTime = 0
         while not self._workerDone:
             value = self.pin.poll(GPIO._POLL_TIMEOUT)
             if value:
-                evt = self.pin.read_event()
-                if (evt.timestamp - lastTime) > self._bounce * 1000000:
-                    lastTime = evt.timestamp
-                    logging.debug("gpio <%d> consumed event %s.", self._designator, evt)
-                    self._callback(self._designator)
+                self._callback(self.pin)
         logging.debug("gpio <%d> terminates working loop.", self._designator)
 
     # Stop the worker thread, if appropriate.
@@ -299,7 +341,7 @@ class GPIO( Module, Interruptable ):
         self._designator = paramDict.get("gpio.pinDesignator", None)
         if self._designator is None:
             ret = ErrorCode.errInvalidParameter
-        elif self.isOpen:
+        elif self.isOpen and (self._implpak != GPIO._IMPLPAK_MICROPYTHON):
             ret = ErrorCode.errResourceConflict
         else:
             numScheme = paramDict.get("gpio.pinNumbering", defaults["gpio.pinNumbering"])
@@ -376,6 +418,23 @@ class GPIO( Module, Interruptable ):
                         )
                 else:
                     ret = ErrorCode.errNotSupported
+            elif self._implpak == GPIO._IMPLPAK_MICROPYTHON:
+                if self.isOpen:     # already open, re-initialize
+                    if self._direction == GPIO.DIRECTION_IN:
+                        self.pin.init( mode = self._dictDirection[self._direction],
+                                       pull = self._dictPull[pull]  )
+                    else:
+                        self.pin.init( mode = self._dictDirection[self._direction],
+                                       value= level )
+                else:
+                    if self._direction == GPIO.DIRECTION_IN:
+                        self.pin = self._factory( self._designator,
+                                mode = self._dictDirection[self._direction],
+                                pull = self._dictPull[pull]  )
+                    else:
+                        self.pin = self._factory( self._designator,
+                                mode = self._dictDirection[self._direction],
+                                value= level )
             elif self._implpak == GPIO._IMPLPAK_SIM:
                 self._level = level
             else:
@@ -404,17 +463,24 @@ class GPIO( Module, Interruptable ):
             if self._implpak == GPIO._IMPLPAK_RPIGPIO:
                 if not self._designator is None:
                     self._factory.cleanup(self._designator)
+                self.pin = None
+                self.isOpen = False
             elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
                 self.pin.close()
+                self.pin = None
+                self.isOpen = False
             elif self._implpak == GPIO._IMPLPAK_PERIPHERY:
                 self._stopWorker()
                 self.pin.close()
+                self.pin = None
+                self.isOpen = False
+            elif self._implpak == GPIO._IMPLPAK_MICROPYTHON:
+                ret = ErrorCode.errOk
             elif self._implpak == GPIO._IMPLPAK_SIM:
-                pass
+                self.pin = None
+                self.isOpen = False
             else:
                 ret = ErrorCode.errNotImplemented
-            self.pin = None
-            self.isOpen = False
         else:
             ret = ErrorCode.errResourceConflict
         return ret
@@ -474,6 +540,9 @@ class GPIO( Module, Interruptable ):
                 self._worker = Thread(target=self._workerLoop, name="GPIO worker")
                 self._worker.start()
                 self._fIntEnabled = True
+            elif self._implpak == GPIO._IMPLPAK_MICROPYTHON:
+                self._worker = self.pin.irq( handler=self._callback, trigger=self._dictTrigger[self._trigger] )
+                self._fIntEnabled = True
             else:
                 ret = ErrorCode.errNotImplemented
         return ret
@@ -505,6 +574,10 @@ class GPIO( Module, Interruptable ):
                 self._stopWorker()
                 self.pin.edge = "none"
                 self._fIntEnabled = False
+            elif self._implpak == GPIO._IMPLPAK_MICROPYTHON:
+                self.pin.irq( handler=None )
+                self._worker = None
+                self._fIntEnabled = False
             else:
                 ret = ErrorCode.errNotImplemented
         else:
@@ -528,6 +601,8 @@ class GPIO( Module, Interruptable ):
                 status = self.pin.value
             elif self._implpak == GPIO._IMPLPAK_PERIPHERY:
                 status = self.pin.read()
+            elif self._implpak == GPIO._IMPLPAK_MICROPYTHON:
+                status = self.pin.value()
             elif self._implpak == GPIO._IMPLPAK_SIM:
                 status = self._level
             else:
@@ -558,6 +633,8 @@ class GPIO( Module, Interruptable ):
             self.pin.value = self._dictLevel[newLevel]
         elif self._implpak == GPIO._IMPLPAK_PERIPHERY:
             self.pin.write(self._dictLevel[newLevel])
+        elif self._implpak == GPIO._IMPLPAK_MICROPYTHON:
+            self.pin.value(self._dictLevel[newLevel])
         elif self._implpak == GPIO._IMPLPAK_SIM:
             if newLevel == GPIO.LEVEL_HIGH:
                 self._level = GPIO.LEVEL_HIGH

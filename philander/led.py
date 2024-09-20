@@ -3,7 +3,7 @@
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["LED"]
-from threading import Thread
+
 import time, logging
 
 from .gpio import GPIO
@@ -31,6 +31,10 @@ class LED( Module ):
         self.worker = None
         self.workerDone = False
         self.label = LED.LABEL_DEFAULT
+        self._timer = None
+        self._cyclesLeft = None
+        self._curve = None
+        self._curveItem = 0
 
     #
     # Module API
@@ -120,16 +124,40 @@ class LED( Module ):
         logging.debug('LED <%s> switched OFF.', self.label)
 
     def blink(self, curve=CURVE_BLINK_CLASSIC, cycle_length=CYCLEN_NORMAL, num_cycles=None):
-        self.stop_blinking()
-        self.worker = Thread( target=self._blinkingLoop, name='Blinker',
-                              args=(curve, cycle_length, num_cycles) )
-        self.worker.start()
+        if( not(curve is None) and (len(curve)>0) and
+            (cycle_length>0) and
+            ((num_cycles is None) or (num_cycles > 0)) ):
+            self.stop_blinking()
+            # On MicroPython, use its distinct timer features
+            if self.gpio._implpak == GPIO._IMPLPAK_MICROPYTHON:
+                from machine import Timer
+                self._timer = Timer()
+                self._cyclesLeft = num_cycles
+                self._curve = curve
+                self._curveItem = 0
+                self.workerDone = False
+                self._timer.init( period= (cycle_length*1000 + len(curve)//2) // len( curve ),
+                                  mode= Timer.PERIODIC,
+                                  callback= self._mpBlinkingLoop )
+                logging.debug('LED <%s> starts blinking timer, cycle_length=%s.', self.label, cycle_length)
+            else:   # Full Python on SBC and alike
+                from threading import Thread
+                self.worker = Thread( target=self._blinkingLoop, name='Blinker',
+                                      args=(curve, cycle_length, num_cycles) )
+                self.worker.start()
     
     def stop_blinking(self):
-        if self.worker:
-            if self.worker.is_alive():
-                self.workerDone = True
-                self.worker.join()
+        if self.gpio._implpak == GPIO._IMPLPAK_MICROPYTHON:
+            if not (self._timer is None):
+                self._timer.deinit()
+                self._timer = None
+            self.workerDone = True
+            logging.debug('LED <%s> stops blinking.', self.label)
+        else:   # Full Python on SBC and alike
+            if self.worker:
+                if self.worker.is_alive():
+                    self.workerDone = True
+                    self.worker.join()
             self.worker = None
             
             
@@ -140,6 +168,8 @@ class LED( Module ):
         if num_cycles:
             for _ in range( num_cycles ):
                 for value in curve:
+                    if self.workerDone:
+                        break
                     self.set( value )
                     time.sleep( delay ) 
                 if self.workerDone:
@@ -147,8 +177,23 @@ class LED( Module ):
         else:
             while not self.workerDone:
                 for value in curve:
+                    if self.workerDone:
+                        break
                     self.set( value )
                     time.sleep( delay ) 
         logging.debug('LED <%s> terminates blinking thread.', self.label)
+        
+    def _mpBlinkingLoop(self, timer):
+        self.set( self._curve[self._curveItem] )
+        self._curveItem += 1
+        if( self._curveItem >= len(self._curve )) :
+            self._curveItem = 0
+            if not( self._cyclesLeft is None ) :
+                self._cyclesLeft -= 1
+                if( self._cyclesLeft < 1 ):
+                    self.workerDone = True
+        if self.workerDone:
+            timer.deinit()
+            logging.debug('LED <%s> terminates blinking timer.', self.label)
         
         
