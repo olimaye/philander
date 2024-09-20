@@ -3,7 +3,10 @@ from philander.gpio import GPIO
 from philander.led import LED
 from philander.systypes import ErrorCode, Info
 
-from simple_term_menu import TerminalMenu
+try:
+    from simple_term_menu import TerminalMenu
+except ImportError as exc:
+    from micromenu import MicroMenu as TerminalMenu
 
 
 def settings():
@@ -53,8 +56,10 @@ def open():
             else:
                 print("Error: ", err)
         except Exception as exc:
-            print("Exception:", exc)
+            print(f"Exception ({exc.__class__.__name__}): {exc}")
             #traceback.print_exc()
+            #import sys
+            #sys.print_exception(exc)
     return None
 
 def close():
@@ -69,7 +74,7 @@ def close():
             else:
                 print("Error: ", err)
         except Exception as exc:
-            print("Exception:", exc)
+            print(f"Exception ({exc.__class__.__name__}): {exc}")
     return None
 
 def brightness():
@@ -78,7 +83,7 @@ def brightness():
         print("LED is not instantiated!")
     else:
         title = "Select brightness"
-        options = ["  0 %", " 10 %", " 20 %", " 30 %", " 40 %", " 50 %" \
+        options = ["  0 %", " 10 %", " 20 %", " 30 %", " 40 %", " 50 %", \
                    " 60 %", " 70 %", " 80 %", " 90 %", "100 %"]
         menu = TerminalMenu( options, title=title )
         
@@ -91,10 +96,10 @@ def brightness():
                 level = selection / 10
                 print(f"Setting brightness to {level} - ", end="")
                 try:
-                    err = led.set( level )
+                    led.set( level )
                     print("Success!")
                 except Exception as exc:
-                    print("Exception:", exc)
+                    print(f"Exception ({exc.__class__.__name__}): {exc}")
     return None
 
 def blink():
@@ -103,8 +108,7 @@ def blink():
         print("LED is not instantiated!")
     else:
         title = "Select pattern"
-        options = ["Classic, slow (3x)", " 10 %", " 20 %", " 30 %", " 40 %", " 50 %" \
-                   " 60 %", " 70 %", " 80 %", " 90 %", "100 %"]
+        options = ["Classic, slow (3x)", ]
         menu = TerminalMenu( options, title=title )
         
         done = False
@@ -114,14 +118,11 @@ def blink():
                 done = True
             else:
                 if (selection == 0):
-                    curve = LED.CURVE_BLINK_CLASSIC
-                    length = LED.CYCLEN_SLOW
-                    num = 3
+                    curve, length, num = LED.CURVE_BLINK_CLASSIC, LED.CYCLEN_SLOW, 3
                 try:
-                    err = led.blink( curve, length, num )
-                    print("Success!")
+                    led.blink( curve, length, num )
                 except Exception as exc:
-                    print("Exception:", exc)
+                    print(f"Exception ({exc.__class__.__name__}): {exc}")
     return None
 
 def main():
@@ -132,13 +133,15 @@ def main():
     
     title = "LED test application"
     options = ["Settings", "Open", "Close", "On", "Off", \
-               "Brightness", "Blink", "Stop", "Exit"]
+               "Brightness", "Blink", "Stop"]
     menu = TerminalMenu( options, title=title )
     
     done = False
     while not done:
         selection = menu.show()
-        if (selection == 0):
+        if (selection is None):
+            done = True
+        elif (selection == 0):
             settings()
         elif (selection == 1):
             open()
@@ -154,8 +157,6 @@ def main():
             blink()
         elif (selection == 7):
             led.stop_blinking()
-        elif (selection == 8):
-            done = True
     
     led.close()
     print("Done.")

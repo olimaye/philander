@@ -3,7 +3,10 @@ from philander.gpio import GPIO
 from philander.button import Button
 from philander.systypes import ErrorCode, Info
 
-from simple_term_menu import TerminalMenu
+try:
+    from simple_term_menu import TerminalMenu
+except ImportError as exc:
+    from micromenu import MicroMenu as TerminalMenu
 
 def hdlButtonPressed( lbl ):
     print("Button <", lbl, "> pressed.")
@@ -48,12 +51,13 @@ def open():
             err = button.open( setup )
             if (err.isOk()):
                 print("Success!")
-                button.on( Button.EVENT_PRESSED, hdlButtonPressed )
             else:
                 print("Error: ", err)
         except Exception as exc:
-            print("Exception:", exc)
+            print(f"Exception ({exc.__class__.__name__}): {exc}")
             #traceback.print_exc()
+            #import sys
+            #sys.print_exception(exc)
     return None
 
 def close():
@@ -68,30 +72,31 @@ def close():
             else:
                 print("Error: ", err)
         except Exception as exc:
-            print("Exception:", exc)
+            print(f"Exception ({exc.__class__.__name__}): {exc}")
     return None
 
 def main():
     global button, setup
     
     button = Button()
+    button.on( Button.EVENT_PRESSED, hdlButtonPressed )
     Button.Params_init( setup )
     
     title = "Button test application"
-    options = ["Settings", "Open", "Close", "Exit"]
+    options = ["Settings", "Open", "Close"]
     menu = TerminalMenu( options, title=title )
     
     done = False
     while not done:
         selection = menu.show()
-        if (selection == 0):
+        if (selection is None):
+            done = True
+        elif (selection == 0):
             settings()
         elif (selection == 1):
             open()
         elif (selection == 2):
             close()
-        elif (selection == 3):
-            done = True
     
     button.close()
     print("Done.")
