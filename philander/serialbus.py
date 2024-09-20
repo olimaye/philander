@@ -746,7 +746,7 @@ class _SerialBus_SMBus( _SerialBusIface ):
                 ret = ErrorCode.errOk
             except Exception as exc:
                 ret = ErrorCode.errInternal
-                raise SystemError("Couldn't initialize serial bus ["+str(self.designator)+"]. Designator right? Access to interface granted?") from exc
+                raise OSError("Couldn't initialize serial bus ["+str(self.designator)+"]. Designator right? Access to interface granted?") from exc
         return ret
 
     def close( self ):
@@ -1062,15 +1062,15 @@ class SerialBus( _SerialBusIface ):
             try:
                 from smbus2 import SMBus, i2c_msg
                 ret = SerialBusProvider.SMBUS2
-            except ModuleNotFoundError:
+            except ImportError:
                 try:
                     from smbus import SMBus
                     ret = SerialBusProvider.SMBUS
-                except ModuleNotFoundError:
+                except ImportError:
                     try:
                         from periphery import I2C
                         ret = SerialBusProvider.PERIPHERY
-                    except ModuleNotFoundError:
+                    except ImportError:
                         ret = SerialBusProvider.SIM
         else:
             raise NotImplementedError('Currently, only I2C is supported!')
