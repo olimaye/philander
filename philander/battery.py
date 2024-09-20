@@ -1,4 +1,4 @@
-"""A module t reflect capabilities and properties of re-chargeable batteries.
+"""A module to reflect capabilities and properties of re-chargeable batteries.
 """
 __author__ = "Oliver Maye"
 __version__ = "0.1"
