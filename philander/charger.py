@@ -5,8 +5,8 @@ __version__ = "0.1"
 __all__ = ["Status", "DCStatus", "PowerSrc", "TemperatureRating",\
            "ChargerError", "EventSource", "EventContext",\
            "Charger"]
-from dataclasses import dataclass
-from enum import unique, auto, Enum, Flag
+
+from .penum import Enum, Flag, unique, auto, idiotypic, dataclass
 
 from .battery import Status as BatStatus
 from .interruptable import EventContext as IntEventContext
@@ -14,6 +14,7 @@ from .systypes import ErrorCode, Info
 
 
 @unique
+@idiotypic
 class Status(Enum):
     """Data class to describe the status or mode of a charging circuitry.\
     This is mainly specified by the phase of a charging cycle.
@@ -30,6 +31,7 @@ class Status(Enum):
     unknown    = auto()  # Status information unavailable, cannot be determined. 
     
 @unique
+@idiotypic
 class DCStatus(Enum):
     """Wrapper to hold status information of a DC supply.
     """
@@ -40,16 +42,18 @@ class DCStatus(Enum):
     overvoltage    = auto() # Input supply present but voltage is way too high.
     unknown        = auto() # Status is unknown, cannot be determined
 
+@idiotypic
 class PowerSrc(Flag):
     """A power source describes a supplier of electrical energy that can\
     be used, e.g. to drive the system.
     """
     
-    unknown  = 0  # Power source is unknown, unclear, cannot be determined
-    dc       = auto()  # dc supply
-    bat      = auto()  # Battery
+    unknown  = 0        # Power source is unknown, unclear, cannot be determined
+    dc       = 0x01     # dc supply
+    bat      = 0x02     # Battery
     dcBat    = dc | bat # Both, dc and Battery available
 
+@idiotypic
 class TemperatureRating( Enum ):
     """This type qualitatively describes a temperature, e.g. of a chip.
     """
@@ -64,6 +68,7 @@ class TemperatureRating( Enum ):
     unknown      = 0xFF             # Temperature is unknown, cannot be determined
     
 @unique
+@idiotypic
 class ChargerError(Enum):
     """A type to describe the charger's error condition more precisely.
     
@@ -84,28 +89,29 @@ class ChargerError(Enum):
     batBroken    = 42  # Battery is damaged.
     batRemoved   = 43  # Battery is removed.
     timer        = 50  # General timer error.
-    unknown      = auto()
+    unknown      = 100
 
 @unique
+@idiotypic
 class EventSource(Flag):
     """Event source type to detail the reason for an interrupt occurrence.
     
     It's ok for an implementation to not support every type of interrupt.
     """
     
-    internal                = auto() # Internal fault, e.g. OTG fault or buck-boost fault.
-    onOff                   = auto() # Charger enable/disable state changed
-    chargingPhase           = auto() # Charger phase/status changed, e.g. from pre- into fast-charge
-    inputVoltage            = auto() # e.g. Input voltage applied / switched off
-    inputCurrentLimitOwn    = auto() # Own input current limit reached
-    inputCurrentLimitSrc    = auto() # Input current limited by source; Voltage dropped.
-    batteryTemperature      = auto() # Battery temperature outside limits
-    batteryOvercurrent      = auto() # Discharge current exceeds limit
-    systemUndervoltage      = auto() # System voltage too low
-    systemOvervoltage       = auto() # System voltage applied to charger too high
-    thermalShutdown         = auto() # Charger temperature outside limits
-    all                     = 0x07FF
     none                    = 0x0000 # No interrupt fired
+    internal                = 0x0001 # Internal fault, e.g. OTG fault or buck-boost fault.
+    onOff                   = 0x0002 # Charger enable/disable state changed
+    chargingPhase           = 0x0004 # Charger phase/status changed, e.g. from pre- into fast-charge
+    inputVoltage            = 0x0008 # e.g. Input voltage applied / switched off
+    inputCurrentLimitOwn    = 0x0010 # Own input current limit reached
+    inputCurrentLimitSrc    = 0x0020 # Input current limited by source; Voltage dropped.
+    batteryTemperature      = 0x0040 # Battery temperature outside limits
+    batteryOvercurrent      = 0x0080 # Discharge current exceeds limit
+    systemUndervoltage      = 0x0100 # System voltage too low
+    systemOvervoltage       = 0x0200 # System voltage applied to charger too high
+    thermalShutdown         = 0x0400 # Charger temperature outside limits
+    all                     = 0x07FF
     unknown                 = 0x8000 # Unknown reason
     
 @dataclass

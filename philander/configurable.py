@@ -4,13 +4,14 @@
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["ConfigItem", "Configuration", "Configurable"]
-from dataclasses import dataclass
-from enum import unique, Enum, auto
+
+from .penum import Enum, unique, auto, idiotypic, dataclass
 
 from .systypes import ErrorCode
 
 
 @unique
+@idiotypic
 class ConfigItem(Enum):
     """Mnemonic type to identify a specific kind of configuration.
     This helps interpreting configuration data, correctly. The meaning
@@ -38,11 +39,11 @@ class ConfigItem(Enum):
 
 @dataclass
 class Configuration:
-    """Container type to hold common configuration data.
+    """Container structure to hold common configuration data.
     
     Instances of this class will be passed to the
     :meth:`Configurable.configure` method.
-    Use the :attr:`type` attribute to de-multiplex the inner data
+    Use the :attr:`item` attribute to de-multiplex the inner data
     attributes.
     """
 
@@ -51,7 +52,7 @@ class Configuration:
         watermark:  int = 4
         control:    int = 0
 
-    type:   ConfigItem
+    item:   ConfigItem = ConfigItem.implicit
     """Multiplex configured item and data attribute interpretation as follows:
     
     =========================    ===========================

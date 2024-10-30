@@ -9,32 +9,23 @@ __version__ = "0.2"
 __all__ = ["GPIO"]
 
 import logging
-from threading import Thread
 import time
-import warnings
 
-from .interruptable import Interruptable
-from .module import Module
-from .systypes import ErrorCode
+from philander.interruptable import Interruptable
+from philander.module import Module
+from philander.sysfactory import SysProvider
+from philander.systypes import ErrorCode
 
 
 class GPIO( Module, Interruptable ):
     """General-purpose I/O abstraction class.
     
     Provide access to and control over the underlying GPIO hardware. For
-    that, an implementing driver module is used. Currently, RPi.GPIO,
-    gpiozero and periphery are supported. As a convergence layer, this
+    that, an implementing driver module is used. As a convergence layer, this
     class is to hide specifics and level syntactic requirements of the
     implementing package.
     """
     
-    _IMPLPAK_NONE           = 0
-    _IMPLPAK_RPIGPIO        = 1
-    _IMPLPAK_GPIOZERO       = 2
-    _IMPLPAK_PERIPHERY      = 3
-    _IMPLPAK_MICROPYTHON    = 10
-    _IMPLPAK_SIM            = 100
-
     _POLL_TIMEOUT = 1
 
     PINNUMBERING_BCM = "BCM"    # Pin naming by GPIOx number
@@ -72,201 +63,41 @@ class GPIO( Module, Interruptable ):
         operable, yet. Call open() to configure it and set it into a
         functional state.
         """
-        self._factory = None
-        self.pin = None
         self._dictDirection = {}
         self._dictLevel = {}
         self._dictPull = {}
         self._dictTrigger = {}
-        self._designator = None
-        self._direction = GPIO.DIRECTION_OUT
-        self._inverted = False
-        self.isOpen = False
-        self._trigger = GPIO.TRIGGER_EDGE_RISING
-        self._bounce = GPIO.BOUNCE_NONE
-        self._softDebounce = False
         self._lastEventTime = 0
-        self._fIntEnabled = False
-        Interruptable.__init__(self)
-        self._implpak = self._detectProvider()
-        self._worker = None
-        self._workerDone = False
-
-    # Figure out, which of the supported driver packages is installed.
-    # Also, do the implementation-specific initialization, e.g. of
-    # dictionaries.
-    # Supported packages are (by priority):
-    #   - RPi.GPIO
-    #   - gpiozero
-    #   - periphery
-    # :return: One of the _IMPLPAK_xxx constants to indicate the
-    #          implementation package. 
-    # :rtype: int
-    # :raise: warning in case that none of the supported packages could
-    #        be found.
-    def _detectProvider(self):
-        ret = GPIO._IMPLPAK_NONE
+        self._pin = None
         self._softDebounce = True
-        # Check for RPi.GPIO
-        if ret == GPIO._IMPLPAK_NONE:
-            try:
-                import RPi.GPIO as gpioFactory
-                self._factory = gpioFactory
-                self._dictNumScheme = {
-                    GPIO.PINNUMBERING_BCM: gpioFactory.BCM,
-                    GPIO.PINNUMBERING_BOARD: gpioFactory.BOARD,
-                }
-                self._dictDirection = {
-                    GPIO.DIRECTION_IN: gpioFactory.IN,
-                    GPIO.DIRECTION_OUT: gpioFactory.OUT,
-                }
-                self._dictLevel = {
-                    GPIO.LEVEL_LOW: gpioFactory.LOW,
-                    GPIO.LEVEL_HIGH: gpioFactory.HIGH,
-                }
-                self._dictPull = {
-                    GPIO.PULL_DEFAULT: gpioFactory.PUD_OFF,
-                    GPIO.PULL_NONE: gpioFactory.PUD_OFF,
-                    GPIO.PULL_DOWN: gpioFactory.PUD_DOWN,
-                    GPIO.PULL_UP: gpioFactory.PUD_UP,
-                }
-                self._dictTrigger = {
-                    GPIO.TRIGGER_EDGE_RISING: gpioFactory.RISING,
-                    GPIO.TRIGGER_EDGE_FALLING: gpioFactory.FALLING,
-                    GPIO.TRIGGER_EDGE_ANY: gpioFactory.BOTH,
-                }
-                self._softDebounce = False
-                ret = GPIO._IMPLPAK_RPIGPIO
-            except ImportError:
-                pass    # Suppress the exception, use return, instead.
-        # Check for gpiozero
-        if ret == GPIO._IMPLPAK_NONE:
-            try:
-                from gpiozero import DigitalInputDevice, DigitalOutputDevice
-                self._inFactory = DigitalInputDevice
-                self._outFactory = DigitalOutputDevice
-                self._dictLevel = {GPIO.LEVEL_LOW: False, GPIO.LEVEL_HIGH: True}
-                self._dictPull = {
-                    GPIO.PULL_DEFAULT: None,
-                    GPIO.PULL_NONE: None,
-                    GPIO.PULL_DOWN: False,
-                    GPIO.PULL_UP: True,
-                }
-                ret = GPIO._IMPLPAK_GPIOZERO
-            except ImportError:
-                pass    # Suppress the exception, use return, instead.
-        # Check for periphery
-        if ret == GPIO._IMPLPAK_NONE:
-            try:
-                from periphery import GPIO as gpioFactory
-                self._factory = gpioFactory
-                self._dictDirection = {
-                    GPIO.DIRECTION_IN: "in",
-                    GPIO.DIRECTION_OUT: "out",
-                }
-                self._dictLevel = {GPIO.LEVEL_LOW: False, GPIO.LEVEL_HIGH: True}
-                self._dictLevel2Dir = {GPIO.LEVEL_LOW: "low", GPIO.LEVEL_HIGH: "high"}
-                self._dictPull = {
-                    GPIO.PULL_DEFAULT: "default",
-                    GPIO.PULL_NONE: "disable",
-                    GPIO.PULL_DOWN: "pull_down",
-                    GPIO.PULL_UP: "pull_up",
-                }
-                self._dictTrigger = {
-                    GPIO.TRIGGER_EDGE_RISING: "rising",
-                    GPIO.TRIGGER_EDGE_FALLING: "falling",
-                    GPIO.TRIGGER_EDGE_ANY: "both",
-                }
-                ret = GPIO._IMPLPAK_PERIPHERY
-            except ImportError:
-                pass    # Suppress the exception, use return, instead.
-        # Check for MicroPython
-        if ret == GPIO._IMPLPAK_NONE:
-            try:
-                from machine import Pin as gpioFactory
-                self._factory = gpioFactory
-                self._dictDirection = {
-                    GPIO.DIRECTION_IN: gpioFactory.IN,
-                    GPIO.DIRECTION_OUT: gpioFactory.OUT,
-                }
-                self._dictLevel = {GPIO.LEVEL_LOW: 0, GPIO.LEVEL_HIGH: 1}
-                self._dictPull = {
-                    GPIO.PULL_DEFAULT: None,
-                    GPIO.PULL_NONE: None,
-                    GPIO.PULL_DOWN: gpioFactory.PULL_DOWN,
-                    GPIO.PULL_UP: gpioFactory.PULL_UP,
-                }
-                self._dictTrigger = {
-                    GPIO.TRIGGER_EDGE_RISING: gpioFactory.IRQ_RISING,
-                    GPIO.TRIGGER_EDGE_FALLING: gpioFactory.IRQ_FALLING,
-                    GPIO.TRIGGER_EDGE_ANY: (gpioFactory.IRQ_RISING | gpioFactory.IRQ_FALLING),
-                    #GPIO.TRIGGER_LEVEL_HIGH: gpioFactory.IRQ_HIGH_LEVEL,
-                    #GPIO.TRIGGER_LEVEL_LOW: gpioFactory.IRQ_LOW_LEVEL,
-                }
-                ret = GPIO._IMPLPAK_MICROPYTHON
-            except ImportError:
-                pass    # Suppress the exception, use return, instead.
-        # Failure
-        if ret == GPIO._IMPLPAK_NONE:
-            warnings.warn(
-                "Cannot find GPIO factory lib. Using SIM. Consider installing RPi.GPIO, gpiozero or periphery!"
-            )
-            self._dictLevel = {
-                GPIO.LEVEL_LOW: GPIO.LEVEL_LOW,
-                GPIO.LEVEL_HIGH: GPIO.LEVEL_HIGH,
-            }
-            ret = GPIO._IMPLPAK_SIM
-        return ret
+        self.bounce = GPIO.BOUNCE_NONE
+        self.designator = None
+        self.direction = GPIO.DIRECTION_OUT
+        self.inverted = False
+        self.isIntEnabled = False
+        self.isOpen = False
+        self.numScheme = GPIO.PINNUMBERING_BCM
+        self.provider = SysProvider.NONE
+        self.trigger = GPIO.TRIGGER_EDGE_RISING
+        Interruptable.__init__(self)
+
 
     # Interrupt handling routine called by the underlying implementation 
-    # upon a gpio interrupt occurrence. Determine the source (pin) of
-    # this interrupt and inform registrants by firing an event.
+    # upon a gpio interrupt occurrence.
+    # Inform registrants by firing an event.
     #
     # :param handin: Parameter as provided by the underlying implementation
     # :type handin: implementation-specific 
+    # :rtype: None
     def _callback(self, handin):
-        if self._implpak == GPIO._IMPLPAK_GPIOZERO:
-            argDes = handin.pin
-        else:
-            argDes = handin
-        if self._softDebounce and (self._bounce > 0):
-            if self._implpak == GPIO._IMPLPAK_PERIPHERY:
-                evt = self.pin.read_event()
-                now = evt.timestamp / 1000000
-                bounceOver = (now - self._lastEventTime) > self._bounce 
-            elif self._implpak == GPIO._IMPLPAK_MICROPYTHON:
-                now = time.ticks_ms()
-                bounceOver = time.ticks_diff(now, self._lastEventTime) > self._bounce 
-            else:
-                now = time.time() * 1000
-                bounceOver = (now - self._lastEventTime) > self._bounce 
-            if bounceOver: 
+        if self._softDebounce and (self.bounce > 0):
+            now = time.time() * 1000
+            if (now - self._lastEventTime) > self.bounce: 
                 self._lastEventTime = now
-                self._fire(GPIO.EVENT_DEFAULT, argDes)
+                self._fire(GPIO.EVENT_DEFAULT, handin)
         else:
-            self._fire(GPIO.EVENT_DEFAULT, argDes)
+            self._fire(GPIO.EVENT_DEFAULT, handin)
         return None
-
-    # Thread working loop to poll for the pin state triggering an
-    # interrupt. This is necessary in case interrupts are not natively
-    # supported by the underlying implementation, such as for the
-    # periphery package.
-    def _workerLoop(self):
-        logging.debug("gpio <%d> starts working loop.", self._designator)
-        self._workerDone = False
-        while not self._workerDone:
-            value = self.pin.poll(GPIO._POLL_TIMEOUT)
-            if value:
-                self._callback(self.pin)
-        logging.debug("gpio <%d> terminates working loop.", self._designator)
-
-    # Stop the worker thread, if appropriate.
-    def _stopWorker(self):
-        if self._worker:
-            if self._worker.is_alive():
-                self._workerDone = True
-                self._worker.join()
-            self._worker = None
 
 
     @classmethod
@@ -336,115 +167,22 @@ class GPIO( Module, Interruptable ):
         # Retrieve defaults
         defaults = {}
         self.Params_init(defaults)
-        handler = None
         # Scan parameters
-        self._designator = paramDict.get("gpio.pinDesignator", None)
-        if self._designator is None:
+        self.designator = paramDict.get("gpio.pinDesignator", None)
+        if self.designator is None:
             ret = ErrorCode.errInvalidParameter
-        elif self.isOpen and (self._implpak != GPIO._IMPLPAK_MICROPYTHON):
-            ret = ErrorCode.errResourceConflict
         else:
-            numScheme = paramDict.get("gpio.pinNumbering", defaults["gpio.pinNumbering"])
-            self._direction = paramDict.get("gpio.direction", defaults["gpio.direction"])
-            self._inverted = paramDict.get("gpio.inverted", defaults["gpio.inverted"])
-            level = paramDict.get("gpio.level", defaults["gpio.level"])
-            if (self._implpak != GPIO._IMPLPAK_NONE) and (self._inverted):
+            self.numScheme = paramDict.get("gpio.pinNumbering", defaults["gpio.pinNumbering"])
+            self.direction = paramDict.get("gpio.direction", defaults["gpio.direction"])
+            self.inverted = paramDict.get("gpio.inverted", defaults["gpio.inverted"])
+            if self.inverted:
                 # If inverted, simply swap the entries of the level-dictionary
-                self._dictLevel[GPIO.LEVEL_LOW], self._dictLevel[GPIO.LEVEL_HIGH] = self._dictLevel[GPIO.LEVEL_HIGH], self._dictLevel[GPIO.LEVEL_LOW]
-                if self._implpak == GPIO._IMPLPAK_PERIPHERY:
-                    self._dictLevel2Dir[GPIO.LEVEL_LOW], self._dictLevel2Dir[GPIO.LEVEL_HIGH] = self._dictLevel2Dir[GPIO.LEVEL_HIGH], self._dictLevel2Dir[GPIO.LEVEL_LOW]
-            if self._direction == GPIO.DIRECTION_IN:
-                pull = paramDict.get("gpio.pull", defaults["gpio.pull"])
-                self._trigger = paramDict.get("gpio.trigger", defaults["gpio.trigger"])
-                self._bounce = paramDict.get("gpio.bounce", defaults["gpio.bounce"])
-                feedback = paramDict.get("gpio.feedback", defaults["gpio.feedback"])
-                handler = paramDict.get("gpio.handler", defaults["gpio.handler"])
-        if ret.isOk():
-            if self._implpak == GPIO._IMPLPAK_RPIGPIO:
-                self._factory.setmode(self._dictNumScheme[numScheme])
-                if self._direction == GPIO.DIRECTION_OUT:
-                    self._factory.setup(
-                        self._designator,
-                        self._factory.OUT,
-                        initial=self._dictLevel[level],
-                    )
-                else:
-                    self._factory.setup(
-                        self._designator,
-                        self._factory.IN,
-                        pull_up_down=self._dictPull[pull],
-                    )
-            elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
-                if numScheme == GPIO.PINNUMBERING_BOARD:
-                    self._designator = "BOARD" + str(self._designator)
-                if self._direction == GPIO.DIRECTION_OUT:
-                    self.pin = self._outFactory(
-                        self._designator, initial_value=self._dictLevel[level]
-                    )
-                else:
-                    if pull == GPIO.PULL_NONE:
-                        actState = (self._trigger == GPIO.TRIGGER_EDGE_RISING) or (
-                            self._trigger == GPIO.TRIGGER_LEVEL_HIGH
-                        )
-                    else:
-                        actState = None
-                    if self._bounce > 0:
-                        self.pin = self._inFactory(
-                            self._designator,
-                            pull_up=self._dictPull[pull],
-                            active_state=actState,
-                            bounce_time=self._bounce,
-                        )
-                    else:
-                        self.pin = self._inFactory(
-                            self._designator,
-                            pull_up=self._dictPull[pull],
-                            active_state=actState,
-                        )
-            elif self._implpak == GPIO._IMPLPAK_PERIPHERY:
-                if numScheme == GPIO.PINNUMBERING_BCM:
-                    if self._direction == GPIO.DIRECTION_OUT:
-                        self.pin = self._factory(
-                            "/dev/gpiochip0",
-                            self._designator,
-                            self._dictLevel2Dir[level],
-                        )
-                    else:
-                        self.pin = self._factory(
-                            "/dev/gpiochip0",
-                            self._designator,
-                            self._dictDirection[GPIO.DIRECTION_IN],
-                            bias=self._dictPull[pull],
-                        )
-                else:
-                    ret = ErrorCode.errNotSupported
-            elif self._implpak == GPIO._IMPLPAK_MICROPYTHON:
-                if self.isOpen:     # already open, re-initialize
-                    if self._direction == GPIO.DIRECTION_IN:
-                        self.pin.init( mode = self._dictDirection[self._direction],
-                                       pull = self._dictPull[pull]  )
-                    else:
-                        self.pin.init( mode = self._dictDirection[self._direction],
-                                       value= level )
-                else:
-                    if self._direction == GPIO.DIRECTION_IN:
-                        self.pin = self._factory( self._designator,
-                                mode = self._dictDirection[self._direction],
-                                pull = self._dictPull[pull]  )
-                    else:
-                        self.pin = self._factory( self._designator,
-                                mode = self._dictDirection[self._direction],
-                                value= level )
-            elif self._implpak == GPIO._IMPLPAK_SIM:
-                self._level = level
-            else:
-                ret = ErrorCode.errNotImplemented
-        if ret.isOk():
+                self.dictLevel[GPIO.LEVEL_LOW], self._dictLevel[GPIO.LEVEL_HIGH] = self.dictLevel[GPIO.LEVEL_HIGH], self._dictLevel[GPIO.LEVEL_LOW]
+            if self.direction == GPIO.DIRECTION_IN:
+                self.trigger = paramDict.get("gpio.trigger", defaults["gpio.trigger"])
+                self.bounce = paramDict.get("gpio.bounce", defaults["gpio.bounce"])
             self.isOpen = True
-            if handler:
-                ret = self.registerInterruptHandler(
-                    GPIO.EVENT_DEFAULT, feedback, handler
-                )
+        logging.debug("GPIO base> open <%s> returns %s.", self.designator, ret)
         return ret
 
     def close(self):
@@ -460,29 +198,10 @@ class GPIO( Module, Interruptable ):
         """
         if self.isOpen:
             ret = self.registerInterruptHandler(None)
-            if self._implpak == GPIO._IMPLPAK_RPIGPIO:
-                if not self._designator is None:
-                    self._factory.cleanup(self._designator)
-                self.pin = None
-                self.isOpen = False
-            elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
-                self.pin.close()
-                self.pin = None
-                self.isOpen = False
-            elif self._implpak == GPIO._IMPLPAK_PERIPHERY:
-                self._stopWorker()
-                self.pin.close()
-                self.pin = None
-                self.isOpen = False
-            elif self._implpak == GPIO._IMPLPAK_MICROPYTHON:
-                ret = ErrorCode.errOk
-            elif self._implpak == GPIO._IMPLPAK_SIM:
-                self.pin = None
-                self.isOpen = False
-            else:
-                ret = ErrorCode.errNotImplemented
+            self.isOpen = False
         else:
             ret = ErrorCode.errResourceConflict
+        logging.debug("GPIO base> close <%s> returns %s.", self.designator, ret)
         return ret
 
     def setRunLevel(self, level):
@@ -511,40 +230,13 @@ class GPIO( Module, Interruptable ):
         :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
-        if self._fIntEnabled:
+        if not self.isOpen:
+            ret = ErrorCode.errResourceConflict
+        elif self.isIntEnabled:
             ret = ErrorCode.errOk
         else:
-            if self._implpak == GPIO._IMPLPAK_RPIGPIO:
-                if self._bounce > 0:
-                    self._factory.add_event_detect(
-                        self._designator,
-                        self._dictTrigger[self._trigger],
-                        callback=self._callback,
-                        bouncetime=self._bounce,
-                    )
-                else:
-                    self._factory.add_event_detect(
-                        self._designator,
-                        self._dictTrigger[self._trigger],
-                        callback=self._callback,
-                    )
-                self._fIntEnabled = True
-            elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
-                self.pin.when_activated = self._callback
-                if self._trigger == GPIO.TRIGGER_EDGE_ANY:
-                    self.pin.when_deactivated = self._callback
-                self._fIntEnabled = True
-            elif self._implpak == GPIO._IMPLPAK_PERIPHERY:
-                self.pin.edge = self._dictTrigger[self._trigger]
-                self._stopWorker()
-                self._worker = Thread(target=self._workerLoop, name="GPIO worker")
-                self._worker.start()
-                self._fIntEnabled = True
-            elif self._implpak == GPIO._IMPLPAK_MICROPYTHON:
-                self._worker = self.pin.irq( handler=self._callback, trigger=self._dictTrigger[self._trigger] )
-                self._fIntEnabled = True
-            else:
-                ret = ErrorCode.errNotImplemented
+            ret = ErrorCode.errNotImplemented
+        logging.debug("GPIO base> enable int for <%s> returns %s.", self.designator, ret)
         return ret
 
     def disableInterrupt(self):
@@ -558,30 +250,13 @@ class GPIO( Module, Interruptable ):
         :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
-        if self._fIntEnabled:
-            if self._implpak == GPIO._IMPLPAK_RPIGPIO:
-                self._factory.remove_event_detect(self._designator)
-                self._fIntEnabled = False
-            elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
-                from gpiozero import CallbackSetToNone
-
-                with warnings.catch_warnings():
-                    warnings.simplefilter("ignore", category=CallbackSetToNone)
-                    self.pin.when_activated = None
-                    self.pin.when_deactivated = None
-                self._fIntEnabled = False
-            elif self._implpak == GPIO._IMPLPAK_PERIPHERY:
-                self._stopWorker()
-                self.pin.edge = "none"
-                self._fIntEnabled = False
-            elif self._implpak == GPIO._IMPLPAK_MICROPYTHON:
-                self.pin.irq( handler=None )
-                self._worker = None
-                self._fIntEnabled = False
-            else:
-                ret = ErrorCode.errNotImplemented
-        else:
+        if not self.isOpen:
+            ret = ErrorCode.errResourceConflict
+        elif not self.isIntEnabled:
             ret = ErrorCode.errOk
+        else:
+            ret = ErrorCode.errNotImplemented
+        logging.debug("GPIO base> disable int for <%s> returns %s.", self.designator, ret)
         return ret
 
     def get(self):
@@ -594,24 +269,6 @@ class GPIO( Module, Interruptable ):
         :rtype: int
         """
         level = GPIO.LEVEL_LOW
-        if self.isOpen:
-            if self._implpak == GPIO._IMPLPAK_RPIGPIO:
-                status = self._factory.input(self._designator)
-            elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
-                status = self.pin.value
-            elif self._implpak == GPIO._IMPLPAK_PERIPHERY:
-                status = self.pin.read()
-            elif self._implpak == GPIO._IMPLPAK_MICROPYTHON:
-                status = self.pin.value()
-            elif self._implpak == GPIO._IMPLPAK_SIM:
-                status = self._level
-            else:
-                status = 0
-    
-            if status == self._dictLevel[GPIO.LEVEL_HIGH]:
-                level = GPIO.LEVEL_HIGH
-            else:
-                level = GPIO.LEVEL_LOW
         return level
 
     def set(self, newLevel):
@@ -627,20 +284,7 @@ class GPIO( Module, Interruptable ):
         ret = ErrorCode.errOk
         if not self.isOpen:
             ret = ErrorCode.errResourceConflict
-        elif self._implpak == GPIO._IMPLPAK_RPIGPIO:
-            self._factory.output(self._designator, self._dictLevel[newLevel])
-        elif self._implpak == GPIO._IMPLPAK_GPIOZERO:
-            self.pin.value = self._dictLevel[newLevel]
-        elif self._implpak == GPIO._IMPLPAK_PERIPHERY:
-            self.pin.write(self._dictLevel[newLevel])
-        elif self._implpak == GPIO._IMPLPAK_MICROPYTHON:
-            self.pin.value(self._dictLevel[newLevel])
-        elif self._implpak == GPIO._IMPLPAK_SIM:
-            if newLevel == GPIO.LEVEL_HIGH:
-                self._level = GPIO.LEVEL_HIGH
-            else:
-                self._level = GPIO.LEVEL_LOW
         else:
+            del newLevel
             ret = ErrorCode.errNotImplemented
-
         return ret

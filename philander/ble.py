@@ -7,13 +7,13 @@ __version__ = "0.1"
 __all__ = ["Event", "ConnectionState", "BLE"]
 
 import asyncio
-from dataclasses import dataclass
-from enum import Enum, unique, auto
 import logging
 from threading import Thread, Lock
 
 from bleak import BleakClient, BleakScanner, BleakGATTCharacteristic
 from bleak.exc import BleakDBusError
+
+from .penum import Enum, unique, auto, idiotypic, dataclass
 
 from .interruptable import Interruptable
 from .module import Module
@@ -29,6 +29,7 @@ class Event:
     bleConnected   = "ble.connected"
 
 @unique
+@idiotypic
 class ConnectionState( Enum ):
     """Data class to represent BLE connection states
     """

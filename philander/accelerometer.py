@@ -8,15 +8,16 @@ __all__ = ["Activity", "AxesSign", "Orientation", "Tap",\
            "SamplingMode", \
            "EventSource", "EventContext", "Configuration", "StatusID", "Data",\
            "Accelerometer"]
-from dataclasses import dataclass
-from enum import Enum, Flag, unique, auto
 
-from .configurable import Configuration
+from .penum import Enum, Flag, unique, auto, idiotypic, dataclass
+
+from .configurable import Configuration as ConfConfiguration
 from .interruptable import EventContext as IntEventContext
 from .sensor import Sensor
 
 
 @unique
+@idiotypic
 class Activity(Enum):
     """Identifies general types of human walking activities, that an\
     accelerometer is possibly able to detect or distinguish.
@@ -26,20 +27,22 @@ class Activity(Enum):
     walking      = auto()
     running      = auto()
 
+@idiotypic
 class AxesSign(Flag):
     """Data class to name coordinate axes along with their positive or\
     negative sign.
     """
-    x            = auto()
-    y            = auto()
-    z            = auto()
-    sign         = auto()
+    x            = 0x01
+    y            = 0x02
+    z            = 0x04
+    sign         = 0x08
     signPos      = 0
     signNeg      = sign
     none         = 0
     all          = (x | y | z)
 
-class Orientation(Enum):
+@idiotypic
+class Orientation(Flag):
     """Data class to enumerate orientations that the device carrying the\
     accelerometer may be in.
     """
@@ -61,18 +64,20 @@ class Orientation(Enum):
     unknown       = 0xFF
 
 @unique    
-class Tap(Flag):
+@idiotypic
+class Tap(Enum):
     """Data class to identify different types of tap.
     
     A tap should be understood as a quick finger tip onto some touch
     screen to simulate the click of a mouse. 
     """
-    none         = 0
+    none         = auto()
     single       = auto()
     double       = auto()
     triple       = auto()
     
 @unique
+@idiotypic
 class SamplingMode(Enum):
     """Mnemonic type to identify different types of sampling techniques,\
     such as averaging, normal or over-sampling.
@@ -83,36 +88,37 @@ class SamplingMode(Enum):
     OSR4        = auto()
 
 @unique    
+@idiotypic
 class EventSource(Flag):
     """Data class to hold known event (interrupt) sources.
     """
     none                = 0
-    dataReady           = auto()
-    fifoWatermark       = auto()
-    fifoFull            = auto()
-    lowG                = auto()
-    lowGTime            = auto()
-    highG               = auto()
-    highGTime           = auto()
-    lowSlope            = auto()
-    lowSlopeTime        = auto()
-    highSlope           = auto()
-    highSlopeTime       = auto()
-    significantMotion   = auto()
-    tap                 = auto()
-    step                = auto()
-    gesture             = auto()
-    activity            = auto()
-    lyingFlat           = auto()
-    orientation         = auto()
-    error               = auto()
+    dataReady           = 0x00000001
+    fifoWatermark       = 0x00000002
+    fifoFull            = 0x00000004
+    lowG                = 0x00000008
+    lowGTime            = 0x00000010
+    highG               = 0x00000020
+    highGTime           = 0x00000040
+    lowSlope            = 0x00000080
+    lowSlopeTime        = 0x00000100
+    highSlope           = 0x00000200
+    highSlopeTime       = 0x00000400
+    significantMotion   = 0x00000800
+    tap                 = 0x00001000
+    step                = 0x00002000
+    gesture             = 0x00004000
+    activity            = 0x00008000
+    lyingFlat           = 0x00010000
+    orientation         = 0x00020000
+    error               = 0x00040000
     all                 = 0xFFFFFFFF
 
 @dataclass
-class Configuration( Configuration ):
+class Configuration( ConfConfiguration ):
     """Data class to describe common configuration settings.
     
-    Use the parental class :attr:`sensor.Configuration.type` attribute
+    Use the parental class :attr:`sensor.Configuration.item` attribute
     to de-multiplex the inner data types.
     """
         
@@ -133,6 +139,7 @@ class Configuration( Configuration ):
     eventCondition: CfgInterrupt = None
         
 @unique
+@idiotypic
 class StatusID(Enum):
     """Data class to comprise different types of status information.
     """
@@ -161,9 +168,9 @@ class Data:
         1000 mg = 1 g = 9,80665 m/s^2
         
     """
-    x:  int
-    y:  int
-    z:  int
+    x:  int = 0
+    y:  int = 0
+    z:  int = 0
 
 @dataclass
 class EventContext( IntEventContext ):
@@ -172,7 +179,7 @@ class EventContext( IntEventContext ):
     Use the :attr:`source` attribute to de-multiplex the inner data items.
     """
     source:     EventSource = EventSource.none
-    data:       Data = (0,0,0)
+    data:       Data = Data(x=0,y=0,z=0)
     status:     int = 0
 
         

@@ -10,9 +10,10 @@ __author__ = "Carl Bellgardt"
 __version__ = "0.1"
 __all__ = ["STC3115_Reg", "STC3117_Reg", "_STC311x_Reg", "ChipType"]
 
-from enum import Enum, auto
+from .penum import Enum, unique, auto, idiotypic
 
-
+@unique
+@idiotypic
 class ChipType(Enum):
     STC3115 = auto()
     STC3117 = auto()

@@ -10,6 +10,7 @@ __all__ = ["SimDevBMA456"]
 
 from .bma456_reg import BMA456_Reg
 from .simdev import SimDevMemory, Register, MemoryType
+from .systypes import ErrorCode
 
 
 class SimDevBMA456( SimDevMemory ):
@@ -45,75 +46,75 @@ class SimDevBMA456( SimDevMemory ):
         
     def __init__( self ):
         regset = [
-            Register( BMA456_Reg.BMA456_REG_CHIP_ID,               BMA456_Reg.BMA456_CNT_CHIP_ID,                 MemoryType.ROM ),
-            Register( BMA456_Reg.BMA456_REG_ERROR,                 BMA456_Reg.BMA456_CNT_ERROR_CODE_NONE,         MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_STATUS,                BMA456_Reg.BMA456_CNT_STATUS_CMD_RDY,          MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_AUX_X_LOW,             0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_AUX_X_HI,              0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_AUX_Y_LOW,             0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_AUX_Y_HI,              0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_AUX_Z_LOW,             0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_AUX_Z_HI,              0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_AUX_R_LOW,             0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_AUX_R_HI,              0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_ACC_X_LOW,             0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_ACC_X_HI,              0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_ACC_Y_LOW,             0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_ACC_Y_HI,              0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_ACC_Z_LOW,             0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_ACC_Z_HI,              0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_SENSOR_TIME0,          0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_SENSOR_TIME1,          0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_SENSOR_TIME2,          0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_EVENT,                 BMA456_Reg.BMA456_CNT_EVENT_POR,               MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_INT_STATUS0,           0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_INT_STATUS1,           0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_FSWBL_REG_STEP_COUNTER0,   0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_FSWBL_REG_STEP_COUNTER1,   0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_FSWBL_REG_STEP_COUNTER2,   0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_FSWBL_REG_STEP_COUNTER3,   0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_TEMPERATURE,           0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_FIFO_LENGTH_LOW,       0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_FIFO_LENGTH_HI,        0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_FIFO_DATA,             0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_FSWBL_REG_ACTIVITY_TYPE,   0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_FSHBL_REG_FEAT_EN1,        0,                                              MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_FSHBL_REG_FEAT_EN2,        0,                                              MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_INTERNAL_STATUS,       0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_ACC_CONF,              BMA456_Reg.BMA456_CNT_ACC_CONF_DEFAULT,        MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_ACC_RANGE,             BMA456_Reg.BMA456_CNT_ACC_RANGE_DEFAULT,       MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_AUX_CONF,              0x46,                                           MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_FIFO_DOWNS,            BMA456_Reg.BMA456_CNT_FIFO_DOWNS_FILTER,       MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_FIFO_WM_LOW,           0,                                              MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_FIFO_WM_HI,            0x02,                                           MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_FIFO_CFG0,             0x02,                                           MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_FIFO_CFG1,             0x10,                                           MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_AUX_DEV_ID,            0x20,                                           MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_AUX_IF_CONF,           0x83,                                           MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_AUX_RD_ADDR,           0x42,                                           MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_AUX_WR_ADDR,           0x4c,                                           MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_AUX_WR_DATA,           0x02,                                           MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_INT1_IO_CTRL,          BMA456_Reg.BMA456_CNT_INT1_IO_CTRL_DEFAULT,    MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_INT2_IO_CTRL,          BMA456_Reg.BMA456_CNT_INT2_IO_CTRL_DEFAULT,    MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_INT_LATCH,             BMA456_Reg.BMA456_CNT_INT_LATCH_NONE,          MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_INT1_MAP,              BMA456_Reg.BMA456_CNT_INTX_MAP_DEFAULT,        MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_INT2_MAP,              BMA456_Reg.BMA456_CNT_INTX_MAP_DEFAULT,        MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_INT_MAP_DATA,          BMA456_Reg.BMA456_CNT_INT_MAP_DATA_DEFAULT,    MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_INIT_CTRL,             0x90,                                           MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_DMA_LOW,               0,                                              MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_DMA_HI,                0,                                              MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_FEATURES,              0,                                              MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_INTERNAL_ERR,          0,                                              MemoryType.VOLATILE ),
-            Register( BMA456_Reg.BMA456_REG_NVM_CFG,               BMA456_Reg.BMA456_CNT_NVM_CFG_PPROG_DISABLE,   MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_IF_CFG,                0,                                              MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_SELF_TST,              0,                                              MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_NVM_BE_CFG,            0,                                              MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_OFFSET_X,              0,                                              MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_OFFSET_Y,              0,                                              MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_OFFSET_Z,              0,                                              MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_PWR_CONF,              0x03,                                           MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_PWR_CTRL,              0,                                              MemoryType.RAM ),
-            Register( BMA456_Reg.BMA456_REG_CMD,                   0,                                              MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_CHIP_ID,               content=BMA456_Reg.BMA456_CNT_CHIP_ID,                  type=MemoryType.ROM ),
+            Register( address=BMA456_Reg.BMA456_REG_ERROR,                 content=BMA456_Reg.BMA456_CNT_ERROR_CODE_NONE,          type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_STATUS,                content=BMA456_Reg.BMA456_CNT_STATUS_CMD_RDY,           type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_AUX_X_LOW,             content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_AUX_X_HI,              content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_AUX_Y_LOW,             content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_AUX_Y_HI,              content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_AUX_Z_LOW,             content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_AUX_Z_HI,              content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_AUX_R_LOW,             content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_AUX_R_HI,              content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_ACC_X_LOW,             content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_ACC_X_HI,              content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_ACC_Y_LOW,             content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_ACC_Y_HI,              content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_ACC_Z_LOW,             content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_ACC_Z_HI,              content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_SENSOR_TIME0,          content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_SENSOR_TIME1,          content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_SENSOR_TIME2,          content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_EVENT,                 content=BMA456_Reg.BMA456_CNT_EVENT_POR,                type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_INT_STATUS0,           content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_INT_STATUS1,           content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_FSWBL_REG_STEP_COUNTER0,   content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_FSWBL_REG_STEP_COUNTER1,   content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_FSWBL_REG_STEP_COUNTER2,   content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_FSWBL_REG_STEP_COUNTER3,   content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_TEMPERATURE,           content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_FIFO_LENGTH_LOW,       content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_FIFO_LENGTH_HI,        content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_FIFO_DATA,             content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_FSWBL_REG_ACTIVITY_TYPE,   content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_FSHBL_REG_FEAT_EN1,        content=0,                                              type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_FSHBL_REG_FEAT_EN2,        content=0,                                              type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_INTERNAL_STATUS,       content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_ACC_CONF,              content=BMA456_Reg.BMA456_CNT_ACC_CONF_DEFAULT,         type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_ACC_RANGE,             content=BMA456_Reg.BMA456_CNT_ACC_RANGE_DEFAULT,        type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_AUX_CONF,              content=0x46,                                           type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_FIFO_DOWNS,            content=BMA456_Reg.BMA456_CNT_FIFO_DOWNS_FILTER,        type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_FIFO_WM_LOW,           content=0,                                              type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_FIFO_WM_HI,            content=0x02,                                           type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_FIFO_CFG0,             content=0x02,                                           type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_FIFO_CFG1,             content=0x10,                                           type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_AUX_DEV_ID,            content=0x20,                                           type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_AUX_IF_CONF,           content=0x83,                                           type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_AUX_RD_ADDR,           content=0x42,                                           type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_AUX_WR_ADDR,           content=0x4c,                                           type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_AUX_WR_DATA,           content=0x02,                                           type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_INT1_IO_CTRL,          content=BMA456_Reg.BMA456_CNT_INT1_IO_CTRL_DEFAULT,     type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_INT2_IO_CTRL,          content=BMA456_Reg.BMA456_CNT_INT2_IO_CTRL_DEFAULT,     type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_INT_LATCH,             content=BMA456_Reg.BMA456_CNT_INT_LATCH_NONE,           type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_INT1_MAP,              content=BMA456_Reg.BMA456_CNT_INTX_MAP_DEFAULT,         type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_INT2_MAP,              content=BMA456_Reg.BMA456_CNT_INTX_MAP_DEFAULT,         type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_INT_MAP_DATA,          content=BMA456_Reg.BMA456_CNT_INT_MAP_DATA_DEFAULT,     type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_INIT_CTRL,             content=0x90,                                           type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_DMA_LOW,               content=0,                                              type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_DMA_HI,                content=0,                                              type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_FEATURES,              content=0,                                              type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_INTERNAL_ERR,          content=0,                                              type=MemoryType.VOLATILE ),
+            Register( address=BMA456_Reg.BMA456_REG_NVM_CFG,               content=BMA456_Reg.BMA456_CNT_NVM_CFG_PPROG_DISABLE,    type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_IF_CFG,                content=0,                                              type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_SELF_TST,              content=0,                                              type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_NVM_BE_CFG,            content=0,                                              type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_OFFSET_X,              content=0,                                              type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_OFFSET_Y,              content=0,                                              type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_OFFSET_Z,              content=0,                                              type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_PWR_CONF,              content=0x03,                                           type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_PWR_CTRL,              content=0,                                              type=MemoryType.RAM ),
+            Register( address=BMA456_Reg.BMA456_REG_CMD,                   content=0,                                              type=MemoryType.RAM ),
         ]
         self._regStatusReadCnt = 0
         SimDevMemory.__init__(self, regset)
@@ -170,3 +171,46 @@ class SimDevBMA456( SimDevMemory ):
                 else:
                     statreg.content |= BMA456_Reg.BMA456_CNT_INTERNAL_STATUS_MSG_INIT_ERR 
         return newData
+
+    def readBufferRegister( self, aReg, length ):
+        """Read a block of data starting from the given register.
+        
+        Do not auto-increment destination address when reading from
+        ``BMA456_REG_FEATURES``.
+                
+        :param int aReg: The address of the first register to be read.
+        :param int length: The number of bytes to read.
+        :return: A buffer of the indicated length holding the response\
+        and an error code indicating success or the reason of failure.
+        :rtype: list(int), ErrorCode
+        """
+        if (aReg == BMA456_Reg.BMA456_REG_FEATURES ):
+            data = [0] * length
+            err = ErrorCode.errOk
+            for idx in range(length):
+                data[idx], err = self.readByteRegister(aReg)
+        else:
+            data, err = super().readBufferRegister( aReg, length )
+        return data, err
+
+    def writeBufferRegister( self, aReg, data ):
+        """Write a block of byte data into registers.
+
+        Do not auto-increment destination address when writing to
+        ``BMA456_REG_FEATURES``.
+        
+        :param int aReg: The address of the first register to receive\
+        the block of data.
+        :param list data: List of bytes to be written. The length of the\
+        list determines the number of bytes to write. So, all values in\
+        the list will be transferred to the device.
+        :return: An error code indicating success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        err = ErrorCode.errOk
+        if (aReg == BMA456_Reg.BMA456_REG_FEATURES ):
+            for idx in range( len(data) ):
+                err = self.writeByteRegister(aReg, data[idx])
+        else:
+            err = super().writeBufferRegister( aReg, data )
+        return err

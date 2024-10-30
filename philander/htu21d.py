@@ -8,9 +8,8 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["StatusID", "Data", "HTU21D"]
 
-from dataclasses import dataclass
-from enum import unique, Enum, auto
 import time    
+from .penum import Enum, unique, auto, idiotypic, dataclass
 
 from .configurable import Configuration, ConfigItem
 from .hygrometer import Data as hygData
@@ -21,6 +20,7 @@ from .thermometer import Data as thmData
 
 
 @unique
+@idiotypic
 class StatusID(Enum):
     """Data class to comprise different types of status information.
     """
@@ -144,7 +144,7 @@ class HTU21D( Sensor, SerialBusDevice ):
             ret = Sensor.open( self, paramDict )
         # Configure the sensor
         if ("HTU21D.resolution" in paramDict):
-            cfg = Configuration( ConfigItem.resolution, value=paramDict["HTU21D.resolution"])
+            cfg = Configuration( item=ConfigItem.resolution, value=paramDict["HTU21D.resolution"])
             ret = self.configure( cfg )
         else:
             paramDict["HTU21D.resolution"] = defaults["HTU21D.resolution"]
@@ -242,7 +242,7 @@ class HTU21D( Sensor, SerialBusDevice ):
         data, ret = self.readByteRegister( HTU21D.CMD_READ_USR_REG )
         if (ret.isOk()):
             # Resolution
-            if (configData.type == ConfigItem.resolution):
+            if (configData.item == ConfigItem.resolution):
                 data = data & ~HTU21D.CNT_USR_RESOLUTION
                 if( configData.value == HTU21D.CFG_RESOLUTION_HUM8_TEMP12 ):
                     newResolution = HTU21D.CNT_USR_RESOLUTION_RH8_T12
@@ -264,7 +264,7 @@ class HTU21D( Sensor, SerialBusDevice ):
                         self.measInterval = maxTime
                         self.dataRate = 1 / self.measInterval
             # Data rate
-            elif (configData.type == ConfigItem.rate):
+            elif (configData.item == ConfigItem.rate):
                 maxTime = HTU21D._getMaxMeasurementTimeMS( self.resolution )
                 if (maxTime <= 0):
                     ret = ErrorCode.errCorruptData

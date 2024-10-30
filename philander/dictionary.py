@@ -2,11 +2,11 @@
 """
 __author__ = "Oliver Maye"
 __version__ = "0.1"
-__all__ = ["dictionary", ]
+__all__ = ["Dictionary", ]
 
 from .systypes import ErrorCode
 
-class dictionary():
+class Dictionary():
     """A dictionary is meant to translate keys to values, both of them being integers.
     
     For example, a certain configuration register content could be
@@ -129,7 +129,7 @@ class dictionary():
     def getValue(self, inKey):
         """Given a key, retrieves the corresponding value.
         
-        The first key in the dictiionary exactly matching the given
+        The first key in the dictionary exactly matching the given
         argument, delivers the value returned by this function. If no
         matching key is found, an error is returned.
         
@@ -158,29 +158,38 @@ class dictionary():
         result = ErrorCode.errOk
         key = None
         if ( value < self.minValue ):
-            if ((self.mode & dictionary.DICT_MODE_UNDERRUN) == dictionary.DICT_MODE_UNDERRUN_ERROR):
+            if ((self.mode & Dictionary.DICT_MODE_UNDERRUN) == Dictionary.DICT_MODE_UNDERRUN_ERROR):
                 result = ErrorCode.errSpecRange
             else:
-                key = [k for k, v in self.entry.items() if v == self.minValue]
+                for k, v in self.entry.items():
+                    if v == self.minValue:
+                        key=k
+                        break
         elif (value > self.maxValue):
-            if ((self.mode & dictionary.DICT_MODE_OVERRUN) == dictionary.DICT_MODE_OVERRUN_ERROR):
+            if ((self.mode & Dictionary.DICT_MODE_OVERRUN) == Dictionary.DICT_MODE_OVERRUN_ERROR):
                 result = ErrorCode.errSpecRange
             else:
-                key = [k for k, v in self.entry.items() if v == self.maxValue]
+                for k, v in self.entry.items():
+                    if v == self.maxValue:
+                        key=k
+                        break
         elif (len(self.entry) == 1):
             key = self.entry.keys()[0]
         else:
-            if ((self.mode & dictionary.DICT_MODE_MAP) == dictionary.DICT_MODE_MAP_STRICTLY):
-                key = [k for k, v in self.entry.items() if v == value]
-            elif ((self.mode & dictionary.DICT_MODE_MAP) == dictionary.DICT_MODE_MAP_NEAREST_LOWER):
+            if ((self.mode & Dictionary.DICT_MODE_MAP) == Dictionary.DICT_MODE_MAP_STRICTLY):
+                for k, v in self.entry.items():
+                    if v == value:
+                        key=k
+                        break
+            elif ((self.mode & Dictionary.DICT_MODE_MAP) == Dictionary.DICT_MODE_MAP_NEAREST_LOWER):
                 for k, v in self.entry.items():
                     if (v <= value) and ((key is None) or (v > self.entry[key])):
                         key = k
-            elif ((self.mode & dictionary.DICT_MODE_MAP) == dictionary.DICT_MODE_MAP_NEAREST_HIGHER):
+            elif ((self.mode & Dictionary.DICT_MODE_MAP) == Dictionary.DICT_MODE_MAP_NEAREST_HIGHER):
                 for k, v in self.entry.items():
                     if (v >= value) and ((key is None) or (v < self.entry[key])):
                         key = k
-            elif ((self.mode & dictionary.DICT_MODE_MAP) == dictionary.DICT_MODE_MAP_NEAREST):
+            elif ((self.mode & Dictionary.DICT_MODE_MAP) == Dictionary.DICT_MODE_MAP_NEAREST):
                 for k, v in self.entry.items():
                     if ((key is None) or (abs(v-value) < abs(self.entry[key]-value))):
                         key = k

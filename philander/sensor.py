@@ -7,9 +7,8 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Calibration", "CalibrationData", "CalibrationType", \
            "SelfTest", "Sensor"]
-from dataclasses import dataclass, field
-from enum import Enum, unique, auto
-from typing import List
+
+from .penum import Enum, Flag, unique, auto, idiotypic, dataclass
 
 from .configurable import Configurable, Configuration, ConfigItem
 from .module import Module
@@ -17,6 +16,7 @@ from .systypes import ErrorCode, Info
 
 
 @unique
+@idiotypic
 class CalibrationType(Enum):
     """Mnemonic type to identify a specific calibration procedure.
     
@@ -181,7 +181,8 @@ class _CalibrationData_knownMeasurement:
     list of their corresponding true values, given in measurement units. 
     """
     
-    measure:            List[int] = field( default_factory=lambda : [0,0,0] )
+    measure:            object = None   
+                        # List[int] = field( default_factory=lambda : [0,0,0] )
     trueValue:          object = None
     
 @dataclass
@@ -239,10 +240,12 @@ class CalibrationData:
     calibration. All values are given in measurement units. To be used
     with :attr:`CalibrationType.trueMeasurement2`.
     """
-    knownMeasurement:   List[_CalibrationData_knownMeasurement] = field( default_factory=lambda :
-                                                                  [_CalibrationData_knownMeasurement(),
-                                                                   _CalibrationData_knownMeasurement(),
-                                                                   _CalibrationData_knownMeasurement()] )
+    knownMeasurement:   object = None   
+    # List[_CalibrationData_knownMeasurement] = field( default_factory=lambda :
+    #                                                    [_CalibrationData_knownMeasurement(),
+    #                                                     _CalibrationData_knownMeasurement(),
+    #                                                     _CalibrationData_knownMeasurement()] )
+    
     """Up to 3 pairs of raw measure and true value to support a
     multi-point-calibration. The source (x)- values *measure* are meant
     as ADC ticks or milli Volts. Up to 3 inputs are supported (x,y,z or
@@ -261,10 +264,10 @@ class CalibrationData:
 
 @dataclass
 class Calibration:
-    """Container to wrap calibration type and data at the top level.
+    """Container to wrap calibration scheme and data at the top level.
     
     This structure is to be passed in calls to :meth:`Sensor.calibrate`.
-    The interpretation of the data particles depends on the type of the
+    The interpretation of the data particles depends on the scheme of the
     calibration as follows.
     
     =================    =========================
@@ -293,11 +296,12 @@ class Calibration:
     temperature          temp
     =================    =========================    
     """
-    type:       CalibrationType = CalibrationType.default
+    scheme:     CalibrationType = CalibrationType.default
     data:       CalibrationData = None
         
 @unique
-class SelfTest(Enum):
+@idiotypic
+class SelfTest(Flag):
     """Bit mask type to designate the different types of self tests.
     """
     CONNECTION      = 0x0001
@@ -366,12 +370,12 @@ class Sensor(Module, Configurable):
         self.Params_init( defaults )
         ret = ErrorCode.errOk
         if ("Sensor.dataRange" in paramDict):
-            cfg = Configuration( ConfigItem.range, value=paramDict["Sensor.dataRange"])
+            cfg = Configuration( item=ConfigItem.range, value=paramDict["Sensor.dataRange"])
             ret = self.configure( cfg )
         else:
             paramDict["Sensor.dataRange"] = defaults["Sensor.dataRange"]
         if ("Sensor.dataRate" in paramDict):
-            cfg = Configuration( ConfigItem.rate, value=paramDict["Sensor.dataRate"])
+            cfg = Configuration( item=ConfigItem.rate, value=paramDict["Sensor.dataRate"])
             ret = self.configure( cfg )
         else:
             paramDict["Sensor.dataRate"] = defaults["Sensor.dataRate"]
@@ -448,9 +452,9 @@ class Sensor(Module, Configurable):
         :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
-        if (configData.type == ConfigItem.range):
+        if (configData.item == ConfigItem.range):
             self.dataRange = configData.value
-        elif (configData.type == ConfigItem.rate):
+        elif (configData.item == ConfigItem.rate):
             self.dataRate = configData.value
         else:
             ret = ErrorCode.errNotSupported

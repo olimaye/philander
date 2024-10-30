@@ -1010,7 +1010,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
     
     def configure(self, configData):
         ret = ErrorCode.errNotSupported
-        if (configData.type == ConfigItem.eventArm):
+        if (configData.item == ConfigItem.eventArm):
             # Clear current interrupts
             self.readByteRegister( MAX77960._REG_TOP_INT )
             self.readByteRegister( MAX77960._REG_CHG_INT )

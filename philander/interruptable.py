@@ -16,7 +16,7 @@ the interrupt.
 
 All further information beyond that immediate response, especially if
 requiring extra communication with the device, is considered to be event
-context information and is represent by an :class:`EventContext` object.
+context information and is represented by an :class:`EventContext` object.
 This kind of data must be explicitly polled by the subscriber.
 Whenever possible, that context polling should be done outside of the
 handling routine as part of the response action.
@@ -30,7 +30,7 @@ __all__ = ["Event", "EventContextControl", "EventContext", "Interruptable"]
 
 import pymitter
 
-from .systypes import ErrorCode
+from philander.systypes import ErrorCode
 
 
 class Event():
@@ -39,10 +39,10 @@ class Event():
     Instances of this class are meant to be passed to the handling routine
     as an immediate response to interrupts. 
     """
-    evtNone   = 0
-    evtAny	  = 1
-    evtInt1   = 2
-    evtInt2   = 3
+    evtNone   = "EventNone"
+    evtAny	  = "EventAny"
+    evtInt1   = "EventInt1"
+    evtInt2   = "EventInt2"
 
 
 class EventContextControl():
@@ -231,5 +231,8 @@ class Interruptable:
             fb = self.dictFeedbacks[Event.evtAny]
         else:
             fb = None
-        self.eventEmitter.emit( event, fb, args )
+        if len(args) == 0:
+            self.eventEmitter.emit( event, event, fb )
+        else:
+            self.eventEmitter.emit( event, event, fb, args )
         return None

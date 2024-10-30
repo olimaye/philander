@@ -7,10 +7,8 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["SimDev", "SimDevNull", "SimDevMemory", "MemoryType", "Register"]
 
-from dataclasses import dataclass
-from enum import Enum, unique, auto
+from .penum import Enum, unique, auto, idiotypic, dataclass
 
-from .module import Module
 from .systypes import ErrorCode
 
 
@@ -200,48 +198,16 @@ class SimDev():
             err = self.writeByteRegister(aReg+idx, data[idx])
         return err
 
-class SimDevNull( SimDev, Module ):
+class SimDevNull( SimDev ):
     """Slim-line serial device simulation. Reading retrieves always the same\
     constant value, while writing is simply ignored. 
     """
     
     DEFAULT_READING = 0x3A
-    
-    @classmethod
-    def Params_init(cls, paramDict):
-        """Initialize configuration parameters.
+
+    def __init__(self, reading=DEFAULT_READING):
+        self._reading = reading
         
-        Any supported option missed in the dictionary handed in, will be
-        added upon return. Also see :meth:`.module.Module.Params_init`.
-        The following options are supported.
-        
-        ==================    =======    ==========================
-        Key                   Range      Default
-        ==================    =======    ==========================
-        SimDevNull.reading    integer    SimDevNull.DEFAULT_READING
-        ==================    =======    ==========================
-        
-        :param dict(str, object) paramDict: Dictionary mapping option names to their respective values.
-        :returns: none
-        :rtype: None
-        """
-        paramDict["SimDevNull.reading"] = paramDict.get("SimDevNull.reading", SimDevNull.DEFAULT_READING)
-        return None
-    
-    def open( self, paramDict ):
-        """Open the instance and prepare it for use.
-        
-        Also see :meth:`.module.Module.open`.
-        
-        :param dict(str, object) paramDict: Configuration parameters as\
-        obtained from :meth:`Params_init`, possibly.
-        :return: An error code indicating either success or the reason of failure.
-        :rtype: ErrorCode
-        """
-        paramDict["SimDevNull.reading"] = paramDict.get("SimDevNull.reading", SimDevNull.DEFAULT_READING)
-        self._reading = paramDict["SimDevNull.reading"]
-        return ErrorCode.errOk
-            
     def readByteRegister( self, aReg ):
         """Read a single byte.
         
@@ -272,6 +238,7 @@ class SimDevNull( SimDev, Module ):
         return ErrorCode.errOk
 
 @unique
+@idiotypic
 class MemoryType(Enum):
     """Enumeration to reflect the different types of memory.
     """
@@ -289,7 +256,7 @@ class Register:
     Volatile registers are not writable. They may change their content
     spontaneously or by mechanisms that cannot be controlled by the user. 
     """
-    address:    int
+    address:    int = 0
     """The address to identify this register during read/write operations."""
     content:    int = 0
     """The register content. Can be initialized, independently of the\
@@ -299,16 +266,23 @@ class Register:
 
    
 class SimDevMemory( SimDev ):
-    """Serial bus implementation to simulate a device that can be accessed\
-    through a set of memory-based registers. The list of registers\
-    must be provided during instantiation.
+    """Abstract base class for the simulation of memory-based register devices.
+    
+    Pretend a device that can be accessed through a set of memory-based
+    registers. Implementations must provide the list of registers
+    during instantiation.
     """
     
     def __init__(self, regs):
         self._regs = regs
         
     def _findReg(self, regAdr):
-        reg = next( (r for r in self._regs if r.address==regAdr), None)
+        # Second argument of next() is not supported in MicroPython
+        # reg = next( (r for r in self._regs if r.address==regAdr), None)
+        try:
+            reg = next( (r for r in self._regs if r.address==regAdr) )
+        except StopIteration:
+            reg = None
         return reg
                 
     def readByteRegister( self, aReg ):
@@ -333,8 +307,7 @@ class SimDevMemory( SimDev ):
         """
         reg = self._findReg( aReg )
         if (reg is None):
-            data = 0
-            err = ErrorCode.errInvalidParameter
+            data, err = 0, ErrorCode.errInvalidParameter
         else:
             err = self._onPreRead( reg )
             data = reg.content

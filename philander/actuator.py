@@ -7,9 +7,11 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Direction", "Actuator"]
 
-from enum import Enum
+from .penum import Enum, idiotypic
+
 from .systypes import ErrorCode
 
+@idiotypic
 class Direction( Enum ):
     """Data class to represent the direction that an actuator can move to.
     """

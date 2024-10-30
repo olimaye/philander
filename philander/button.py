@@ -8,9 +8,10 @@ import logging
 
 from pymitter import EventEmitter
 
-from .gpio import GPIO
-from .module import Module
-from .systypes import ErrorCode
+from philander.gpio import GPIO
+from philander.module import Module
+from philander.sysfactory import SysFactory, SysProvider
+from philander.systypes import ErrorCode
 
 
 
@@ -83,7 +84,7 @@ class Button( Module, EventEmitter ):
                 paramDict["Button.gpio.bounce"] = defaults["Button.gpio.bounce"]
             # Extract GPIO parameters
             gpioParams = dict( [(k.replace("Button.", ""),v) for k,v in paramDict.items() if k.startswith("Button.")] )
-            self.gpio = GPIO()
+            self.gpio = SysFactory.getGPIO()
             ret = self.gpio.open(gpioParams)
             if ret.isOk():
                 ret = self.gpio.registerInterruptHandler( \

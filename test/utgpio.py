@@ -1,14 +1,16 @@
 """
 """
-import unittest
-from gpio import *
-from systypes import ErrorCode
 from time import sleep
+import unittest
+
+from philander.gpio import GPIO
+from philander.sysfactory import SysFactory, SysProvider
+from philander.systypes import ErrorCode
 
 class TestGPIO( unittest.TestCase ):
     
     def test_output(self):
-        pin = GPIO()
+        pin = SysFactory.getGPIO()
         self.assertIsNotNone( pin )
         gpioParams = {\
             "gpio.pinDesignator":   17,
@@ -32,7 +34,7 @@ class TestGPIO( unittest.TestCase ):
         self.assertEqual( err, ErrorCode.errOk )
         
     def test_input(self):
-        pin = GPIO()
+        pin = SysFactory.getGPIO()
         self.assertIsNotNone( pin )
         gpioParams = {\
             "gpio.pinDesignator":   17,
@@ -46,14 +48,11 @@ class TestGPIO( unittest.TestCase ):
         err = pin.open(gpioParams)
         self.assertEqual( err, ErrorCode.errOk )
         value = pin.get()
-        if (pin._implpak == GPIO._IMPLPAK_SIM):
-            self.assertGreaterEqual( value, 0 )
-        else:
-            print("value: ", value)
-            print("Waiting 3 seconds for the input to change...")
-            sleep(3)
-            newValue = pin.get()
-            self.assertTrue( value ^ newValue, "Input value didn't change!" )
+        print("value: ", value)
+        print("Waiting 2 seconds for the input to change...")
+        sleep(2)
+        newValue = pin.get()
+        self.assertTrue( value ^ newValue, "Input value didn't change!" )
         err = pin.close()
         self.assertEqual( err, ErrorCode.errOk )
         

@@ -9,22 +9,25 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["BMA456"]
 
+import os
+import sys
 import time
 
-from ._bma456_feature import _BMA456_Feature
-from .accelerometer import Accelerometer, Activity, AxesSign, Configuration, EventSource, Orientation, SamplingMode, StatusID, Tap
-from .bma456_reg import BMA456_Reg
-from .dictionary import dictionary
-from .gpio import GPIO
-from .imath import *
-from .interruptable import Event, EventContextControl, Interruptable
-from .sensor import CalibrationType, ConfigItem, Info, SelfTest
-from .serialbus import SerialBusDevice
-from .simBMA456 import SimDevBMA456
-from .systypes import ErrorCode, RunLevel
+from philander.accelerometer import Accelerometer, Activity, AxesSign,\
+                            Configuration, Data, EventSource, Orientation,\
+                            SamplingMode, StatusID, Tap
+from philander.bma456_reg import BMA456_Reg
+from philander.dictionary import Dictionary
+from philander.gpio import GPIO
+from philander.imath import ispowtwo, iprevpowtwo, vlbs
+from philander.interruptable import Event, EventContextControl, Interruptable
+from philander.sensor import CalibrationType, ConfigItem, Info, SelfTest
+from philander.serialbus import SerialBusDevice
+from philander.simBMA456 import SimDevBMA456
+from philander.systypes import ErrorCode, RunLevel
 
 
-class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Interruptable ):
+class BMA456( BMA456_Reg, SerialBusDevice, Accelerometer, Interruptable ):
     """BMA456 driver implementation.
     """
     
@@ -42,19 +45,19 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
     BMA456_FEATUREBUF_CONTENT_IDX   = BMA456_FEATUREBUF_HEADER_SIZE
     BMA456_FEATUREBUF_TOTAL_SIZE    = (BMA456_FEATUREBUF_HEADER_SIZE + BMA456_Reg.BMA456_FEATURE_MAX_SIZE)
 
-    dictRange = dictionary( 
+    dictRange = Dictionary( 
         myMap = {
             BMA456_Reg.BMA456_CNT_ACC_RANGE_2G         :   2000,
             BMA456_Reg.BMA456_CNT_ACC_RANGE_4G         :   4000,
             BMA456_Reg.BMA456_CNT_ACC_RANGE_8G         :   8000,
             BMA456_Reg.BMA456_CNT_ACC_RANGE_16G        :   16000
         },
-        mode = dictionary.DICT_STDMODE_UP )
+        mode = Dictionary.DICT_STDMODE_UP )
     """The dictionary to map range setting bits into the corresponding\
     range value, meant in milli-g.
     """
     
-    dictRate = dictionary( 
+    dictRate = Dictionary( 
         myMap = {
             BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_0P78    :   1,
             BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_1P5     :   2,
@@ -72,12 +75,12 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
             BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_6K4     :   6400,
             BMA456_Reg.BMA456_CNT_ACC_CONF_ODR_12K8    :   12800
         },
-        mode = dictionary.DICT_STDMODE_UP )
+        mode = Dictionary.DICT_STDMODE_UP )
     """Dictionary to map data rate setting bits into the corresponding\
     data rates, meant in Hz.
     """
     
-    dictAverage = dictionary(
+    dictAverage = Dictionary(
         myMap = {
             BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG1   :   1,
             BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG2   :   2,
@@ -88,37 +91,28 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
             BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG64  :   64,
             BMA456_Reg.BMA456_CNT_ACC_CONF_MODE_AVG128 :   128
         },
-        mode = dictionary.DICT_STDMODE_NORMAL )
+        mode = Dictionary.DICT_STDMODE_NORMAL )
     """Dictionary to map config mode settings into averaging window size,\
     i.e. the number of samples to average.
     """
     
-    dictFeatureSetLength = dictionary(
+    dictFeatureSetLength = Dictionary(
         myMap = {
         BMA456_Reg.BMA456_FEATURE_SET_WEARABLE  : BMA456_Reg.BMA456_FSWBL_TOTAL_SIZE,
         BMA456_Reg.BMA456_FEATURE_SET_HEARABLE  : BMA456_Reg.BMA456_FSHBL_TOTAL_SIZE,
         BMA456_Reg.BMA456_FEATURE_SET_MM        : BMA456_Reg.BMA456_FSMM_TOTAL_SIZE,
         BMA456_Reg.BMA456_FEATURE_SET_AN        : BMA456_Reg.BMA456_FSAN_TOTAL_SIZE,
         },
-        mode = dictionary.DICT_STDMODE_STRICT )
+        mode = Dictionary.DICT_STDMODE_STRICT )
 
-    dictConfigLength = dictionary(
+    dictConfigData = Dictionary(
         myMap = {
-        BMA456_Reg.BMA456_FEATURE_SET_WEARABLE  : _BMA456_Feature.bma456_wbl_configFileSize,
-        BMA456_Reg.BMA456_FEATURE_SET_HEARABLE  : _BMA456_Feature.bma456_hbl_configFileSize,
-        BMA456_Reg.BMA456_FEATURE_SET_MM        : _BMA456_Feature.bma456_mm_configFileSize,
-        BMA456_Reg.BMA456_FEATURE_SET_AN        : _BMA456_Feature.bma456_an_configFileSize,
+        BMA456_Reg.BMA456_FEATURE_SET_WEARABLE  : "bma456_feat_wbl.dat",
+        BMA456_Reg.BMA456_FEATURE_SET_HEARABLE  : "bma456_feat_hbl.dat",
+        BMA456_Reg.BMA456_FEATURE_SET_MM        : "bma456_feat_mm.dat",
+        BMA456_Reg.BMA456_FEATURE_SET_AN        : "bma456_feat_an.dat",
         },
-        mode = dictionary.DICT_STDMODE_STRICT )
-    
-    dictConfigData = dictionary(
-        myMap = {
-        BMA456_Reg.BMA456_FEATURE_SET_WEARABLE  : _BMA456_Feature.bma456_wbl_configFile,
-        BMA456_Reg.BMA456_FEATURE_SET_HEARABLE  : _BMA456_Feature.bma456_hbl_configFile,
-        BMA456_Reg.BMA456_FEATURE_SET_MM        : _BMA456_Feature.bma456_mm_configFile,
-        BMA456_Reg.BMA456_FEATURE_SET_AN        : _BMA456_Feature.bma456_an_configFile,
-        },
-        mode = dictionary.DICT_STDMODE_STRICT )
+        mode = Dictionary.DICT_STDMODE_STRICT )
     
     
     def __init__(self):
@@ -132,7 +126,8 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
         self.regInt1Map    = 0
         self.regInt2Map    = 0
         self.regIntMapData = 0
-        self.sim = SimDevBMA456()
+        self.simModuleName = "philander.simBMA456"
+        self.simClassName = "SimDevBMA456"
         SerialBusDevice.__init__(self)
         Accelerometer.__init__(self)
 
@@ -206,35 +201,43 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
         """Start-up the chip and fill/restore configuration registers.
         """
         result = ErrorCode.errOk
-        
-        # Retrieve config file and file size
+
+        # Preparation
+        # Retrieve feature config file name
         if (result == ErrorCode.errOk):
-            fileSize, result = BMA456.dictConfigLength.getValue( self.featureSet )
-        if (result == ErrorCode.errOk):
-            cfgFile, result  = BMA456.dictConfigData.getValue( self.featureSet )
+            cfgFileName, result  = BMA456.dictConfigData.getValue( self.featureSet )
+            pth = os.path.dirname( sys.modules[type(self).__module__].__file__ )
+            pth = os.path.abspath( pth )
+            fullname = os.path.join( pth, cfgFileName )
             
-        # Test address
+        # Initialization sequence for interrupt feature engine
+        # Test device address by reading the chip id
         if (result == ErrorCode.errOk):
             val, result = self.readByteRegister( BMA456.BMA456_REG_CHIP_ID )
         if (result == ErrorCode.errOk):
             if (val != BMA456.BMA456_CNT_CHIP_ID ):
                 result = ErrorCode.errMalfunction
         if (result == ErrorCode.errOk):
-            # Initialization sequence for interrupt feature engine
             # Disable advanced power save mode: PWR_CONF.adv_power_save = 0.
             result = self.writeByteRegister( BMA456.BMA456_REG_PWR_CONF, BMA456.BMA456_CNT_PWR_CONF_ADV_PWR_SAVE_DISABLE )
         if (result == ErrorCode.errOk):
             # Wait for 450 us.
             time.sleep( 500 / 1000000 )   
             # Write INIT_CTRL.init_ctrl=0x00
-            self.writeByteRegister( BMA456.BMA456_REG_INIT_CTRL, BMA456.BMA456_CNT_INIT_CTRL_LOAD_CONFIG_FILE )
-            # Load configuration file
-            for idx in range(0, fileSize, BMA456.BMA456_CHUNK_SIZE):
-                chunk = cfgFile[idx : idx+BMA456.BMA456_CHUNK_SIZE]
-                widx = int(idx/2)
-                self.writeByteRegister( BMA456.BMA456_REG_DMA_LOW, widx & 0x0F )
-                self.writeByteRegister( BMA456.BMA456_REG_DMA_HI, widx >> 4 )
-                self.writeBufferRegister( BMA456.BMA456_REG_FEATURES, chunk )
+            result = self.writeByteRegister( BMA456.BMA456_REG_INIT_CTRL, BMA456.BMA456_CNT_INIT_CTRL_LOAD_CONFIG_FILE )
+        if (result == ErrorCode.errOk):
+            # Chunk-wise load the feature configuration from file and upload each chunk to the chip
+            with open( fullname, "rb" ) as f:
+                widx = 0
+                while (result == ErrorCode.errOk):
+                    chunk = f.read( BMA456.BMA456_CHUNK_SIZE )
+                    if not chunk:
+                        break
+                    self.writeByteRegister( BMA456.BMA456_REG_DMA_LOW, widx & 0x0F )
+                    self.writeByteRegister( BMA456.BMA456_REG_DMA_HI, widx >> 4 )
+                    result = self.writeBufferRegister( BMA456.BMA456_REG_FEATURES, chunk )
+                    widx = widx + BMA456.BMA456_CHUNK_SIZE//2
+            
             # Enable sensor features: write 0x01 into register INIT_CTRL.init_ctrl.
             # This operation must not be performed more than once after POR or softreset.
             result = self.writeByteRegister( BMA456.BMA456_REG_INIT_CTRL, BMA456.BMA456_CNT_INIT_CTRL_START_INIT )
@@ -244,9 +247,20 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
             # Wait until Register INTERNAL_STATUS.message contains the value 1. This will happen after at most 140-150 msec.
             time.sleep( 150 / 1000 )   
             val, result = self.readByteRegister( BMA456.BMA456_REG_INTERNAL_STATUS )
-            if ( val & BMA456.BMA456_CNT_INTERNAL_STATUS_MSG) != BMA456.BMA456_CNT_INTERNAL_STATUS_MSG_INIT_OK:
+            val = val & BMA456.BMA456_CNT_INTERNAL_STATUS_MSG
+            if (val == BMA456.BMA456_CNT_INTERNAL_STATUS_MSG_NOT_INIT):
+                result = ErrorCode.errNotInited
+            elif (val == BMA456.BMA456_CNT_INTERNAL_STATUS_MSG_INIT_OK):
+                result = ErrorCode.errOk
+            elif (val == BMA456.BMA456_CNT_INTERNAL_STATUS_MSG_INIT_ERR):
+                result = ErrorCode.errInitFailed
+            elif (val == BMA456.BMA456_CNT_INTERNAL_STATUS_MSG_DRV_ERR):
+                result = ErrorCode.errLowLevelFail
+            elif (val == BMA456.BMA456_CNT_INTERNAL_STATUS_MSG_SNS_STOP):
+                result = ErrorCode.errStopped
+            else:
                 result = ErrorCode.errFailure
-               
+
         if (result == ErrorCode.errOk):
             # After initialization sequence has been completed, the device is in
             # configuration mode (power mode). Now it is possible to switch to the
@@ -937,10 +951,10 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
                         data16 = context.remainInt
                         if (context.control == EventContextControl.evtCtxtCtrl_getNext):
                             # Find value of highest bit:
-                            data16 = imath.iprevpowtwo( data16 )
+                            data16 = iprevpowtwo( data16 )
                         else:
                             # Find (value of) least bit set:
-                            data16 = imath.vlbs(data16)
+                            data16 = vlbs(data16)
                         ret = self._fillEventContext( data16, context )
                         context.remainInt &= ~data16
                         if ((ret == ErrorCode.errOk) and (context.remainInt != 0) ):
@@ -989,7 +1003,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
             # Set +-8g range
             oldRange = self.dataRange
             config = Configuration()
-            config.type = ConfigItem.range
+            config.item = ConfigItem.range
             config.value = BMA456.BMA456_SELFTEST_RANGE
             ret = self.configure( config )
             # Set self-test amplitude to low
@@ -1026,7 +1040,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
                                     BMA456.BMA456_CNT_SELF_TST_AMP_LOW | BMA456.BMA456_CNT_SELF_TST_DISABLE )
             # Restore old configuration
             self.writeByteRegister( BMA456.BMA456_REG_ACC_CONF, oldRate )
-            config.type = ConfigItem.range
+            config.item = ConfigItem.range
             config.value = oldRange
             self.configure( config )
         return ret
@@ -1074,7 +1088,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
         
         Remember, the ``config`` parameter should be an instance of
         :class:`.accelerometer.Configuration`. Its attributes are
-        de-multiplexed by :attr:`.sensor.Configuration.type`.
+        de-multiplexed by :attr:`.sensor.Configuration.item`.
         The following configuration types are supported:
         
         :attr:`.ConfigItem.rate`:
@@ -1157,7 +1171,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
         """
         ret = ErrorCode.errOk
     
-        if (config.type == ConfigItem.rate):
+        if (config.item == ConfigItem.rate):
             # Construct ACC_CONF register content
             key, ret = self.dictRate.findKey( config.value )
             if (ret == ErrorCode.errOk):
@@ -1184,7 +1198,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
                     data, ret = self.readByteRegister( BMA456.BMA456_REG_ERROR )
                     if ((data & BMA456.BMA456_CNT_ERROR_CODE) == BMA456.BMA456_CNT_ERROR_CODE_ACC):
                         ret = ErrorCode.errSpecRange
-        elif (config.type == ConfigItem.range):
+        elif (config.item == ConfigItem.range):
             # Construct ACC_RANGE register content
             key, ret = self.dictRange.findKey( config.value )
             if (ret == ErrorCode.errOk):
@@ -1194,9 +1208,9 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
                 value, ret = self.dictRange.getValue(key)
             if (ret == ErrorCode.errOk):
                 self.dataRange = value
-        elif (config.type == ConfigItem.fifo):
+        elif (config.item == ConfigItem.fifo):
             ret = ErrorCode.errNotImplemented
-        elif (config.type == ConfigItem.eventArm):
+        elif (config.item == ConfigItem.eventArm):
             # Translate accel_EventSource_t into INTxMAP and INT_MAT_DATA bit masks
             remainEvt, dataMap, featureMap = self._accelEvtSrc2bmaMap( config.value )
             if (remainEvt != EventSource.none):
@@ -1207,7 +1221,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
                 ret = self.writeByteRegister( BMA456.BMA456_REG_INT1_MAP, featureMap )
             if (ret == ErrorCode.errOk):
                 ret = self.writeByteRegister( BMA456.BMA456_REG_INT2_MAP, featureMap )
-        elif (config.type == ConfigItem.eventCondition):
+        elif (config.item == ConfigItem.eventCondition):
             if (config.eventCondition.event in [EventSource.dataReady, EventSource.fifoWatermark,
                                                         EventSource.fifoFull, EventSource.error]):
                 # Nothing to condition, already done.
@@ -1223,7 +1237,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
                 ret = ErrorCode.errNotImplemented
             else:
                 # Either unsupported event or invalid event mask.
-                if( not imath.ispowtwo( config.eventCondition.event ) ):
+                if( not ispowtwo( config.eventCondition.event ) ):
                     ret = ErrorCode.errInvalidParameter
                 else:
                     ret = ErrorCode.errNotSupported
@@ -1244,9 +1258,9 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
         :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
-        if (calib.type == CalibrationType.default):
+        if (calib.scheme == CalibrationType.default):
             ret = ErrorCode.errNotImplemented
-        elif (calib.type == CalibrationType.trueValue):
+        elif (calib.scheme == CalibrationType.trueValue):
             ret = ErrorCode.errNotImplemented
         else:
             ret = ErrorCode.errNotSupported
@@ -1564,7 +1578,7 @@ class BMA456( BMA456_Reg, _BMA456_Feature, SerialBusDevice, Accelerometer, Inter
             y = self._transfer( y )
             z = buf[4] | (buf[5] << 8)
             z = self._transfer( z )
-            data = [x, y, z]
+            data = Data(x=x, y=y, z=z)
         else:
             data = None
         return data, ret

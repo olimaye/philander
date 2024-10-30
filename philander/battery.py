@@ -4,11 +4,12 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Level", "Capacity", "Status"]
 
-from enum import Enum, unique, Flag
+from .penum import Enum, Flag, idiotypic
 
 from .primitives import Percentage
 
 
+@idiotypic
 class Level(Enum):
     """Level of a battery in [0...100]%
     """
@@ -24,14 +25,39 @@ class Level(Enum):
 
     @staticmethod
     def fromPercentage(percentage):
+        """Convert a given percentage into the corresponding level predicate.
+        
+        Returns the largest level, that is less than or equal to the given
+        percentage. So, the returned level is an underestimation.
+        Or, to put it differently, the real capacity remaining is *at least*
+        the level returned.
+        
+        If the given percentage is ``Percentage.invalid`` or does not compare
+        to a number, ``Level.invalid`` is returned.Values below zero are
+        mapped to ``Level.min``, while values beyond 100 are mapped to
+        ``Level.max``.
+        
+        :param Percentage percentage: The percentage value to be converted.
+        :return: The largest level just under-estimating the given percentage.
+        :rtype: Level
+        """
         new_lvl = Level.invalid
-        for lvl in list(Level):
-            if lvl is Level.invalid:
-                continue
-            elif (percentage >= lvl) and (new_lvl is Level.invalid or lvl > new_lvl):
-                # check if percentage is above certain level
-                # and if lvl is closer to percentage than previously set new_lvl
-                new_lvl = lvl
+        try:
+            # Check if percentage compares to int
+            if percentage < 5: pass
+            new_lvl = Level.min
+            lst = list(Level)
+            lst.remove(Level.invalid)
+            for lvl in lst:
+                if (lvl.value <= percentage) and \
+                     ((new_lvl is Level.invalid) or \
+                      (lvl.value > new_lvl.value) ):
+                    # check if percentage is above certain level
+                    # and if lvl is closer to percentage than previously set new_lvl
+                    new_lvl = lvl
+        except TypeError:
+            # Percentage is something, that does not compare to int:
+            new_lvl = Level.invalid
         return new_lvl
 
 
@@ -41,6 +67,7 @@ class Capacity(int):
     invalid = 0xFFFF
 
 
+@idiotypic
 class Status( Flag ):
     """Container class to reflect the battery status
     """

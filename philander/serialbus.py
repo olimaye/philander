@@ -26,12 +26,13 @@ to the bus it is attached to.
 """
 __author__ = "Oliver Maye"
 __version__ = "0.1"
-__all__ = ["SerialBus", "SerialBusDevice", "SerialBusProvider", "SerialBusType"]
-from enum import unique, auto, Enum
+__all__ = ["SerialBus", "SerialBusDevice", "SerialBusType"]
 
-from .module import Module
-from .simdev import SimDevNull
-from .systypes import ErrorCode
+from philander.penum import Enum, unique, auto, idiotypic
+
+from philander.module import Module
+from philander.sysfactory import SysProvider, SysFactory
+from philander.systypes import ErrorCode
 
 
 class SerialBusDevice( Module ):
@@ -50,6 +51,7 @@ class SerialBusDevice( Module ):
     DEFAULT_ADDRESS     = 0x21
     
     def __init__(self):
+        self.provider = SysProvider.NONE
         self.serialBus   = None
         self.address = SerialBusDevice.DEFAULT_ADDRESS
 
@@ -106,7 +108,7 @@ class SerialBusDevice( Module ):
             if not isinstance(adr, int):
                 try:
                     adr = int( adr, 0 )
-                except ValueError as e:
+                except ValueError:
                     adr = SerialBusDevice.DEFAULT_ADDRESS
                     
             paramDict["SerialBusDevice.address"] = adr
@@ -115,8 +117,10 @@ class SerialBusDevice( Module ):
                 sb = paramDict["SerialBusDevice.bus"]
                 if not( isinstance(sb, SerialBus)):
                     result = ErrorCode.errInvalidParameter
+                elif not( sb.isOpen().isOk() ):
+                    result = sb.open(paramDict)
             else:
-                sb = SerialBus()
+                sb = SysFactory.getSerialBus()
                 if (sb is None):
                     result = ErrorCode.errExhausted
                 else:
@@ -369,664 +373,13 @@ class SerialBusDevice( Module ):
         return self.serialBus.readWriteBuffer( self, inLength, outBuffer )
 
 @unique
-class SerialBusProvider(Enum):
-    NONE      = auto()
-    AUTO      = auto()
-    SMBUS     = auto()
-    SMBUS2    = auto()
-    PERIPHERY = auto()
-    SIM       = auto()
-
-@unique
+@idiotypic
 class SerialBusType(Enum):
     I2C = 10
     SPI = 20
     UART= 30
-    
-class _SerialBusIface( Module ):
-    """Abstract interface to define a serial bus implementation.
 
-    A sub class must overwrite at least the methods for reading and writing
-    a single byte and buffer.
-    """
-
-    def __init__(self):
-        self.designator = ""
-        self.provider = SerialBusProvider.NONE
-        self.type = SerialBusType.I2C
-        self._attachedDevices = list()
-    
-    @classmethod
-    def Params_init( cls, paramDict ):
-        # Fill paramDict with defaults
-        if not ("SerialBus.type" in paramDict):
-            paramDict["SerialBus.type"] = SerialBusType.I2C
-        if not ("SerialBus.designator" in paramDict):
-            paramDict["SerialBus.designator"] = "/dev/i2c-1"
-        if not ("SerialBus.provider" in paramDict):
-            paramDict["SerialBus.provider"] = SerialBusProvider.AUTO
-        return None
-
-    def open( self, paramDict ):
-        ret = ErrorCode.errOk
-        # Retrieve defaults
-        defaults = {}
-        self.Params_init( defaults )
-        # Scan parameters
-        if "SerialBus.provider" in paramDict:
-            self.provider = paramDict["SerialBus.provider"]
-        else:
-            self.provider = SerialBusProvider.NONE
-            ret = ErrorCode.errInvalidParameter
-
-        if "SerialBus.type" in paramDict:
-            self.type = paramDict["SerialBus.type"]
-        else:
-            self.type = defaults["SerialBus.type"]
-            paramDict["SerialBus.type"] = self.type
-
-        if "SerialBus.designator" in paramDict:
-            self.designator = paramDict["SerialBus.designator"]
-        else:
-            self.designator = defaults["SerialBus.designator"]
-            paramDict["SerialBus.designator"] = self.designator
-        return ret
-
-    def close(self):
-        """Shut down this implementation and release associated hardware resources.
-        
-        If this bus has some devices attached, they get detached, before
-        the method returns.
-        
-        Also see: :meth:`.module.Module.close`.
-        
-        :return: An error code indicating either success or the reason of failure.
-        :rtype: ErrorCode
-        """
-        ret = ErrorCode.errOk
-        # Detach all devices.
-        for device in self._attachedDevices:
-            device.serialBus = None
-        self._attachedDevices.clear()
-        return ret
-        
-    def attach( self, device ):
-        """Attaches a device to this implementation.
-                
-        :param: SerialBusDevice device: The device to be attached.
-        :return: An error code indicating either success or the reason of failure.
-        :rtype: ErrorCode
-        """
-        result = ErrorCode.errOk
-        if not (device in self._attachedDevices):
-            self._attachedDevices.append( device )
-        return result
-            
-    def detach( self, device ):
-        """Detach a device from this serial bus implementation.
-        
-        :param: SerialBusDevice device: The device to be detached.
-        :return: An error code indicating either success or the reason of failure.
-        :rtype: ErrorCode
-        """
-        result = ErrorCode.errOk
-        self._attachedDevices.remove( device )
-        return result
-
-    def isAttached( self, device ):
-        """ Determines, if the given device is already attached to this bus.
-        
-        Also see: :meth:`SerialBusDevice.isAttached`.
-        
-        :return: An error code. :attr:`ErrorCode.errOk`, if the device\
-        is already attached to some bus; :attr:`ErrorCode.errUnavailable`,\
-        if it has not been attached before; Any other value to indicate\
-        the failure or reason, why this information could not be retrieved.
-        :rtype: ErrorCode
-        """
-        result = ErrorCode.errOk
-        if (device in self._attachedDevices):
-            result = ErrorCode.errOk
-        else:
-            result = ErrorCode.errUnavailable
-        return result
-
-    def isAnyAttached( self ):
-        """ Determines, if there is any device attached to this bus implementation.
-        
-        :return: An error code. :attr:`ErrorCode.errOk`, if there is at\
-        least one device attached to this bus;\
-        :attr:`ErrorCode.errUnavailable`,\
-        if no device has been attached before;\
-        Any other value to indicate the failure or reason, why this\
-        information could not be retrieved.
-        :rtype: ErrorCode
-        """
-        result = ErrorCode.errOk
-        if ( self._attachedDevices ):
-            result = ErrorCode.errOk
-        else:
-            result = ErrorCode.errUnavailable
-        return result
-
-    def readByteRegister( self, devAdr, reg ):
-        """Read a single byte from a certain register.\
-        A sub-class must overwrite this method.
-        
-        The method is expected to deliver a register's content to the
-        caller.
-        
-        :param int devAdr: The device address uniquely identifying the\
-        affected bus participant.
-        :param int reg: The data to write to this device. This may be a\
-        register identification or some sort of command.
-        :return: A one-byte integer representing the response of the device\
-        and an error code indicating success or the reason of failure.
-        :rtype: int, ErrorCode
-        """
-        pass
-
-    def writeByteRegister( self, devAdr, reg, data ):
-        """Write a single byte value into a certain register.\
-        A sub-class must overwrite this method.
-        
-        The method is expected to store the given value to a register.
-        
-        :param int devAdr: The device address uniquely identifying the\
-        affected bus participant.
-        :param int reg: The address of the register to receive the new value.
-        :param int data: The new value to store to that register.
-        :return: An error code indicating success or the reason of failure.
-        :rtype: ErrorCode
-        """
-        pass
-
-    def readWordRegister( self, devAdr, reg ):
-        """Read a word from a certain register.\
-        A sub-class may overwrite this method.
-        
-        With this implementation, the word is formed from the content of
-        the given register (low) and the content of the immediate
-        successor ``reg+1`` of that register (high).
-        
-        :param int devAdr: The device address uniquely identifying the\
-        affected bus participant.
-        :param int reg: The address of the register to be read.
-        :return: A 16-bit integer representing the response of the device\
-        and an error code indicating success or the reason of failure.
-        :rtype: int, ErrorCode
-        """
-        lo, _ = self.readByteRegister(devAdr, reg)
-        hi, err = self.readByteRegister(devAdr, reg+1)
-        return ((hi << 8) | lo), err
-
-    def writeWordRegister( self, devAdr, reg, data16 ):
-        """Write a double-byte (word) value into a certain register.\
-        A sub-class may overwrite this method.
-        
-        This implementation stores the given value to a pair of
-        registers. The low-part of the ``data16`` item is stored at the
-        given register, while the high-part is put at ``reg+1``.
-        
-        :param int devAdr: The device address uniquely identifying the\
-        affected bus participant.
-        :param int reg: The address of the register to receive\
-        the (low-part of) the new value.
-        :param int data16: The word to store to that register.
-        :return: An error code indicating success or the reason of failure.
-        :rtype: ErrorCode
-        """
-        bVal = data16 & 0xFF
-        self.writeByteRegister(devAdr, reg, bVal)
-        bVal = (data16 >> 8) & 0xFF
-        err = self.writeByteRegister(devAdr, reg+1, bVal)
-        return err
-
-    def readDWordRegister( self, devAdr, reg ):
-        """Read a 32 bit double word from a certain register.\
-        A sub-class may overwrite this method.
-        
-        This implementation forms the dword from the content of the four
-        consecutive registers starting with the given address ``reg``
-        (low-byte of the low-word) and its successors
-        ``reg+1`` (high-byte of the low-word),
-        ``reg+2`` (low-byte of the high-word) and
-        ``reg+3`` (high-byte of the high-word).
-        
-        :param int devAdr: The device address uniquely identifying the\
-        affected bus participant.
-        :param int reg: The address of the register to be read.
-        :return: A 32-bit integer representing the response of the device\
-        and an error code indicating success or the reason of failure.
-        :rtype: int, ErrorCode
-        """
-        L, _ = self.readWordRegister( devAdr, reg )
-        H, err = self.readWordRegister( devAdr, reg+2 )
-        ret = (H << 16) + L
-        return ret, err
-
-    def writeDWordRegister( self, devAdr, reg, data32 ):
-        """Write a 32 bit double-word value into a certain register.\
-        A sub-class may overwrite this method.
-        
-        This implementation stores the given value to a quadruple of
-        registers. The low-byte of the low word is stored at the given
-        register ``reg``. The high-byte of the low-word goes to ``reg+1``.
-        The low-part of the high-word is stored to ``reg+2`` and the
-        high-part of the high-word is put at ``reg+3``.
-        
-        :param int devAdr: The device address uniquely identifying the\
-        affected bus participant.
-        :param int reg: The register number. This addresses the place\
-        where to put the content. Depending on the device, this could\
-        also be some kind of command.
-        :param int data32: The double-word to store to the given register.
-        :return: An error code indicating success or the reason of failure.
-        :rtype: ErrorCode
-        """
-        L = data32 & 0xFFFF
-        H = (data32 & 0xFFFF0000) >> 16
-        self.writeWordRegister( devAdr, reg, L )
-        err = self.writeWordRegister( devAdr, reg+2, H )
-        return err
-    
-    def readBufferRegister( self, devAdr, reg, length ):
-        """Read a block of data starting from the given register.\
-        A sub-class may overwrite this method.
-        
-        Starting with the given Register address, ``length`` bytes are
-        read byte-wise.
-        
-        :param int devAdr: The device address uniquely identifying the\
-        affected bus participant.
-        :param int reg: The address of the first register to be read.
-        :param int length: The number of bytes to read. Should be greater than zero.
-        :return: A buffer of the indicated length holding the response\
-        and an error code indicating success or the reason of failure.
-        :rtype: int[], ErrorCode
-        """
-        data = [0] * length
-        err = ErrorCode.errOk
-        for idx in range(length):
-            data[idx], err = self.readByteRegister(devAdr, reg+idx)
-        return data, err
-
-    def writeBufferRegister( self, devAdr, reg, data ):
-        """Write a block of byte data to a register.\
-        A sub-class may overwrite this method.
-        
-        This implementation stores the first byte - at index zero - at
-        the given register ``reg``, the next byte - at index 1 - at
-        ``reg+1`` and so on. More formally::
-            
-            data[0] -> reg
-            data[1] -> reg + 1
-            ...
-
-        The number of bytes written is determined implicitly by the length
-        of the ``data`` list. 
-        
-        :param int devAdr: The device address uniquely identifying the\
-        affected bus participant.
-        :param int reg: The address of the register to receive the block\
-        of data.
-        :param int[] data: List of bytes to be written. The length of the\
-        list determines the number of bytes to write. So, all values in\
-        the list will be transferred to the device.
-        :return: An error code indicating success or the reason of failure.
-        :rtype: ErrorCode
-        """
-        err = ErrorCode.errOk
-        for idx in range( len(data) ):
-            err = self.writeByteRegister(devAdr, reg+idx, data[idx])
-        return err
-
-    def readBuffer( self, devAdr, length ):
-        """Directly reads multiple bytes from the given device.\
-        A sub-class must overwrite this method.
-        
-        :param int devAdr: The device address uniquely identifying the\
-        affected bus participant.
-        :param int length: The number of bytes to read from the device.\
-        Should be greater than zero.
-        :return: A buffer of the indicated length holding the response\
-        and an error code indicating success or the reason of failure.
-        :rtype: int[], ErrorCode
-        """
-        pass
-
-    def writeBuffer( self, devAdr, buffer ):
-        """Writes the given data to the device specified.\
-        A sub-class must overwrite this method.
-        
-        The buffer is not interpreted any further but is written as such,
-        no matter of a register information being present, or not.
-        
-        :param int devAdr: The device address uniquely identifying the\
-        affected bus participant.
-        :param int[] buffer: The data to store.
-        :return: An error code indicating success or the reason of failure.
-        :rtype: ErrorCode
-        """
-        pass
-    
-    def readWriteBuffer( self, devAdr, inLength, outBuffer ):
-        """Writes and reads a number of bytes.\
-        A sub-class must overwrite this method.
-        
-        :param int devAdr: The device address uniquely identifying the\
-        affected bus participant.
-        :param int inLength: The number of bytes to read from the device.\
-        Should be greater than zero.
-        :param int[] outBuffer: The data to write to the device.
-        :return: A buffer of the indicated length holding the response\
-        and an error code indicating success or the reason of failure.
-        :rtype: int[], ErrorCode
-        """
-        pass
-
-    
-# *** SMBus implementation ***
-class _SerialBus_SMBus( _SerialBusIface ):
-    """SMBUS serial bus implementation.
-    """
-        
-    def open( self, paramDict ):
-        # Scan the parameters
-        ret = super().open(paramDict)
-        if (ret.isOk()):
-            try:
-                if (self.provider == SerialBusProvider.SMBUS):
-                    from smbus import SMBus
-                    self.msg = None
-                elif (self.provider == SerialBusProvider.SMBUS2):
-                    from smbus2 import SMBus, i2c_msg
-                    self.msg = i2c_msg
-                self.bus = SMBus( self.designator )
-                ret = ErrorCode.errOk
-            except Exception as exc:
-                ret = ErrorCode.errInternal
-                raise OSError("Couldn't initialize serial bus ["+str(self.designator)+"]. Designator right? Access to interface granted?") from exc
-        return ret
-
-    def close( self ):
-        ret = ErrorCode.errOk
-        if not self.bus is None:
-            self.bus.close()
-        return ret
-    
-    def readByteRegister( self, devAdr, reg ):
-        err = ErrorCode.errOk
-        data = 0
-        try:
-            data = self.bus.read_byte_data( devAdr, reg )
-        except OSError:
-            err = ErrorCode.errFailure
-        return data, err
-
-    def writeByteRegister( self, devAdr, reg, data ):
-        err = ErrorCode.errOk
-        try:
-            self.bus.write_byte_data( devAdr, reg, data )
-        except OSError:
-            err = ErrorCode.errFailure
-        return err
-
-    def readWordRegister( self, devAdr, reg ):
-        err = ErrorCode.errOk
-        data = 0
-        try:
-            data = self.bus.read_word_data( devAdr, reg )
-        except OSError:
-            err = ErrorCode.errFailure
-        return data, err
-
-    def writeWordRegister( self, devAdr, reg, data16 ):
-        err = ErrorCode.errOk
-        try:
-            self.bus.write_word_data( devAdr, reg, data16 )
-        except OSError:
-            err = ErrorCode.errFailure
-        return err
-
-    def readBufferRegister( self, devAdr, reg, length ):
-        err = ErrorCode.errOk
-        try:
-            if (length <= 32 ):
-                data = self.bus.read_i2c_block_data( devAdr, reg, length )
-            else:
-                msg1 = self.msg.write( devAdr, [reg] )
-                msg2 = self.msg.read( devAdr, length )
-                self.bus.i2c_rdwr( msg1, msg2 )
-                data = list(msg2)
-        except OSError:
-            err = ErrorCode.errFailure
-            data = list()
-        return data, err
-
-    def writeBufferRegister( self, devAdr, reg, data ):
-        err = ErrorCode.errOk
-        try:
-            if (len(data) <= 32 ):
-                self.bus.write_i2c_block_data( devAdr, reg, data )
-            else:
-                bdata = data
-                bdata.insert( 0, reg )
-                msg = self.msg.write( devAdr, bdata )
-                self.bus.i2c_rdwr( msg )
-        except OSError:
-            err = ErrorCode.errFailure
-        return err
-
-    def readBuffer( self, devAdr, length ):
-        pass
-
-    def writeBuffer( self, devAdr, buffer ):
-        pass
-    
-    def readWriteBuffer( self, devAdr, inLength, outBuffer ):
-        pass
-
-class _SerialBus_Periphery( _SerialBusIface ):
-    """Periphery serial bus implementation.
-    """
-    
-    def open( self, paramDict ):
-        # Scan the parameters
-        ret = super().open(paramDict)
-        if (ret.isOk()):
-            from periphery import I2C
-            self.bus = I2C( self.designator )
-        return ret
-    
-    def close(self):
-        ret = ErrorCode.errOk
-        if not self.bus is None:
-            self.bus.close()
-        return ret
-    
-    def readByteRegister( self, devAdr, reg ):
-        err = ErrorCode.errOk
-        msgs = [self.bus.Message([reg]), self.bus.Message([0x00], read=True)]
-        self.bus._transfer( devAdr, msgs)
-        data = msgs[1].data[0]
-        return data, err
-
-    def writeByteRegister( self, devAdr, reg, data ):
-        err = ErrorCode.errOk
-        msgs = [self.bus.Message([reg, data])]
-        self.bus._transfer( devAdr, msgs)
-        return err
-
-    def readWordRegister( self, devAdr, reg ):
-        err = ErrorCode.errOk
-        msgs = [self.bus.Message([reg]), self.bus.Message([0, 0], read=True)]
-        self.bus._transfer( devAdr, msgs)
-        data = (msgs[1].data[1] << 8) | msgs[1].data[0]
-        return data, err
-
-    def writeWordRegister( self, devAdr, reg, data16 ):
-        err = ErrorCode.errOk
-        msgs = [self.bus.Message([reg, (data16 & 0xFF), (data16 >> 8)])]
-        self.bus._transfer( devAdr, msgs)
-        return err
-
-    def readDWordRegister( self, devAdr, reg ):
-        err = ErrorCode.errOk
-        msgs = [self.bus.Message([reg]), self.bus.Message([0, 0, 0, 0], read=True)]
-        self.bus._transfer( devAdr, msgs)
-        data = (msgs[1].data[3] << 24) | (msgs[1].data[2] << 16) | (msgs[1].data[1] << 8) | msgs[1].data[0]
-        return data, err
-
-    def writeDWordRegister( self, devAdr, reg, data32 ):
-        err = ErrorCode.errOk
-        msgs = [self.bus.Message([reg, (data32 & 0xFF), (data32 >> 8), (data32 >> 16), (data32 >> 24)])]
-        self.bus._transfer( devAdr, msgs)
-        return err
-    
-    def readBufferRegister( self, devAdr, reg, length ):
-        err = ErrorCode.errOk
-        ba = bytearray(length)
-        msgs = [self.bus.Message([reg]), self.bus.Message(ba, read=True)]
-        self.bus._transfer( devAdr, msgs)
-        data = msgs[1].data
-        return data, err
-
-    def writeBufferRegister( self, devAdr, reg, data ):
-        err = ErrorCode.errOk
-        bdata = data
-        bdata.insert( 0, reg )
-        msgs = [self.bus.Message( bdata )]
-        self.bus._transfer( devAdr, msgs)
-        return err
-
-    def readBuffer( self, devAdr, length ):
-        err = ErrorCode.errOk
-        ba = bytearray(length)
-        msgs = [self.bus.Message(ba, read=True)]
-        self.bus._transfer( devAdr, msgs)
-        data = msgs[0].data
-        return data, err
-
-    def writeBuffer( self, devAdr, buffer ):
-        err = ErrorCode.errOk
-        msgs = [self.bus.Message( buffer )]
-        self.bus._transfer( devAdr, msgs)
-        return err
-    
-    def readWriteBuffer( self, devAdr, inLength, outBuffer ):
-        err = ErrorCode.errOk
-        ba = bytearray(inLength)
-        msgs = [self.bus.Message(outBuffer), self.bus.Message(ba, read=True)]
-        self.bus._transfer( devAdr, msgs)
-        data = msgs[1].data
-        return data, err
-
-class _SerialBus_Sim( _SerialBusIface ):
-    """Simulative serial bus implementation.
-    """
-    
-    def _findSim( self, devAdr ):
-        sim = None
-        for dev in self._attachedDevices:
-            if (dev.address == devAdr):
-                if (hasattr(dev, 'sim')):
-                    sim = dev.sim
-                else:
-                    sim = self._defaultSim
-                break
-        return sim
-    
-    def open( self, paramDict ):
-        # Scan the parameters
-        ret = super().open(paramDict)
-        self._defaultSim = SimDevNull()
-        self._defaultSim.open(paramDict)
-        return ret
-    
-    def close(self):
-        err = ErrorCode.errOk
-        self._defaultSim.close()
-        return err
-        
-    def readByteRegister( self, devAdr, reg ):
-        sim = self._findSim(devAdr)
-        if (sim):
-            data, err = sim.readByteRegister( reg )
-        else:
-            data = 0
-            err = ErrorCode.errFailure
-        return data, err
-
-    def writeByteRegister( self, devAdr, reg, data ):
-        sim = self._findSim(devAdr)
-        if (sim):
-            err = sim.writeByteRegister( reg, data )
-        else:
-            err = ErrorCode.errFailure
-        return err
-
-    def readWordRegister( self, devAdr, reg ):
-        sim = self._findSim(devAdr)
-        if (sim):
-            data, err = sim.readWordRegister( reg )
-        else:
-            data = 0
-            err = ErrorCode.errFailure
-        return data, err
-
-    def writeWordRegister( self, devAdr, reg, data16 ):
-        sim = self._findSim(devAdr)
-        if (sim):
-            err = sim.writeWordRegister( reg, data16 )
-        else:
-            err = ErrorCode.errFailure
-        return err
-
-    def readDWordRegister( self, devAdr, reg ):
-        sim = self._findSim(devAdr)
-        if (sim):
-            data, err = sim.readDWordRegister( reg )
-        else:
-            data = 0
-            err = ErrorCode.errFailure
-        return data, err
-
-    def writeDWordRegister( self, devAdr, reg, data32 ):
-        sim = self._findSim(devAdr)
-        if (sim):
-            err = sim.writeDWordRegister( reg, data32 )
-        else:
-            err = ErrorCode.errFailure
-        return err
-    
-    def readBufferRegister( self, devAdr, reg, length ):
-        sim = self._findSim(devAdr)
-        if (sim):
-            data, err = sim.readBufferRegister( reg, length )
-        else:
-            data = 0
-            err = ErrorCode.errFailure
-        return data, err
-
-    def writeBufferRegister( self, devAdr, reg, data ):
-        sim = self._findSim(devAdr)
-        if (sim):
-            err = sim.writeBufferRegister( reg, data )
-        else:
-            err = ErrorCode.errFailure
-        return err
-
-    def readBuffer( self, devAdr, length ):
-        pass
-
-    def writeBuffer( self, devAdr, buffer ):
-        pass
-    
-    def readWriteBuffer( self, devAdr, inLength, outBuffer ):
-        pass
-
-class SerialBus( _SerialBusIface ):
+class SerialBus( Module ):
     """Convergence layer to abstract from multiple implementations of\
     serial communication (I2C, SPI), such as smbus or periphery.
     
@@ -1034,15 +387,9 @@ class SerialBus( _SerialBusIface ):
     device. For communicating with a specific device, a corresponding
     instance of ``SerialBusDevice`` must be provided to the read/write
     method of interest.
-    
-    The implementation currently supports the following serial communication
-    packages in the given order of priority:
-    
-    * smbus2
-    * smbus
-    * periphery
-    * simulated devices
-    
+
+    A sub class must overwrite at least the methods for reading and writing
+    a single byte and buffer.
     """
     
     _STATUS_FREE		= 1
@@ -1053,28 +400,12 @@ class SerialBus( _SerialBusIface ):
     #
     
     def __init__(self):
+        self.designator = ""
+        self.provider = SysProvider.NONE
+        self.type = SerialBusType.I2C
+        self._attachedDevices = list()
         self._status = SerialBus._STATUS_FREE
-        self._impl = None
         
-    def _detectProvider( self, busType ):
-        ret = SerialBusProvider.NONE
-        if busType == SerialBusType.I2C:
-            try:
-                from smbus2 import SMBus, i2c_msg
-                ret = SerialBusProvider.SMBUS2
-            except ImportError:
-                try:
-                    from smbus import SMBus
-                    ret = SerialBusProvider.SMBUS
-                except ImportError:
-                    try:
-                        from periphery import I2C
-                        ret = SerialBusProvider.PERIPHERY
-                    except ImportError:
-                        ret = SerialBusProvider.SIM
-        else:
-            raise NotImplementedError('Currently, only I2C is supported!')
-        return ret
 
     #
     # Module API
@@ -1090,14 +421,16 @@ class SerialBus( _SerialBusIface ):
         serial protocol. The default is :attr:`SerialBusType.I2C`.
         * ``SerialBus.designator``: A string or number to identify\
         the bus port, such as "/dev/i2c-3" or 1. Defaults to "/dev/i2c-1".
-        * ``SerialBus.provider``: A :class:`SerialBusProvider` indicating the\
-        implementation to use. Defaults to :attr:`SerialBusProvider.AUTO`.
 
         :param dict(str, object) paramDict: Configuration parameters as obtained from :meth:`Params_init`, possibly.
         :return: none
         :rtype: None
         """
-        _SerialBusIface.Params_init(paramDict)
+        # Fill paramDict with defaults
+        if not ("SerialBus.type" in paramDict):
+            paramDict["SerialBus.type"] = SerialBusType.I2C
+        if not ("SerialBus.designator" in paramDict):
+            paramDict["SerialBus.designator"] = "/dev/i2c-1"
         return None
 
     def open(self, paramDict):
@@ -1122,33 +455,23 @@ class SerialBus( _SerialBusIface ):
             defaults = {}
             self.Params_init( defaults )
             # Scan parameters
-            if "SerialBus.provider" in paramDict:
-                provider = paramDict["SerialBus.provider"]
+            if "SerialBus.type" in paramDict:
+                self.type = paramDict["SerialBus.type"]
             else:
-                provider = defaults["SerialBus.provider"]
-            if (provider == SerialBusProvider.AUTO):
-                if "SerialBus.type" in paramDict:
-                    busType = paramDict["SerialBus.type"]
-                else:
-                    busType = defaults["SerialBus.type"]
-                provider = self._detectProvider( busType )
-                paramDict["SerialBus.provider"] = provider
-            
+                self.type = defaults["SerialBus.type"]
+                paramDict["SerialBus.type"] = self.type
     
-            # Multiplex the different implementations depending on the provider module
-            if (provider==SerialBusProvider.SMBUS) or (provider==SerialBusProvider.SMBUS2):
-                self._impl = _SerialBus_SMBus()
-            elif (provider==SerialBusProvider.PERIPHERY):
-                self._impl = _SerialBus_Periphery()
-            elif (provider==SerialBusProvider.SIM):
-                self._impl = _SerialBus_Sim()
+            if "SerialBus.designator" in paramDict:
+                self.designator = paramDict["SerialBus.designator"]
             else:
-                raise NotImplementedError('Driver module ' + str(provider) + ' is not supported.')
+                self.designator = defaults["SerialBus.designator"]
+                paramDict["SerialBus.designator"] = self.designator
             
-            # Allocate resources
-            ret = self._impl.open( paramDict )
-            if (ret.isOk()):
-                self._status = SerialBus._STATUS_OPEN
+            if self.type != SerialBusType.I2C:
+                #raise NotImplementedError('Currently, only I2C is supported!')
+                ret = ErrorCode.errNotSupported
+        if( ret.isOk() ):
+            self._status = SerialBus._STATUS_OPEN
         return ret
 
     def close(self):
@@ -1165,10 +488,8 @@ class SerialBus( _SerialBusIface ):
         ret = ErrorCode.errOk
         # Actually close the bus
         if (self._status != SerialBus._STATUS_FREE):
-            if not self._impl is None:
-                # Detach all devices.
-                ret = self._impl.close()
-                self._impl = None
+            # Detach all devices.
+            self.detachAll()
             self._status = SerialBus._STATUS_FREE
         return ret
 
@@ -1181,11 +502,15 @@ class SerialBus( _SerialBusIface ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        if (self._status == SerialBus._STATUS_OPEN):
-            err = self._impl.setRunLevel(level)
-        else:
+        del level
+        err = ErrorCode.errOk
+        if (self._status != SerialBus._STATUS_OPEN):
             err = ErrorCode.errResourceConflict
         return err
+
+    #
+    # SerialBus API
+    #
 
     def isOpen( self ):
         """Determine, if the given bus is already open.
@@ -1228,8 +553,8 @@ class SerialBus( _SerialBusIface ):
                 result = self.open(params)
             # Attach it to the implementation
             if (result.isOk()):
-                result = self._impl.attach( device )
-            if (result.isOk()):
+                if not (device in self._attachedDevices):
+                    self._attachedDevices.append( device )
                 # Mark the device as being attached
                 device.serialBus = self
         return result
@@ -1247,14 +572,29 @@ class SerialBus( _SerialBusIface ):
         result = ErrorCode.errOk
         if (device.serialBus == self):
             device.serialBus = None
-            if (self._status == SerialBus._STATUS_OPEN):
-                result = self._impl.detach( device )
-                if ( self._impl.isAnyAttached() == ErrorCode.errUnavailable ):
-                    result = self.close()
+            if (device in self._attachedDevices):
+                self._attachedDevices.remove( device )
+            if (self._status == SerialBus._STATUS_OPEN) and \
+               (self.isAnyAttached() == ErrorCode.errUnavailable ):
+                result = self.close()
         else:
             result = ErrorCode.errResourceConflict
         return result
 
+    def detachAll(self):
+        """Detaches all devices from this serial bus.
+        
+        Note that this will *not* close the bus automatically.
+        
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        result = ErrorCode.errOk
+        for device in self._attachedDevices:
+            device.serialBus = None
+        self._attachedDevices.clear()
+        return result
+        
     def isAttached( self, device ):
         """ Determines, if the given device is already attached to this bus.
         
@@ -1268,11 +608,35 @@ class SerialBus( _SerialBusIface ):
         """
         ret = ErrorCode.errOk
         if (self._status == SerialBus._STATUS_OPEN):
-            ret = self._impl.isAttached(device)
+            if (device in self._attachedDevices):
+                ret = ErrorCode.errOk
+            else:
+                ret = ErrorCode.errUnavailable
         else:
             ret = ErrorCode.errResourceConflict
         return ret
-            
+
+    def isAnyAttached( self ):
+        """ Determines, if there is any device attached to this bus implementation.
+        
+        :return: An error code. :attr:`ErrorCode.errOk`, if there is at\
+        least one device attached to this bus;\
+        :attr:`ErrorCode.errUnavailable`,\
+        if no device has been attached before;\
+        Any other value to indicate the failure or reason, why this\
+        information could not be retrieved.
+        :rtype: ErrorCode
+        """
+        result = ErrorCode.errOk
+        if (self._status == SerialBus._STATUS_OPEN):
+            if ( self._attachedDevices ):
+                result = ErrorCode.errOk
+            else:
+                result = ErrorCode.errUnavailable
+        else:
+            result = ErrorCode.errResourceConflict
+        return result
+
     def readByteRegister( self, device, reg ):
         """This method provides 8 bit register read access to a device.
         
@@ -1291,7 +655,9 @@ class SerialBus( _SerialBusIface ):
         and an error code indicating success or the reason of failure.
         :rtype: int, ErrorCode
         """
-        return self._impl.readByteRegister( device.address, reg )
+        # A sub-class implementation must overwrite this method.
+        del device, reg
+        return 0, ErrorCode.errNotImplemented
 
     def writeByteRegister( self, device, reg, data8 ):
         """Assuming a register-type access, this function writes a byte register.
@@ -1309,7 +675,9 @@ class SerialBus( _SerialBusIface ):
         :return: An error code indicating success or the reason of failure.
         :rtype: ErrorCode
         """
-        return self._impl.writeByteRegister(device.address, reg, data8)
+        # A sub-class implementation must overwrite this method.
+        del device, reg, data8
+        return ErrorCode.errNotImplemented
 
     def readWordRegister( self, device, reg ):
         """Provide register read access for 16 bit data words.
@@ -1327,7 +695,9 @@ class SerialBus( _SerialBusIface ):
         and an error code indicating success or the reason of failure.
         :rtype: int, ErrorCode
         """
-        return self._impl.readWordRegister( device.address, reg )
+        lo, _ = self.readByteRegister(device, reg)
+        hi, err = self.readByteRegister(device, reg+1)
+        return ((hi << 8) | lo), err
 
     def writeWordRegister( self, device, reg, data16 ):
         """Assuming a register-type access, this function writes a word register.
@@ -1345,7 +715,11 @@ class SerialBus( _SerialBusIface ):
         :return: An error code indicating success or the reason of failure.
         :rtype: ErrorCode
         """
-        return self._impl.writeWordRegister( device.address, reg, data16 )
+        bVal = data16 & 0xFF
+        self.writeByteRegister(device, reg, bVal)
+        bVal = (data16 >> 8) & 0xFF
+        err = self.writeByteRegister(device, reg+1, bVal)
+        return err
 
     def readDWordRegister( self, device, reg ):
         """Read a 32-bit word from the given register.
@@ -1364,7 +738,10 @@ class SerialBus( _SerialBusIface ):
         and an error code indicating success or the reason of failure.
         :rtype: int, ErrorCode
         """
-        return self._impl.readDWordRegister( device.address, reg )
+        L, _ = self.readWordRegister( device, reg )
+        H, err = self.readWordRegister( device, reg+2 )
+        ret = (H << 16) + L
+        return ret, err
 
     def writeDWordRegister( self, device, reg, data32 ):
         """Write a 32 bit double-word to the given register.
@@ -1382,7 +759,11 @@ class SerialBus( _SerialBusIface ):
         :return: An error code indicating success or the reason of failure.
         :rtype: ErrorCode
         """
-        return self._impl.writeDWordRegister( device.address, reg, data32 )
+        L = data32 & 0xFFFF
+        H = (data32 & 0xFFFF0000) >> 16
+        self.writeWordRegister( device, reg, L )
+        err = self.writeWordRegister( device, reg+2, H )
+        return err
     
     def readBufferRegister( self, device, reg, length ):
         """Multi-byte read access to a register-type serial bus device.
@@ -1406,7 +787,11 @@ class SerialBus( _SerialBusIface ):
         and an error code indicating success or the reason of failure.
         :rtype: int[], ErrorCode
         """
-        return self._impl.readBufferRegister( device.address, reg, length )
+        data = [0] * length
+        err = ErrorCode.errOk
+        for idx in range(length):
+            data[idx], err = self.readByteRegister(device, reg+idx)
+        return data, err
 
     def writeBufferRegister( self, device, reg, buffer ):
         """Assuming a register-type access, this function writes a buffer\
@@ -1425,7 +810,10 @@ class SerialBus( _SerialBusIface ):
         :return: An error code indicating success or the reason of failure.
         :rtype: ErrorCode
         """
-        return self._impl.writeBufferRegister( device.address, reg, buffer )
+        err = ErrorCode.errOk
+        for idx in range( len(buffer) ):
+            err = self.writeByteRegister(device, reg+idx, buffer[idx])
+        return err
 
     def readBuffer( self, device, length ):
         """Directly reads multiple bytes from the given device.
@@ -1439,7 +827,9 @@ class SerialBus( _SerialBusIface ):
         and an error code indicating success or the reason of failure.
         :rtype: int[], ErrorCode
         """
-        return self._impl.readBuffer( device.address, length )
+        # A sub-class implementation must overwrite this method.
+        del device, length
+        return [], ErrorCode.errNotImplemented
 
     def writeBuffer( self, device, buffer ):
         """Writes the given data to the device specified.
@@ -1454,7 +844,9 @@ class SerialBus( _SerialBusIface ):
         :return: An error code indicating success or the reason of failure.
         :rtype: ErrorCode
         """
-        return self._impl.writeBuffer( device.address, buffer )
+        # A sub-class implementation must overwrite this method.
+        del device, buffer
+        return ErrorCode.errNotImplemented
     
     def readWriteBuffer( self, device, inLength, outBuffer ):
         """Writes and reads a number of bytes.
@@ -1469,4 +861,6 @@ class SerialBus( _SerialBusIface ):
         and an error code indicating success or the reason of failure.
         :rtype: int[], ErrorCode
         """
-        return self._impl.readWriteBuffer( device.address, inLength, outBuffer )
+        # A sub-class implementation must overwrite this method.
+        del device, inLength, outBuffer
+        return [], ErrorCode.errNotImplemented

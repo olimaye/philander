@@ -162,7 +162,7 @@ class ActorUnit( BLE, Actuator, Configurable ):
         # Initialize base class attributes
         super().__init__()
         # Create instance attributes
-        self.vibConfig = Configuration( ConfigItem.implicit )
+        self.vibConfig = Configuration( item=ConfigItem.implicit )
         self.dataBuf = bytearray( 11 )
 
     @classmethod

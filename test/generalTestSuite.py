@@ -4,16 +4,14 @@ __author__ = "Carl Bellgardt"
 __version__ = "0.1"
 __all__ = ["run", "MenuFunction"]
 
-from simple_term_menu import TerminalMenu
-from philander.systypes import ErrorCode
 from time import sleep
-# import inspect
-import traceback
-from enum import EnumType
+try:
+    from simple_term_menu import TerminalMenu
+except ImportError as exc:
+    from micromenu import MicroMenu as TerminalMenu
 
+from philander.systypes import ErrorCode
 
-def _exit():
-    exit()
 
 
 def run(settings={}, functions=[], title=""):
@@ -36,20 +34,20 @@ def run(settings={}, functions=[], title=""):
     # setup default function
     menu_functions = [MenuFunction(_config, mode="call-once", name="Edit Config", args=(settings, title))]
     menu_functions += functions
-    menu_functions.append(MenuFunction(_exit, mode="call-once", name="Exit"))
+    menu_functions.append(MenuFunction(None, mode="call-once", name="Exit"))
 
     # run application
     terminal_menu = TerminalMenu([str(f) for f in menu_functions], title=title)
     while True:
         try:
             sel = terminal_menu.show()
-            if sel is None:  # sel is None on KeyboardInterrupt
+            if (sel is None) or (sel>=len(menu_functions)-1):  # sel is None on KeyboardInterrupt
                 print("Exited with no Error.")
                 break
             menu_functions[sel].run()
         except Exception as e:
-            traceback.print_exc()
-            print(f"TestSuite: Exited with Error: {e}")
+            #traceback.print_exc()
+            print(f"TestSuite {e.__class__.__name__}: {e}")
             break
 
 
@@ -100,9 +98,9 @@ def _config(settings, title):
             val_class = cur_val.__class__
             print(f"{descr} [{val_type.__name__}]")
             print(f"Old value: {cur_val}")
-            if type(val_type) == EnumType:  # check type of type to get super class
-                print(f"Possible values for type \"{val_class.__name__}\":")
-                print(f" -> {', '.join(val_class.__members__.keys())}")
+            # if type(val_type) == EnumType:  # check type of type to get super class
+            #     print(f"Possible values for type \"{val_class.__name__}\":")
+            #     print(f" -> {', '.join(val_class.__members__.keys())}")
             # set new value dialogue
             try:
                 new_val = input("New value: ")
@@ -110,8 +108,8 @@ def _config(settings, title):
                     if new_val.lower() in ["false",
                                            "none"]:  # non-empty strings will be auto-casted to true, so this custom conversion makes it more intuitive
                         new_val = False
-                elif type(val_type) == EnumType:  # try to convert strings to enum values
-                    new_val = val_class[new_val]
+                # elif type(val_type) == EnumType:  # try to convert strings to enum values
+                #     new_val = val_class[new_val]
                 settings[key] = val_type(new_val)
             except KeyboardInterrupt:
                 break

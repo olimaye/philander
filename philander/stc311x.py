@@ -7,17 +7,20 @@ __author__ = "Carl Bellgardt"
 __version__ = "0.1"
 __all__ = ["STC311x", "ChipType"]
 
-from enum import Enum, auto
-from .serialbus import SerialBusDevice
-from .gasgauge import GasGauge, SOCChangeRate
+from .penum import Enum, unique, auto, idiotypic
+
 from .battery import Status as BatStatus, Level as BatLevel
-from .primitives import Current, Voltage, Percentage, Temperature
-from .systypes import ErrorCode, RunLevel, Info
-from .interruptable import Interruptable, Event
+from .gasgauge import GasGauge, SOCChangeRate
 from .gpio import GPIO
+from .interruptable import Interruptable, Event
+from .primitives import Current, Voltage, Percentage, Temperature
+from .serialbus import SerialBusDevice
 from .stc311x_reg import _STC311x_Reg, STC3115_Reg, STC3117_Reg, ChipType
+from .systypes import ErrorCode, RunLevel, Info
 
 
+@unique
+@idiotypic
 class OperatingMode(Enum):
     opModeUnknown = auto()
     opModeStandby = auto()
