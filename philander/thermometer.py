@@ -18,4 +18,4 @@ class Data:
     Measurement data should always be expressed as a signed value in
     degree Celsius.
     """
-    temperature:  PreciseTemperature
+    temperature:  PreciseTemperature = 0

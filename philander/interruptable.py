@@ -89,22 +89,32 @@ class Interruptable:
         
         The handler should be a method or function that expects at least
         one argument. That first argument will be the ``callerFeedBack``
-        object given as the previous parameter. Further parameters may
-        follow, as they were handed in to the :meth:`_fire` method.
+        object given as the above-mentioned parameter. Further parameters
+        may follow, as they were handed in to the :meth:`_fire` method.
+        The handler's signature should look like this:
         
-        * If the ``handler`` is ``None`` then
-            * if ``onEvent`` is ``None`` or ``.interruptable.Event.evtNone``,\
-            then the interrupt is disabled and all registrations cleared.
-            * otherwise, the ``callerFeedBack`` replaces what was\
-            previously set for this type of ``onEvent``.
-        * If the ``handler`` is valid but ``onEvent`` is still\
-        ``None`` or ``.interruptable.Event.evtNone``, then this handler\
-        is de-registered. If that was the last/only handler registered,\
-        interrupts are disabled.
-        * If both, the ``handler`` and the ``onEvent`` parameters are\
-        valid, then the interrupt is enabled and the handler gets\
-        registered. 
+        ``def handlingRoutine( feedback, *args) -> None:``
+         
+        Note that the ``onEvent`` parameter is *not* passed to the handler.
+        It is eaten up by :meth:`_fire` and just controls the selection
+        of the handling routine called.
         
+        Depending on the parameter, this method behaves as follows:
+        
+        =================  =======  ============================================================
+        onEvent            handler  semantics and action
+        =================  =======  ============================================================
+        Event.evtNone      None     All interrupts are disabled and all registrations cleared.
+        Event.evtNone      valid    De-register the given handler from all events {Event.evtInt1|2|Any}.
+        Event.evtInt1|2|*  None     De-register all handlers from the given event.
+        Event.evtInt1|2|*  valid    Enable interrupt and register this handler for the given event.
+        Event.evtAny       None     Clear the ``Event.evtAny`` registrations, only!
+        Event.evtAny       valid    Register the handler for any event {Event.evtInt1|2}.
+        =================  =======  ============================================================
+
+        For this method, ``Event.evtNone`` is a semantic equivalent to
+        ``None``.
+
         :param int onEvent: Exactly one of the event mnemonics defined\
         by the :class:`.interruptable.Event` enumeration.
         :param object callerFeedBack: Arbitrary object not evaluated\
@@ -116,35 +126,57 @@ class Interruptable:
         :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
-        if (handler is None):
-            if (onEvent is None) or (onEvent == Event.evtNone):
-                # Disable; from hardware to app.
+        checkLastDisabled = False
+        enableInt = False
+        if (onEvent is None) or (onEvent == Event.evtNone):
+            if (handler is None):   # Clear all registrations
                 ret = self.disableInterrupt()
                 self.eventEmitter.off_all()
-            else:
+                self.dictFeedbacks.clear()
+            else:                   # De-register this handler from all events
+                self.eventEmitter.off( Event.evtInt1, handler )
+                if (len(self.eventEmitter.listeners(Event.evtInt1)) < 1) and \
+                   (Event.evtInt1 in self.dictFeedbacks):
+                    self.dictFeedbacks.pop( Event.evtInt1 )
+                self.eventEmitter.off( Event.evtInt2, handler )
+                if (len(self.eventEmitter.listeners(Event.evtInt2)) < 1) and \
+                   (Event.evtInt2 in self.dictFeedbacks):
+                    self.dictFeedbacks.pop( Event.evtInt2 )
+                self.eventEmitter.off_any( handler )
+                if (len(self.eventEmitter.listeners_any()) < 1) and \
+                   (Event.evtAny in self.dictFeedbacks):
+                    self.dictFeedbacks.pop( Event.evtAny )
+                checkLastDisabled = True
+        elif onEvent == Event.evtAny:
+            if (handler is None):   # Clear 'any' registrations
+                for f in self.eventEmitter.listeners_any():
+                    self.eventEmitter.off_any( f )
+                if onEvent in self.dictFeedbacks:
+                    self.dictFeedbacks.pop( onEvent )
+                checkLastDisabled = True
+            else:                   # Register new handler for 'any' event
+                self.eventEmitter.on_any( handler )
                 self.dictFeedbacks[onEvent] = callerFeedBack
-        elif (onEvent is None) or (onEvent == Event.evtNone):
-            self.eventEmitter.off_any( handler )
+                enableInt = True
+        else:
+            if (handler is None):   # Clear all registrations for that event
+                for f in self.eventEmitter.listeners(onEvent):
+                    self.eventEmitter.off( onEvent, f )
+                if onEvent in self.dictFeedbacks:
+                    self.dictFeedbacks.pop( onEvent )
+                checkLastDisabled = True
+            else:                   # Register this handler for that event
+                self.eventEmitter.on( onEvent, handler )
+                self.dictFeedbacks[onEvent] = callerFeedBack
+                enableInt = True
+                
+        if checkLastDisabled:     
             if (len(self.eventEmitter.listeners_all()) < 1):
                 self.disableInterrupt()
-        else:
-            # Enable; from app (=sink) to hardware (=source)
-            if (onEvent == Event.evtAny):
-                self.eventEmitter.on_any( handler )
-                ret = self.enableInterrupt()
-                if (ret.isOk()):
-                    self.dictFeedbacks[onEvent] = callerFeedBack
-                else:
-                    self.disableInterrupt()
-                    self.eventEmitter.off_any( handler )
-            else:
-                self.eventEmitter.on( onEvent, handler )
-                ret = self.enableInterrupt()
-                if (ret.isOk()):
-                    self.dictFeedbacks[onEvent] = callerFeedBack
-                else:
-                    self.disableInterrupt()
-                    self.eventEmitter.off( onEvent, handler )
+                self.dictFeedbacks.clear()
+        if enableInt:
+            ret = self.enableInterrupt()
+                
         return ret;
 
     def enableInterrupt(self):
@@ -232,7 +264,7 @@ class Interruptable:
         else:
             fb = None
         if len(args) == 0:
-            self.eventEmitter.emit( event, event, fb )
+            self.eventEmitter.emit( event, fb )
         else:
-            self.eventEmitter.emit( event, event, fb, args )
+            self.eventEmitter.emit( event, fb, args )
         return None

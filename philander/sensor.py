@@ -323,11 +323,11 @@ class Sensor(Module, Configurable):
     # Initializes the sensor.
     #
     def __init__( self ):
-        paramDict = dict()
-        self.Params_init( paramDict )
+        defaults = dict()
+        self.Params_init( defaults )
         # Create instance attributes
-        self.dataRange = paramDict["Sensor.dataRange"]
-        self.dataRate  = paramDict["Sensor.dataRate"]
+        self.dataRange = defaults["Sensor.dataRange"]
+        self.dataRate  = defaults["Sensor.dataRate"]
  
     @classmethod
     def Params_init( cls, paramDict ):
@@ -346,11 +346,15 @@ class Sensor(Module, Configurable):
         :returns: none
         :rtype: None
         """
+        # Setup defaults
+        defaults = {
+            "Sensor.dataRange": 1,
+            "Sensor.dataRate": 1,
+        }
         # Fill paramDict with defaults
-        if not ("Sensor.dataRange" in paramDict):
-            paramDict["Sensor.dataRange"] = 1
-        if not ("Sensor.dataRate" in paramDict):
-            paramDict["Sensor.dataRate"] = 1
+        for key, value in defaults.items():
+            if not key in paramDict:
+                paramDict[key] = value
         return None
 
 
@@ -366,19 +370,16 @@ class Sensor(Module, Configurable):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        defaults = dict()
-        self.Params_init( defaults )
         ret = ErrorCode.errOk
-        if ("Sensor.dataRange" in paramDict):
-            cfg = Configuration( item=ConfigItem.range, value=paramDict["Sensor.dataRange"])
-            ret = self.configure( cfg )
-        else:
-            paramDict["Sensor.dataRange"] = defaults["Sensor.dataRange"]
-        if ("Sensor.dataRate" in paramDict):
-            cfg = Configuration( item=ConfigItem.rate, value=paramDict["Sensor.dataRate"])
-            ret = self.configure( cfg )
-        else:
-            paramDict["Sensor.dataRate"] = defaults["Sensor.dataRate"]
+        for key, value in paramDict.items():
+            if key == "Sensor.dataRange":
+                cfg = Configuration( item=ConfigItem.range, value=value)
+                ret = self.configure( cfg )
+            elif key == "Sensor.dataRate":
+                cfg = Configuration( item=ConfigItem.rate, value=value)
+                ret = self.configure( cfg )
+        if ret.isOk():
+            Sensor.Params_init(paramDict)
         return ret
 
     
@@ -536,7 +537,7 @@ class Sensor(Module, Configurable):
         :rtype: Object, ErrorCode
         """
         del statusID
-        return None, ErrorCode.errNotSupported
+        return None, ErrorCode.errNotImplemented
 
 
     def getLatestData(self):
@@ -574,7 +575,7 @@ class Sensor(Module, Configurable):
         either success or the reason of failure.
         :rtype: Object, ErrorCode
         """
-        return None, ErrorCode.errNotSupported
+        return None, ErrorCode.errNotImplemented
     
 
     def getNextData(self):
@@ -613,4 +614,4 @@ class Sensor(Module, Configurable):
         either success or the reason of failure.
         :rtype: Object, ErrorCode
         """
-        return None, ErrorCode.errNotSupported
+        return None, ErrorCode.errNotImplemented

@@ -4,10 +4,9 @@ import unittest
 import time
 
 from philander.interruptable import Event, EventContext, EventContextControl, Interruptable
-from philander.sysfactory import SysFactory, SysProvider
 from philander.systypes import ErrorCode
 
-globEvent = None
+globSemaphore = None
 
 class MySource( Interruptable ):
 
@@ -51,45 +50,93 @@ class MySource( Interruptable ):
         return ret
 
 
-def handlingRoutine( event, feedback, *args ):
-    global globEvent
+def handlingRoutine( feedback, *args ):
+    global globSemaphore
     # print("Handler called. event=", event, "feedback=", feedback)
     # if len(args) > 0:
     #     print("Additional arguments:")
     #     for a in args: print(a)
-    globEvent = event
-    del feedback, args
+    globSemaphore = feedback
+    del args
     return None
 
     
 class TestInterruptable( unittest.TestCase ):
     
-    def test_events(self):
+    def test_context(self):
         src = MySource()
-        global globEvent
+        global globSemaphore
         
         fb = "This is some feedback data."
-        globEvent = None
+        globSemaphore = None
         err = src.registerInterruptHandler( Event.evtInt1, fb, handlingRoutine )
         self.assertEqual( err, ErrorCode.errOk )
         src._fire( Event.evtInt1 )
         start = time.time()
-        while (not globEvent) and (time.time()-start < 5): pass
-        self.assertIsNotNone( globEvent, "Event didn't fire - timeout!")
-        if globEvent:
+        while (not globSemaphore) and (time.time()-start < 5): pass
+        self.assertIsNotNone( globSemaphore, "Event didn't fire - timeout!")
+        if globSemaphore:
+            self.assertEqual( globSemaphore, fb )
             context = EventContext()
             self.assertEqual( context.control, EventContextControl.getFirst )
             self.assertEqual( context.remainInt, 0 )
-            err = src.getEventContext( globEvent, context)
+            err = src.getEventContext( Event.evtInt1, context)
             self.assertIn( err, [ErrorCode.errMoreData, ErrorCode.errOk] )
             self.assertEqual( context.control, EventContextControl.getNext )
             while err == ErrorCode.errMoreData:
-                err = src.getEventContext( globEvent, context)
+                err = src.getEventContext( Event.evtInt1, context)
                 self.assertIn( err, [ErrorCode.errMoreData, ErrorCode.errOk] )
                 self.assertEqual( context.control, EventContextControl.getNext )
             self.assertEqual( err, ErrorCode.errOk )
             
+    def test_register(self):
+        src = MySource()
+        global globSemaphore
         
+        fb = "My feedback data"
+        globSemaphore = None
+        err = src.registerInterruptHandler( Event.evtInt1, fb, handlingRoutine )
+        self.assertEqual( err, ErrorCode.errOk )
+        src._fire( Event.evtInt1 )
+        start = time.time()
+        while (not globSemaphore) and (time.time()-start < 2): pass
+        self.assertIsNotNone( globSemaphore, "Event didn't fire - timeout!")
+        
+        globSemaphore = None
+        src._fire( Event.evtInt2 )
+        start = time.time()
+        while (not globSemaphore) and (time.time()-start < 2): pass
+        self.assertIsNone( globSemaphore, "Event fired - wrong handler!")
+
+        globSemaphore = None
+        err = src.registerInterruptHandler( Event.evtNone, None, handlingRoutine )
+        self.assertEqual( err, ErrorCode.errOk )
+        src._fire( Event.evtInt1 )
+        start = time.time()
+        while (not globSemaphore) and (time.time()-start < 2): pass
+        self.assertIsNone( globSemaphore, "Event fired on de-registered handler!")
+
+        globSemaphore = None
+        err = src.registerInterruptHandler( Event.evtInt1, fb, handlingRoutine )
+        self.assertEqual( err, ErrorCode.errOk )
+        fbAlt = "Alternative feedback"
+        err = src.registerInterruptHandler( Event.evtInt1, fbAlt, handlingRoutine )
+        self.assertEqual( err, ErrorCode.errOk )
+        src._fire( Event.evtInt1 )
+        start = time.time()
+        while (not globSemaphore) and (time.time()-start < 2): pass
+        self.assertIsNotNone( globSemaphore, "Event didn't fire - timeout!")
+        self.assertEqual( globSemaphore, fbAlt )
+        
+        globSemaphore = None
+        err = src.registerInterruptHandler( Event.evtNone, fb, None )
+        self.assertEqual( err, ErrorCode.errOk )
+        src._fire( Event.evtInt1 )
+        start = time.time()
+        while (not globSemaphore) and (time.time()-start < 2): pass
+        self.assertIsNone( globSemaphore, "Event fired on de-registered handler!")
+    
+    
 if __name__ == '__main__':
     unittest.main()
 
