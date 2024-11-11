@@ -179,7 +179,7 @@ class EventContext( IntEventContext ):
     Use the :attr:`source` attribute to de-multiplex the inner data items.
     """
     source:     EventSource = EventSource.none
-    data:       Data = Data(x=0,y=0,z=0)
+    data:       Data = None
     status:     int = 0
 
         

@@ -1,4 +1,4 @@
-# Define requirements for bulding the doc. 
+# Define requirements for building the doc. 
 sphinx
 sphinx_rtd_theme
 readthedocs-sphinx-search

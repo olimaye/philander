@@ -65,6 +65,21 @@ class TestAccel( unittest.TestCase ):
         self.assertEqual( d.y, 5 )
         self.assertEqual( d.z, 3 )
         
+    def test_eventcontext(self):
+        ec = EventContext()
+        self.assertIsNotNone(ec)
+        self.assertEqual( ec.source, EventSource.none )
+        #self.assertIsNone(ec.data )
+        self.assertEqual( ec.status, 0 )
+        ec = EventContext( source=EventSource.lowSlope, data=Data(x=1, y=2, z=3), status=0x3a)
+        self.assertIsNotNone(ec)
+        self.assertEqual( ec.source, EventSource.lowSlope )
+        self.assertIsNotNone( ec.data )
+        self.assertEqual( ec.data.x, 1 )
+        self.assertEqual( ec.data.y, 2 )
+        self.assertEqual( ec.data.z, 3 )
+        self.assertEqual( ec.status, 0x3a )
+        
         
 
         

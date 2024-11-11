@@ -110,6 +110,10 @@ if not _hasBuiltinEnums:
         attribs = dict()
         for currcls in [cls] + list(cls.__bases__):
             currclsattr = {x: y for x, y in currcls.__dict__.items() if not (x.startswith('_') or callable(y) or isinstance(y, classmethod))}
+            for name, val in currclsattr.items():
+                #if not type(val) in (int, float, complex, bool, str, tuple, range, frozenset, bytes):
+                if type(val) in (list, dict, set, bytearray):
+                    raise ValueError(f"Mutual defaults are not allowed. {name} is of type {type(val)}!")
             attribs.update( currclsattr )
     
         def _constructor(self, *args, **kwargs):

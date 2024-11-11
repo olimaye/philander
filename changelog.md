@@ -13,6 +13,60 @@ This is the summary of relevant changes throughout different releases.
 ## [Unreleased]
 - nothing yet.
 
+## [0.4] - 2024-11-15
+
+### Added
+- Support of the Micropython environment
+- Micropython and Sim(ulation) implementation for the `gpio` module.
+- Micropython implementation for `led`.
+- The `penum` module to provide `Enum`, `Flag` and `dataclass` on Micropython
+- `primitives`: `Percentage.checkRange()`
+- `sysfactory`: Factory class `SysFactory` to create instances of system-dependent classes like serial bus and GPIO.
+- `systypes`: Added `ErrorCode.errNotInited`, `.errInitFailed`, `.errLowLevelFail` and `.errStopped` to reflect corresponding error conditions, occurring e.g. during initilization of the BMA456 sensor.
+- Module `test.micromenu` to provide a substitute for `simple_term_menu` on Micropython
+- Unit tests `utaccel`, `utactuator`, `utbattery`, `utbma456`, `utbutton`, `utdictionary`, `utinterruptable`, `utpenum`, `utpotentiometer`, `utpymitter`, `utthermometer`
+- Unit test suite `suiteNoHw` for non-hardware related tests running on any platform
+
+### Changed
+- `bma456`:
+    - Feature configuration data is outsourced to a corresponding file to save memory.
+    - Simulation is not always instantiated, but on demand from module+class name.
+    - Initialization returns more indicative error codes, such as `ErrorCode.errLowLevelFail` or `ErrorCode.errStopped`
+- `accelerometer`: `AxesSign`, `Tap` and `EventSource` mnemonics are now auto-defined instead of hard-coded fix values. `Orientation` derives `Flag`, while `Tap` is inherited from `Enum`. `Data.data` initializes with `None`.
+- `battery`: `fromPercentage` performs type check and has doc.
+- `configurable`: Attribute `Configuration.type` renamed into `Configuration.item`.
+- `dictionary`: Class name is now upper case `Dictionary`.
+- `gpio`:
+    - Implementation now spreads into platform-dependent sub-modules
+    - `GPIO` is a common, abstract interface class, now. 
+    - instances are created by `SysFactory.getGPIO()`.
+- `interruptable`: `Event` and `EventContextControl` are not `Enum`, anymore. Renamed `EventContextControl` attributes.
+- `mcp40`: Implementation to fit the new `Potentiometer` interface.
+- `potentiometer`: Reworked the `Potentiometer` interface into dedicated `[get|set][digital|resistance|percentage]()` methods.
+- `sensor`:
+    - Renamed `Calibration.type` into `.scheme`.
+    - `SelfTest` is now a `Flag`.
+    - `Sensor` empty interface methods `getStatus()`, `getLatestData()`, and `getNextData()` return `ErrorCode.errNotImplemented` now.
+- `serialbus`:
+    - Implementation now spreads into platform-dependent sub-modules
+    - `SerialBus` is a common, abstract interface class, now. 
+    - instances are created by `SysFactory.getSerialBus()`.
+- `thermometer`: `Data.temperature` is now initialized with zero by default.
+- Module `test.generalTestSuite` uses `micromenu` when running on Micropython
+
+### Deprecated
+- Module `test.generalTestSuite` does not support Enum types, anymore.
+
+### Removed
+- SMBUS package is no longer supported. Use SMBUS2, instead!
+
+### Fixed
+- `BMA456.getLatestData` and `getNextData` return a `Data` object, instead of a list, as defined by the `Sensor` interface.
+- `Dictionary.findKey` really returns a single key, instead of a list.
+- `interruptable`: `Event.evt*` mnemonics are now strings, and thus, hashable. Consolidated behaviour of `Interruptable.registerInterruptHandler()` and `_fire()`.
+- `simBMA456` and `simDev`: Implementation fixed and adapted to the new `SerialBus` and `Sensor` behaviour.
+
+
 ## [0.3] - 2024-08-08
 
 ### Added

@@ -1560,15 +1560,15 @@ class BMA456( BMA456_Reg, SerialBusDevice, Accelerometer, Interruptable ):
         This method is guaranteed to be non-blocking. Therefore, the
         data retrieved might be /old/ or /outdated/ to some extend.
         
-        The result is given as a 3x1 list of signed integers,
+        The result is given as a data object containing 3 signed integers,
         representing the acceleration in milli-G in the x, y and z
         direction, respectively.
         
         Also see: :meth:`.Sensor.getLatestData`.
 
-        :return: The measurement data list and an error code indicating\
+        :return: The measurement data and an error code indicating\
         either success or the reason of failure.
-        :rtype: List(int), ErrorCode
+        :rtype: Data, ErrorCode
         """
         buf, ret = self.readBufferRegister( BMA456.BMA456_REG_ACC_X, 6 )
         if (ret == ErrorCode.errOk):
@@ -1590,15 +1590,15 @@ class BMA456( BMA456_Reg, SerialBusDevice, Accelerometer, Interruptable ):
         This method is guaranteed to produce up-to-date measurement
         data. This may come at the price of a blocking delay.
         
-        As with :meth:`getLatestData`, the result is given as a list
-        of integers representing the acceleration in x, y and z direction
-        in milli-G.
+        As with :meth:`getLatestData`, the result is given as a data object
+        containing three integers that represent the acceleration in x,
+        y and z direction, respectively, expressed in milli-G.
         
         Also see: :meth:`.Sensor.getNextData`.
 
-        :return: The measurement data list and an error code indicating\
+        :return: The measurement data and an error code indicating\
         either success or the reason of failure.
-        :rtype: List(int), ErrorCode
+        :rtype: Data, ErrorCode
         """
         done = False
         while( not done ):
