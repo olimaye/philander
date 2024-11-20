@@ -1,7 +1,7 @@
 """A driver collection for embedded system components, such as sensors or battery chargers.
 """
 __author__ = "Oliver Maye"
-__version__ = "0.3.1"
+__version__ = "0.4"
 __all__ = ["accelerometer", "actuator",
            "battery", "ble", "bma456", "button",
            "charger", "configurable",
