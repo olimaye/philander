@@ -1,12 +1,12 @@
 # -*- coding: utf-8 -*-
 """A module to reflect fundamental physical units and scales.
 """
-from philander.systypes import ErrorCode
-
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["Percentage", "Voltage", "Current",\
            "Temperature", "PreciseTemperature"]
+
+from philander.systypes import ErrorCode
 
 class Percentage(int):
     """Percentage [0...100%] in percent [%]

@@ -10,7 +10,7 @@ from pymitter import EventEmitter
 
 from philander.gpio import GPIO
 from philander.module import Module
-from philander.sysfactory import SysFactory, SysProvider
+from philander.sysfactory import SysFactory
 from philander.systypes import ErrorCode
 
 

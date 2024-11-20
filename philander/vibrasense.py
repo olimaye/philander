@@ -3,6 +3,7 @@
 This board carries a Sencera 801S vibration spring device as its core
 element. 
 """
+from sysfactory import SysFactory
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["VibraSense"]
@@ -11,6 +12,7 @@ from pymitter import EventEmitter
 from .gpio import GPIO
 from .interruptable import Interruptable
 from .sensor import Sensor
+from .sysfactory import SysFactory
 from .systypes import ErrorCode
 
 
@@ -80,7 +82,7 @@ class VibraSense( EventEmitter, Sensor, Interruptable):
         if (ret.isOk()):
             gpioParams["gpio.direction"] = GPIO.DIRECTION_OUT
             gpioParams["gpio.level"] = GPIO.LEVEL_HIGH
-            self.gpioEnable = GPIO()
+            self.gpioEnable = SysFactory.getGPIO()
             ret = self.gpioEnable.open(gpioParams)
         # Setup the signal pin
         if (ret.isOk()):
