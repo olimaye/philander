@@ -8,7 +8,7 @@ import time, logging
 
 from .gpio import GPIO
 from .module import Module
-from .sysfactory import SysFactory
+from .sysfactory import SysFactory, SysProvider
 from .systypes import ErrorCode
 
 
@@ -130,7 +130,7 @@ class LED( Module ):
             ((num_cycles is None) or (num_cycles > 0)) ):
             self.stop_blinking()
             # On MicroPython, use its distinct timer features
-            if self.gpio._implpak == GPIO._IMPLPAK_MICROPYTHON:
+            if self.gpio.provider == SysProvider.MICROPYTHON:
                 from machine import Timer
                 self._timer = Timer()
                 self._cyclesLeft = num_cycles
@@ -148,7 +148,7 @@ class LED( Module ):
                 self.worker.start()
     
     def stop_blinking(self):
-        if self.gpio._implpak == GPIO._IMPLPAK_MICROPYTHON:
+        if self.gpio and (self.gpio.provider == SysProvider.MICROPYTHON):
             if not (self._timer is None):
                 self._timer.deinit()
                 self._timer = None
