@@ -102,7 +102,10 @@ class HTU21D( Sensor, SerialBusDevice ):
         self.latestData = None
         self.measInterval    = 0  # in seconds
         self.resolution = HTU21D.CNT_USR_RESOLUTION_DEFAULT
-        super().__init__()
+        # In MicroPython, super() works only for one/the first superclass,
+        # so call parent methods directly:
+        Sensor.__init__(self)
+        SerialBusDevice.__init__(self)
         
     @classmethod
     def Params_init(cls, paramDict):
@@ -120,11 +123,18 @@ class HTU21D( Sensor, SerialBusDevice ):
         
         Also see: :meth:`.Sensor.Params_init`, :meth:`.SerialBusDevice.Params_init`. 
         """
-
+        defaults = {
+            "HTU21D.resolution": HTU21D.CFG_RESOLUTION_DEFAULT,
+            "Sensor.dataRate": 1,
+        }
+        for key, value in defaults.items():
+            if not key in paramDict:
+                paramDict[key] = value
         paramDict["SerialBusDevice.address"] = HTU21D.ADDRESS
-        if not ("HTU21D.resolution" in paramDict):
-            paramDict["HTU21D.resolution"] = HTU21D.CFG_RESOLUTION_DEFAULT
-        super().Params_init(paramDict)
+        # In MicroPython, super() works only for one/the first superclass,
+        # so call parent methods directly.
+        Sensor.Params_init(paramDict)
+        SerialBusDevice.Params_init(paramDict)
         return None
 
 
@@ -143,16 +153,23 @@ class HTU21D( Sensor, SerialBusDevice ):
         if (ret.isOk()):
             ret = Sensor.open( self, paramDict )
         # Configure the sensor
-        if ("HTU21D.resolution" in paramDict):
-            cfg = Configuration( item=ConfigItem.resolution, value=paramDict["HTU21D.resolution"])
-            ret = self.configure( cfg )
-        else:
-            paramDict["HTU21D.resolution"] = defaults["HTU21D.resolution"]
+        if (ret.isOk()):
+            if ("HTU21D.resolution" in paramDict):
+                cfg = Configuration( item=ConfigItem.resolution, value=paramDict["HTU21D.resolution"])
+                ret = self.configure( cfg )
+            else:
+                paramDict["HTU21D.resolution"] = defaults["HTU21D.resolution"]
         return ret
 
 
     def close(self):
-        return super().close()
+        # In MicroPython, super() works only for one/the first superclass,
+        # so call parent methods directly.
+        err = Sensor.close(self)
+        err2 = SerialBusDevice.close(self)
+        if err.isOk():
+            err = err2
+        return err
     
     def _heaterOn(self, flag=True):
         data, ret = self.readByteRegister( HTU21D.CMD_READ_USR_REG )
@@ -185,16 +202,20 @@ class HTU21D( Sensor, SerialBusDevice ):
                 oldTemp = self.latestData.temperature
                 oldHum  = self.latestData.humidity
             else:
-                oldTemp = self._getTemperature()
-                oldHum  = self._getHumidity( oldTemp )
-            ret = self._heaterOn(True)
-            if (ret.isOk()):
+                oldTemp, ret = self._getTemperature()
+                if ret.isOk():
+                    oldHum, ret  = self._getHumidity( oldTemp )
+            if ret.isOk():
+                ret = self._heaterOn(True)
+            if ret.isOk():
                 time.sleep( HTU21D.SELFTEST_TIME_WAIT_S )
-                newTemp = self._getTemperature()
-                newHum  = self._getHumidity( newTemp )
-                ret = self._heaterOn( False )
-            if (ret.isOk()):
-                if (newTemp >= oldTemp + 0.5) and (newHum <= oldHum - 2):
+                newTemp, ret = self._getTemperature()
+                if ret.isOk():
+                    newHum, ret  = self._getHumidity( newTemp )
+                if ret.isOk():
+                    ret = self._heaterOn( False )
+            if ret.isOk():
+                if (newTemp >= oldTemp + 0.5) and (newHum <= oldHum):
                     ret = ErrorCode.errOk
                 else:
                     ret = ErrorCode.errFailure
@@ -259,13 +280,13 @@ class HTU21D( Sensor, SerialBusDevice ):
                     ret  = self.writeByteRegister( HTU21D.CMD_WRITE_USR_REG, data )
                 if (ret.isOk()):
                     self.resolution = newResolution
-                    maxTime = HTU21D._getMaxMeasurementTimeMS( self.resolution )
+                    maxTime = HTU21D._getMaxMeasurementTime( self.resolution )
                     if( self.measInterval < maxTime ):
                         self.measInterval = maxTime
                         self.dataRate = 1 / self.measInterval
             # Data rate
             elif (configData.item == ConfigItem.rate):
-                maxTime = HTU21D._getMaxMeasurementTimeMS( self.resolution )
+                maxTime = HTU21D._getMaxMeasurementTime( self.resolution )
                 if (maxTime <= 0):
                     ret = ErrorCode.errCorruptData
                 elif (0 < configData.value) and (configData.value <= 1/maxTime):
@@ -273,6 +294,9 @@ class HTU21D( Sensor, SerialBusDevice ):
                     self.measInterval = 1 / self.dataRate
                 else:
                     ret = ErrorCode.errSpecRange
+            # Data range
+            elif (configData.item == ConfigItem.range):
+                ret = Sensor.configure( self, configData )
             # Anything else
             else:
                 ret = ErrorCode.errNotSupported

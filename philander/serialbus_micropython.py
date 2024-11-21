@@ -40,14 +40,21 @@ class _SerialBus_Micropython( SerialBus ):
     
     def _readBytes( self, device, reg, num ):
         err = ErrorCode.errOk
-        data = self.bus.readfrom_mem( device.address, reg, num )
-        data = int.from_bytes( data, "little" )
+        try:
+            data = self.bus.readfrom_mem( device.address, reg, num )
+            data = int.from_bytes( data, "little" )
+        except OSError:
+            data = 0
+            err = ErrorCode.errLowLevelFail
         return data, err
 
     def _writeBytes( self, device, reg, data, num ):
         err = ErrorCode.errOk
-        buf = data.to_bytes( num, "little" )
-        self.bus.writeto_mem( device.address, reg, buf )
+        try:
+            buf = data.to_bytes( num, "little" )
+            self.bus.writeto_mem( device.address, reg, buf )
+        except OSError:
+            err = ErrorCode.errLowLevelFail
         return err
 
     def readByteRegister( self, device, reg ):
@@ -70,23 +77,37 @@ class _SerialBus_Micropython( SerialBus ):
     
     def readBufferRegister( self, device, reg, length ):
         err = ErrorCode.errOk
-        data = self.bus.readfrom_mem( device.address, reg, length )
-        data = list(data)
+        try:
+            data = self.bus.readfrom_mem( device.address, reg, length )
+            data = list(data)
+        except OSError:
+            data = []
+            err = ErrorCode.errLowLevelFail
         return data, err
 
     def writeBufferRegister( self, device, reg, data ):
         err = ErrorCode.errOk
-        self.bus.writeto_mem( device.address, reg, bytes(data) )
+        try:
+            self.bus.writeto_mem( device.address, reg, bytes(data) )
+        except OSError:
+            err = ErrorCode.errLowLevelFail
         return err
 
     def readBuffer( self, device, length ):
         err = ErrorCode.errOk
-        data = self.bus.readfrom( device.address, length )
-        data = list(data)
+        try:
+            data = self.bus.readfrom( device.address, length )
+            data = list(data)
+        except OSError:
+            data = []
+            err = ErrorCode.errLowLevelFail
         return data, err
 
     def writeBuffer( self, device, buffer ):
         err = ErrorCode.errOk
-        self.bus.writeto( device.address, bytes(buffer) )
+        try:
+            self.bus.writeto( device.address, bytes(buffer) )
+        except OSError:
+            err = ErrorCode.errLowLevelFail
         return err
     
