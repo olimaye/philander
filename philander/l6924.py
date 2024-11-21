@@ -7,10 +7,11 @@ __author__ = "Carl Bellgardt"
 __version__ = "0.1"
 __all__ = ["L6924"]
 
-from .charger import Charger, Status, ChargerError, TemperatureRating
-from .battery import Status as BatStatus
-from .gpio import GPIO
-from .systypes import ErrorCode
+from philander.charger import Charger, Status, DCStatus, PowerSrc, ChargerError, TemperatureRating
+from philander.battery import Status as BatStatus
+from philander.gpio import GPIO
+from philander.sysfactory import SysFactory
+from philander.systypes import ErrorCode
 
 class L6924(Charger):
     """L6924 driver implementation.
@@ -68,8 +69,8 @@ class L6924(Charger):
         err = ErrorCode.errOk
         self.Params_init(paramDict)
         # init St1 and St2
-        self._pinSt1 = GPIO()
-        self._pinSt2 = GPIO()
+        self._pinSt1 = SysFactory.getGPIO()
+        self._pinSt2 = SysFactory.getGPIO()
         st1_params = {} # collector requires pull-up to be readable
         st2_params = {}
         for key, value in paramDict.items():
@@ -148,7 +149,10 @@ class L6924(Charger):
         :return: An error code.
         :rtype: ErrorCode
         """
-        err = ErrorCode.errOk if getChgStatus() != Status.unknown else Error.errUnavailable
+        if self.getChgStatus() != Status.unknown:
+            err = ErrorCode.errOk
+        else:
+            err = ErrorCode.errUnavailable
         return err
     
     def getNumCells(self):
@@ -172,7 +176,7 @@ class L6924(Charger):
         :return: The battery state.
         :rtype: battery.Status
         """
-        chg_status = getChgStatus()
+        chg_status = self.getChgStatus()
         if chg_status == Status.off:
             status = BatStatus.unknown
         elif chg_status == Status.fastCharge:
@@ -211,7 +215,7 @@ class L6924(Charger):
         :return: A status code to indicate the DC supply status.
         :rtype: DCStatus
         """
-        chg_status = getChgStatus()
+        chg_status = self.getChgStatus()
         if chg_status == Status.off:
             status = DCStatus.off
         elif chg_status == Status.fastCharge:
@@ -232,7 +236,7 @@ class L6924(Charger):
         :return: A code to indicate the power source.
         :rtype: PowerSrc
         """
-        chg_status = getChgStatus()
+        chg_status = self.getChgStatus()
         if chg_status == Status.off:
             status = PowerSrc.bat
         elif chg_status == Status.fastCharge:
@@ -265,7 +269,7 @@ class L6924(Charger):
         :return: A rating code to indicate the temperature rating of the battery element.
         :rtype: TemperatureRating
         """
-        chg_status = getChgStatus()
+        chg_status = self.getChgStatus()
         if chg_status == Status.unknown:
             status = TemperatureRating.unknown
         else:
@@ -281,7 +285,7 @@ class L6924(Charger):
         :return: A charger error code to further describe reason for the error.
         :rtype: ChargerError
         """
-        err = ChargerError.ok if getChgStatus() != Status.unknown else ChargerError.bat 
+        err = ChargerError.ok if self.getChgStatus() != Status.unknown else ChargerError.bat 
         return err
 
     def restartCharging(self):

@@ -177,7 +177,7 @@ class GPIO( Module, Interruptable ):
             self.inverted = paramDict.get("gpio.inverted", defaults["gpio.inverted"])
             if self.inverted:
                 # If inverted, simply swap the entries of the level-dictionary
-                self.dictLevel[GPIO.LEVEL_LOW], self._dictLevel[GPIO.LEVEL_HIGH] = self.dictLevel[GPIO.LEVEL_HIGH], self._dictLevel[GPIO.LEVEL_LOW]
+                self._dictLevel[GPIO.LEVEL_LOW], self._dictLevel[GPIO.LEVEL_HIGH] = self._dictLevel[GPIO.LEVEL_HIGH], self._dictLevel[GPIO.LEVEL_LOW]
             if self.direction == GPIO.DIRECTION_IN:
                 self.trigger = paramDict.get("gpio.trigger", defaults["gpio.trigger"])
                 self.bounce = paramDict.get("gpio.bounce", defaults["gpio.bounce"])
