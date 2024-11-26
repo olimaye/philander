@@ -31,7 +31,7 @@ class BMA456( BMA456_Reg, SerialBusDevice, Accelerometer, Interruptable ):
     """BMA456 driver implementation.
     """
     
-    ADRESSES_ALLOWED = [0x18, 0x19]
+    ADDRESSES_ALLOWED = [0x18, 0x19]
     """Default address is 0x18 assuming that SDO is set/tied to GND.
     
     Alternatively, the address can be 0x19 by pulling SDO high (VDDIO).
@@ -510,7 +510,7 @@ class BMA456( BMA456_Reg, SerialBusDevice, Accelerometer, Interruptable ):
         =============================    ==========================================================================================================
         Key name                         Value type, meaning and default
         =============================    ==========================================================================================================
-        SerialBusDevice.address          ``int`` I2C serial device address, one of :attr:`ADRESSES_ALLOWED`; default is :attr:`ADRESSES_ALLOWED` ``[0]``.
+        SerialBusDevice.address          ``int`` I2C serial device address, one of :attr:`ADDRESSES_ALLOWED`; default is :attr:`ADDRESSES_ALLOWED` ``[0]``.
         Sensor.dataRange                 ``int`` Measurement range in milli-g; default corresponds to :attr:`.BMA456_CNT_ACC_RANGE_DEFAULT`.
         Sensor.dataRate                  ``int`` Data rate in Hz; default corresponds to :attr:`.BMA456_CNT_ACC_CONF_ODR_DEFAULT`.
         BMA456.INT1_IO_CTRL              ``int`` Content of the INT1_IO_CTRL register; default is :attr:`.BMA456_CNT_INT1_IO_CTRL_DEFAULT`.
@@ -536,11 +536,11 @@ class BMA456( BMA456_Reg, SerialBusDevice, Accelerometer, Interruptable ):
         """
         # Set defaults, where necessary
         if not ("SerialBusDevice.address" in paramDict):
-            paramDict["SerialBusDevice.address"] = BMA456.ADRESSES_ALLOWED[0]
+            paramDict["SerialBusDevice.address"] = BMA456.ADDRESSES_ALLOWED[0]
         else:
             da = paramDict["SerialBusDevice.address"]
-            if not (da in BMA456.ADRESSES_ALLOWED):
-                da = BMA456.ADRESSES_ALLOWED[da!=0]   
+            if not (da in BMA456.ADDRESSES_ALLOWED):
+                da = BMA456.ADDRESSES_ALLOWED[da!=0]   
                 paramDict["SerialBusDevice.address"] = da
         if not ("Sensor.dataRange" in paramDict):
             paramDict["Sensor.dataRange"], _ = BMA456.dictRange.getValue( BMA456_Reg.BMA456_CNT_ACC_RANGE_DEFAULT )
@@ -608,7 +608,7 @@ class BMA456( BMA456_Reg, SerialBusDevice, Accelerometer, Interruptable ):
             result = ErrorCode.errResourceConflict
         else:
             if (result == ErrorCode.errOk):
-                paramDict["SerialBusDevice.address"] = paramDict.get("SerialBusDevice.address", BMA456.ADRESSES_ALLOWED[0])
+                paramDict["SerialBusDevice.address"] = paramDict.get("SerialBusDevice.address", BMA456.ADDRESSES_ALLOWED[0])
                 result = SerialBusDevice.open(self, paramDict)
             if (result == ErrorCode.errOk):
                 # Ramp-up the chip
