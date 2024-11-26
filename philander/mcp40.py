@@ -49,11 +49,14 @@ class MCP40( SerialBusDevice, Potentiometer ):
         
         Also see: :meth:`.SerialBusDevice.Params_init`, :meth:`.Potentiometer.Params_init`. 
         """
-        defaults = dict()
+        defaults = {
+            "SerialBusDevice.address"   : MCP40.ADDRESSES_ALLOWED[0],
+            }
+        for key, value in defaults.items():
+            if not key in paramDict:
+                paramDict[key] = value
         SerialBusDevice.Params_init( paramDict )
         Potentiometer.Params_init( paramDict )
-        defaults.update( paramDict )
-        paramDict = defaults
         return None
 
     def open(self, paramDict):
@@ -67,11 +70,10 @@ class MCP40( SerialBusDevice, Potentiometer ):
         :rtype: ErrorCode
         """
         # Get default parameters
-        MCP40.Params_init( paramDict )
+        ret = Potentiometer.open( self, paramDict )
         # Open the bus device
-        ret = SerialBusDevice.open(self, paramDict)
-        # Store potentiometer properties
-        self._resistanceMax = paramDict["Potentiometer.resistance.max"]
+        if ret.isOk():
+            ret = SerialBusDevice.open(self, paramDict)
         return ret
 
 
