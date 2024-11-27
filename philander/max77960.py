@@ -189,20 +189,20 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
         Charger.Current.OTG                  ``int`` ; default is :attr:`.OTG_ILIM_DEFAULT`.
         Charger.Voltage.MinVSys              ``int`` ; default is :attr:`.MINVSYS_DEFAULT`.
         Charger.Voltage.ChargeIn             ``int`` ; default is :attr:`.VCHGIN_REG_DEFAULT`.
-        All MAX77960.int.gpio.* settings as documented at :meth:`.GPIO.Params_init`.
+        All Charger.int.gpio.* settings as documented at :meth:`.GPIO.Params_init`.
         ===============================================================================================================================================
         
         Also see: :meth:`.Charger.Params_init`, :meth:`.SerialBusDevice.Params_init`, :meth:`.GPIO.Params_init`. 
         """
         # Override default base class parameter: serial bus device address
-        paramDict["SerialBusDevice.address"] = MAX77960.ADDRESSES_ALLOWED[0]
+        paramDict["SerialBusDevice.address"] = cls.ADDRESSES_ALLOWED[0]
         # Add interrupt pin /gpio specifics
-        paramDict["MAX77960.int.gpio.direction"] = GPIO.DIRECTION_IN
+        paramDict["Charger.int.gpio.direction"] = GPIO.DIRECTION_IN
         # If not present, add settings different from hardware reset values
         defaults = {
             "Charger.Comm.Mode" :           MAX77960_Reg.COMM_MODE_I2C,
-            "MAX77960.int.gpio.trigger":    GPIO.TRIGGER_EDGE_FALLING,
-            "MAX77960.int.gpio.bounce" :    GPIO.BOUNCE_NONE,
+            "Charger.int.gpio.trigger":    GPIO.TRIGGER_EDGE_FALLING,
+            "Charger.int.gpio.bounce" :    GPIO.BOUNCE_NONE,
             }
         for key, value in defaults.items():
             if not key in paramDict:
@@ -214,7 +214,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
         
         gpioParams = {}
         GPIO.Params_init( gpioParams )
-        gp = dict( [("MAX77960.int."+k,v) for k,v in gpioParams.items()] )
+        gp = dict( [("Charger.int."+k,v) for k,v in gpioParams.items()] )
         for key, value in gp.items():
             if not( key in paramDict):
                 paramDict[key] = value
@@ -267,9 +267,9 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
             self._lockRegisters()
         # Setup interrupt related stuff.
         if (ret == ErrorCode.errOk):
-            if ("MAX77960.int.gpio.pinDesignator" in paramDict):
-                paramDict["MAX77960.int.gpio.direction"] = GPIO.DIRECTION_IN
-                gpioParams = dict( [(k.replace("MAX77960.int.", ""),v) for k,v in paramDict.items() if k.startswith("MAX77960.int.")] )
+            if ("Charger.int.gpio.pinDesignator" in paramDict):
+                paramDict["Charger.int.gpio.direction"] = GPIO.DIRECTION_IN
+                gpioParams = dict( [(k.replace("Charger.int.", ""),v) for k,v in paramDict.items() if k.startswith("Charger.int.")] )
                 self.pinInt = SysFactory.getGPIO()
                 ret = self.pinInt.open( gpioParams )
                 self.enableInterrupt()

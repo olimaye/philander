@@ -24,7 +24,7 @@ class TestMAX77960( unittest.TestCase ):
         if args.bus:
             self.configSensor["SerialBus.designator"] = args.bus
         if args.int:
-            self.config["MAX77960.int.gpio.pinDesignator"] = args.int
+            self.config["Charger.int.gpio.pinDesignator"] = args.int
             
     def test_paramsinit(self):
         cfg = self.config.copy()
@@ -74,12 +74,12 @@ class TestMAX77960( unittest.TestCase ):
         self.assertEqual( cfg["Charger.Voltage.MinVSys"], Driver.MINVSYS_DEFAULT)
         self.assertTrue( "Charger.Voltage.ChargeIn" in cfg )
         self.assertEqual( cfg["Charger.Voltage.ChargeIn"], Driver.VCHGIN_REG_DEFAULT)
-        self.assertTrue( "MAX77960.int.gpio.direction" in cfg )
-        self.assertEqual( cfg["MAX77960.int.gpio.direction"], GPIO.DIRECTION_IN )
-        self.assertTrue( "MAX77960.int.gpio.trigger" in cfg )
-        self.assertEqual( cfg["MAX77960.int.gpio.trigger"], GPIO.TRIGGER_EDGE_FALLING )
-        self.assertTrue( "MAX77960.int.gpio.bounce" in cfg )
-        self.assertEqual( cfg["MAX77960.int.gpio.bounce"], GPIO.BOUNCE_NONE )
+        self.assertTrue( "Charger.int.gpio.direction" in cfg )
+        self.assertEqual( cfg["Charger.int.gpio.direction"], GPIO.DIRECTION_IN )
+        self.assertTrue( "Charger.int.gpio.trigger" in cfg )
+        self.assertEqual( cfg["Charger.int.gpio.trigger"], GPIO.TRIGGER_EDGE_FALLING )
+        self.assertTrue( "Charger.int.gpio.bounce" in cfg )
+        self.assertEqual( cfg["Charger.int.gpio.bounce"], GPIO.BOUNCE_NONE )
 
     def test_open(self):
         cfg = self.config.copy()

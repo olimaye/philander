@@ -22,16 +22,16 @@ class ChipType(Enum):
 class _STC311x_Reg:
     def __init__(self, Param_dict):
         # apply config
-        self.CONFIG_GASGAUGE_0_RSENSE = Param_dict["Gasgauge.senseResistor"]
-        self.CONFIG_GASGAUGE_0_BATTERY_IDX = Param_dict["Gasgauge.battery_idx"]  # TODO: what is this pin used for?
-        self.CONFIG_GASGAUGE_0_GPIO_ALARM = Param_dict["Gasgauge.gpio_alarm_idx"]
-        self.RELAX_MAX_DEFAULT = Param_dict["Gasgauge.cmonit_max"]
-        self.SETUP_0_REG_CC_CNF = Param_dict["Gasgauge.cc_cnf"]
-        self.SETUP_0_REG_VM_CNF = Param_dict["Gasgauge.vm_cnf"]
-        self.SETUP_0_REG_ALARM_SOC = Param_dict["Gasgauge.alarm_soc"]
-        self.SETUP_0_REG_ALARM_VOLTAGE = Param_dict["Gasgauge.alarm_voltage"]
-        self.SETUP_0_REG_CURRENT_THRES = Param_dict["Gasgauge.current_thres"]
-        self.SETUP_0_REG_CMONIT_MAX = Param_dict["Gasgauge.cmonit_max"]
+        self.CONFIG_GASGAUGE_0_RSENSE = Param_dict["Gasgauge.SenseResistor"]
+        # self.CONFIG_GASGAUGE_0_BATTERY_IDX = Param_dict["Gasgauge.battery_idx"]  # TODO: what is this pin used for?
+        # self.CONFIG_GASGAUGE_0_GPIO_ALARM = Param_dict["Gasgauge.gpio_alarm_idx"]
+        # self.RELAX_MAX_DEFAULT = Param_dict["Gasgauge.cmonit_max"]
+        # self.SETUP_0_REG_CC_CNF = Param_dict["Gasgauge.cc_cnf"]
+        # self.SETUP_0_REG_VM_CNF = Param_dict["Gasgauge.vm_cnf"]
+        # self.SETUP_0_REG_ALARM_SOC = Param_dict["Gasgauge.alarm_soc"]
+        # self.SETUP_0_REG_ALARM_VOLTAGE = Param_dict["Gasgauge.alarm_voltage"]
+        # self.SETUP_0_REG_CURRENT_THRES = Param_dict["Gasgauge.current_thres"]
+        # self.SETUP_0_REG_CMONIT_MAX = Param_dict["Gasgauge.cmonit_max"]
 
     # Definition of registers and their content
 

@@ -13,7 +13,7 @@ def main():
 
     # get default settings
     settings = {
-            "Gasgauge.pinInt.gpio.pinDesignator": 4  # board 7
+            "Gasgauge.int.gpio.pinDesignator": 4  # board 7
             }
     gg.Params_init(settings)
 
