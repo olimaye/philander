@@ -28,6 +28,12 @@ class VibraSense2( EventEmitter, Sensor, Interruptable, SerialBusDevice):
     # The only address. No alternative.
     ADDRESSES_ALLOWED = [0x4D]
     
+    def __init__(self):
+        SerialBusDevice.__init__(self)
+        Sensor.__init__(self)
+        Interruptable.__init__(self)
+        EventEmitter.__init__(self)
+        
     #
     # Module API
     #
@@ -49,16 +55,22 @@ class VibraSense2( EventEmitter, Sensor, Interruptable, SerialBusDevice):
         """
 
         paramDict["SerialBusDevice.address"] = VibraSense2.ADDRESSES_ALLOWED[0]
-        super().Params_init(paramDict)
+        Sensor.Params_init(paramDict)
+        SerialBusDevice.Params_init(paramDict)
         return None
 
 
     def open(self, paramDict):
-        ret = super().open(paramDict)
+        ret = SerialBusDevice.open(self, paramDict)
+        if ret.isOk():
+            ret = Sensor.open(self, paramDict)
         return ret
     
     def close(self):
-        ret = super().close()
+        ret = Sensor.close(self)
+        ret2 = SerialBusDevice.close(self)
+        if ret.isOk():
+            ret = ret2
         return ret
         
     #
