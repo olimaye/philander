@@ -1,21 +1,22 @@
 # TODO: all the comments
 
 # -*- coding: utf-8 -*-
-"""A module to provide base classes and data types for gas gauge driver implementations.
+"""A module to provide base classes and data types for ST gas gauge driver implementations.
 """
 __author__ = "Carl Bellgardt"
 __version__ = "0.1"
-__all__ = ["STC311x", "ChipType"]
+__all__ = ["STC311x", "OperatingMode"]
 
+import time
 from philander.penum import Enum, unique, auto, idiotypic
 
 from philander.battery import Status as BatStatus, Level as BatLevel
-from philander.gasgauge import GasGauge, SOCChangeRate
+from philander.gasgauge import GasGauge, SOCChangeRate, StatusID
 from philander.gpio import GPIO
 from philander.interruptable import Interruptable, Event
 from philander.primitives import Current, Voltage, Percentage, Temperature
 from philander.serialbus import SerialBusDevice
-from philander.stc311x_reg import _STC311x_Reg, STC3115_Reg, STC3117_Reg, ChipType
+from philander.stc311x_reg import STC311x_Reg
 from philander.sysfactory import SysFactory
 from philander.systypes import ErrorCode, RunLevel, Info
 
@@ -30,21 +31,61 @@ class OperatingMode(Enum):
 
 
 class STC311x(GasGauge, SerialBusDevice, Interruptable):
-    """Driver implementation for the stc3117 and stc3118 gas gauge chips by ST microelectronics.
+    """Base implementation for the stc311x gas gauge chip family.
     
     A gas gauge allows to keep track of the state of charge
     (SOC), remaining capacity, current voltage etc. of a battery.
-    Info about the specific gas gauge ICs can be found at https://www.st.com/en/power-management/stc3117.html
-    This class was tested using a STC3117 but should also work for STC3118 and possibly other similar chips.
+    Info about the specific gas gauge ICs can be found at
+    https://www.st.com/en/power-management/stc3115.html or
+    https://www.st.com/en/power-management/stc3117.html
     """
 
     ADDRESSES_ALLOWED = [0x70]
+    
+    MODEL_ID = None     # to be defined in sub-classes
+
+    RSENSE_DEFAULT = 10          # default Rsense, in mOhm
+    BAT_CAPACITY_DEFAULT = 800   # default battery capacity in mAh
+    BAT_IMPEDANCE_DEFAULT= 200   # default battery impedance in mOhm
+    ALARM_SOC_DEFAULT = 1        # default SOC alarm threshold [%]
+    ALARM_VOLTAGE_DEFAULT = 3000 # default voltage alarm threshold [mV]
+    RELAX_CURRENT_DEFAULT = 5000 # default current monitoring threshold [uA]
+    RELAX_TIMER_DEFAULT   = 480  # default current monitoring timer [s]
+    
+    # Constants needed only for the implementation
+    POR_TIMEOUT = 3  # POR timeout i seconds
+
 
     def __init__(self):
         SerialBusDevice.__init__(self)
         Interruptable.__init__(self)
-        self.REGISTER = None  # chip specific register information, set in open() via a parameter
+        self.REGISTER = None  # chip specific register information
         self.pinInt = None
+        self.RSense = None          # Sense resistor in milli Ohm
+        self.batCapacity = None     # Battery capacity in mAh
+        self.batImpedance= None     # Battery impedance in mOhm.
+        self.alarmSOC = None        # SOC alarm threshold [%]
+        self.alarmVoltage = None    # Voltage alarm threshold [mV]
+        self.relaxCurrent = None    # Current monitoring threshold [uA]
+        self.relaxTimerCC2VM = None # Current monitor timing CC->VM [s]
+
+    def _getOperatingMode(self):
+        data, err = self.readByteRegister(self.REGISTER.REG_MODE)
+        if err.isOk():
+            if data & self.REGISTER.MODE_GG_RUN:
+                if data & self.REGISTER.MODE_VMODE:
+                    ret = OperatingMode.opModeVoltage
+                else:
+                    ret = OperatingMode.opModeMixed
+            else:
+                ret = OperatingMode.opModeStandby
+        else:
+            ret = OperatingMode.opModeUnknown
+        return ret
+
+    #
+    # Module API
+    #
 
     @classmethod
     def Params_init(cls, paramDict):
@@ -56,23 +97,27 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         Key name                             Value type, meaning and default
         =================================    ==========================================================================================================
         SerialBusDevice.address              ``int`` I2C serial device address; default is :attr:`ADDRESSES_ALLOWED` [0].
-        Gasgauge.ChipType                    ``ChipType`` identifies STC3115 or STC3117 chip; default is ``ChipType.STC3115``
-        Gasgauge.SenseResistor               ``int`` Current sense resistor Rs in mOhm [5...50]; default is ``_STC311x_Reg.CONFIG_RSENSE_DEFAULT``
-        All other Gasgauge.int.gpio.* settings as documented at :meth:`.GPIO.Params_init`.
+        Gasgauge.SenseResistor               ``int`` Current sense resistor Rs in mOhm [5...50]; default is ``RSENSE_DEFAULT``
+        Gasgauge.battery.capacity            ``int`` Battery capacity in mAh; default is ``BAT_CAPACITY_DEFAULT``
+        Gasgauge.battery.impedance           ``int`` Battery impedance in mOhm; default is ``BAT_IMPEDANCE_DEFAULT``
+        Gasgauge.alarm.soc                   ``int`` SOC alarm threshold [%]; default is ``ALARM_SOC_DEFAULT``
+        Gasgauge.alarm.voltage               ``int`` Voltage alarm threshold [mV]; default is ``ALARM_VOLTAGE_DEFAULT``
+        Gasgauge.relax.current               ``int`` Current monitoring threshold [uA]; default is ``RELAX_CURRENT_DEFAULT``
+        Gasgauge.relax.timer                 ``int`` Current monitoring timer count [s]; default is ``RELAX_TIMER_DEFAULT``
+        Gasgauge.int.gpio.*                  ALM pin configuration; See :meth:`.GPIO.Params_init`.
         ===============================================================================================================================================
         
         Also see: :meth:`.Gasgauge.Params_init`, :meth:`.SerialBusDevice.Params_init`, :meth:`.GPIO.Params_init`.
         """
         def_dict = {
-            "SerialBusDevice.address": cls.ADDRESSES_ALLOWED[0],
-            "Gasgauge.ChipType": ChipType.STC3115,  # TODO: implement auto
-            "Gasgauge.SenseResistor": _STC311x_Reg.CONFIG_RSENSE_DEFAULT,  # Sense resistor in milli Ohm
-            # "Gasgauge.cc_cnf": _STC311x_Reg.CC_CNF_DEFAULT,  # Coulomb-counter mode configuration
-            # "Gasgauge.vm_cnf": _STC311x_Reg.VM_CNF_DEFAULT,  # Voltage mode configuration
-            # "Gasgauge.alarm_soc": _STC311x_Reg.ALARM_SOC_DEFAULT,  # SOC lower threshold; SOC alarm level [0.5%]
-            # "Gasgauge.alarm_voltage": _STC311x_Reg.ALARM_VOLTAGE_DEFAULT,  # Voltage lower threshold; 3.0 V
-            # "Gasgauge.current_thres": _STC311x_Reg.CURRENT_THRES_DEFAULT,  # Current monitoring threshold; +/-470 V drop
-            # "Gasgauge.cmonit_max": _STC311x_Reg.CMONIT_MAX_DEFAULT  # Monitoring timing threshold; CC-VM: 4 minutes; VM->CC: 1 minute
+            "SerialBusDevice.address":      cls.ADDRESSES_ALLOWED[0],
+            "Gasgauge.SenseResistor":       cls.RSENSE_DEFAULT,
+            "Gasgauge.battery.capacity":    cls.BAT_CAPACITY_DEFAULT,
+            "Gasgauge.battery.impedance":   cls.BAT_IMPEDANCE_DEFAULT,
+            "Gasgauge.alarm.soc":           cls.ALARM_SOC_DEFAULT,
+            "Gasgauge.alarm.voltage":       cls.ALARM_VOLTAGE_DEFAULT,
+            "Gasgauge.relax.current":       cls.RELAX_CURRENT_DEFAULT,
+            "Gasgauge.relax.timer":         cls.RELAX_TIMER_DEFAULT,
             "Gasgauge.int.gpio.direction":  GPIO.DIRECTION_IN,
             "Gasgauge.int.gpio.trigger":    GPIO.TRIGGER_EDGE_FALLING,
             "Gasgauge.int.gpio.bounce" :    GPIO.BOUNCE_NONE,
@@ -99,16 +144,17 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         """
         self.Params_init(paramDict)
         err = ErrorCode.errOk
-        if paramDict["Gasgauge.ChipType"] == ChipType.STC3115:
-            self.REGISTER = STC3115_Reg(paramDict)
-        elif paramDict["Gasgauge.ChipType"] == ChipType.STC3117:
-            self.REGISTER = STC3117_Reg(paramDict)
-        else:
-            err = ErrorCode.errInvalidParameter
         if err.isOk():
             err = SerialBusDevice.open(self, paramDict)
         if err.isOk():
-            self._setup()
+            self.RSense = paramDict["Gasgauge.SenseResistor"]
+            self.batCapacity = paramDict["Gasgauge.battery.capacity"]
+            self.batImpedance = paramDict["Gasgauge.battery.impedance"]
+            self.alarmSOC = paramDict["Gasgauge.alarm.soc"]
+            self.alarmVoltage = paramDict["Gasgauge.alarm.voltage"]
+            self.relaxCurrent = paramDict["Gasgauge.relax.current"]
+            self.relaxTimerCC2VM = paramDict["Gasgauge.relax.timer"]
+            err = self._setup()
         if err.isOk() and ("Gasgauge.int.gpio.pinDesignator" in paramDict):
             # Setup GPIO pin for interrupts
             prefix = "Gasgauge.int."
@@ -143,6 +189,80 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
                 err = err2
         return err
 
+    def setRunLevel(self, level):
+        """Select the power-saving operation mode.
+
+        Switches the instance to one of the power-saving modes or
+        recovers from these modes. Situation-aware deployment of these
+        modes can greatly reduce the system's total power consumption.
+        
+        :param RunLevel level: The level to switch to.
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        ret = ErrorCode.errOk
+        mode = self.REGISTER.MODE_OFF
+        if level in [RunLevel.active, RunLevel.idle]:
+            # Mixed mode: coulomb counter + voltage gas gauge -> Leave VMODE off
+            mode = self.REGISTER.MODE_OFF | self.REGISTER.MODE_GG_RUN | self.REGISTER.MODE_FORCE_CC
+            if self.pinInt:
+                mode |= self.REGISTER.MODE_ALM_ENA
+        elif level in [RunLevel.relax, RunLevel.snooze, RunLevel.nap, RunLevel.sleep, RunLevel.deepSleep]:
+            # Power saving mode: voltage gas gauge, only. -> VMODE = 1
+            mode = self.REGISTER.MODE_OFF | self.REGISTER.MODE_VMODE | self.REGISTER.MODE_GG_RUN | self.REGISTER.MODE_FORCE_VM
+            if self.pinInt:
+                mode |= self.REGISTER.MODE_ALM_ENA
+        elif level == RunLevel.shutdown:
+            # ret = backupRam(self)
+            mode = self.REGISTER.MODE_VMODE | self.REGISTER.MODE_FORCE_VM
+        else:
+            ret = ErrorCode.errNotSupported
+        # set mode and return ErrorCode
+        if ret.isOk():
+            ret = SerialBusDevice.writeByteRegister(self,  self.REGISTER.REG_MODE, mode)
+        return ret
+    
+    #
+    # Gasgauge API
+    #
+
+    def reset(self):
+        """Soft resets the device.
+        
+        The device is in some default state, afterwards and must be
+        re-configured according to the application's needs.
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        # UNDOCUMENTED: At the end of the reset phase, the MODE_GG_RUN bit is cleared.
+        # In order to detect this, we have to set it, first:
+        mode_data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_MODE)
+        if err.isOk() and not (mode_data & self.REGISTER.MODE_GG_RUN):
+            mode_data |= self.REGISTER.MODE_GG_RUN
+            err = SerialBusDevice.writeByteRegister(self, self.REGISTER.REG_MODE, mode_data)
+            # same applies for beneath
+        # Do a soft reset by asserting CTRL_PORDET
+        if err.isOk():
+            # TODO: consider adding a set_ctrl / get_ctrl / add_ctrl method for this purpose; same for mode
+            ctrl_data = self.REGISTER.CTRL_IO0DATA | self.REGISTER.CTRL_GG_RST | self.REGISTER.CTRL_PORDET
+            err = SerialBusDevice.writeByteRegister(self, self.REGISTER.REG_CTRL, ctrl_data)
+        # Delay: Loop until we see the MODE_GG_RUN bit cleared:
+        if err.isOk():
+            t0 = time.time()
+            done = False
+            bootFinished = False
+            while not done:
+                mode_data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_MODE)
+                tNow = time.time()
+                bootFinished = err.isOk() and not (mode_data & self.REGISTER.MODE_GG_RUN)
+                done = bootFinished or (tNow - t0 > STC311x.POR_TIMEOUT)
+            if not bootFinished:
+                err = ErrorCode.errMalfunction
+        # Then, re-initialize the device
+        if err.isOk():
+            self._setup()
+        return err
+    
     def getInfo(self):
         """Retrieves an information block from the gas gauge device.
         
@@ -172,6 +292,9 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
             info.chipID = chip_id
             if chip_id == self.REGISTER.CHIP_ID:
                 info.validity = Info.validChipID
+        if not self.MODEL_ID is None:
+            info.modelID = self.MODEL_ID
+            info.validity = (info.validity | Info.validModelID)
         return info, err
 
     def getStatus(self, statusID):
@@ -202,8 +325,51 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         :return: The status object and an error code indicating either success or the reason of failure.
         :rtype: Object, ErrorCode
         """
-        del statusID
-        return None, ErrorCode.errNotSupported
+        data = None
+        if statusID == StatusID.dieTemp:
+            data, err = self.readByteRegister(self.REGISTER.REG_TEMPERATURE)
+            # LSB is 1 °C, so we don't need any scaling.
+        else:
+            data = None
+            err = ErrorCode.errNotSupported
+        return data, err
+
+    @staticmethod
+    def _transferSOC(data):
+        # LSB is 1/512 %, so shift by 9 bits.
+        # Add 1/2 for correct rounding
+        ret = data + 0x0100 >> 9
+        return Percentage(ret)
+
+    def getStateOfCharge( self ):
+        """Retrieves the state of charge.
+        
+        That is the fraction of electric energy from the total capacity,
+        that is still or already stored in the battery. This information
+        is valid for both, the charging as well as the discharging process.
+        
+        :return: A percentage [0...100] value or :attr:`Percentage.invalid`\
+        to indicate that this information could not be retrieved.
+        :rtype: Percentage
+        """
+        # SOC is a 16bit value with LSB = 1/512 %
+        # But reading just the high-byte results in an inconsistent response.
+        # So, read the full word.
+        data, err = SerialBusDevice.readWordRegister(self, self.REGISTER.REG_SOC)
+        if err.isOk():
+            ret = self._transferSOC(data)
+            # future RAM-functions could be implemented here
+            # if ret != Percentage.invalid:
+            #    updateRamWord(self,  self.REGISTER._IDX_RAM_SOC)
+        else:
+            ret = Percentage.invalid
+        return ret
+
+    @staticmethod
+    def _transferVoltage(data):
+        # LSB is 2.2mV, so scale by factor 2.20 = 22/10
+        ret = (data * 22 + 5) // 10
+        return Voltage(ret)
 
     def getBatteryVoltage(self):
         """Retrieves the battery voltage in milli Volt.
@@ -212,11 +378,23 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         to indicate that this information could not be retrieved.
         :rtype: Voltage
         """
-        voltage, err = self.readWordRegister(self.REGISTER.REG_VOLTAGE)
+        data, err = self.readWordRegister(self.REGISTER.REG_VOLTAGE)
         if err.isOk():
-            ret = self._transferVoltage(voltage)
+            ret = self._transferVoltage(data)
         else:
             ret = Voltage.invalid
+        return ret
+
+    def _transferCurrent(self, data):
+        # Actually, we read out the voltage drop over the sense resistor.
+        # LSB is 5.88V, so first scaling factor is 5.88 = 294/50
+        # Value is signed!
+        # R = U/I  so we get I = U/R; Note that R is given in milliOhm!
+        # So, finally we scale by 294 / 50 * 1000 / rs = 294 * 20 / rs = 5880 / rs.
+        if data >= 0:
+            ret = (data * 5880 + (self.RSense // 2)) // self.RSense
+        else:
+            ret = (data * 5880 - (self.RSense // 2)) // self.RSense
         return ret
 
     def getBatteryCurrent(self):
@@ -236,94 +414,18 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
             ret = Current.invalid
         return ret
 
-    def getBatteryCurrentAvg(self):
-        """Retrieves the average battery current.
-        
-        The average is taken over some time interval, e.g. 2 seconds.
-        The length of the time window is at the discretion of the
-        implementation and cannot be adjusted by the caller.
-        
-        See also: :meth:`getBatteryCurrent`
-
-        :return: A non-negative integer value [micro A] or :attr:`Current.invalid`\
-        to indicate that this information could not be retrieved.
-        :rtype: Current
-        """
-        ret = Current.invalid
-        if self.REGISTER.CHIP_TYPE == ChipType.STC3117:  # Function is STC3117 exclusive
-            if self._getOperatingMode() == OperatingMode.opModeMixed:
-                data, err = SerialBusDevice.readWordRegister(self, self.REGISTER.REG_AVG_CURRENT)  # TODO: implement this register properly
-                if err.isOk():
-                    ret = self._transferCurrentAvg(data)
-        return ret
-
     # Local functions for internal use
 
     @staticmethod
-    def _transferSOC(data):
-        # LSB is 1/512 %, so shift by 9 bits.
-        ret = data + 0x0100 >> 9
-        return Percentage(ret)
-
-    @staticmethod
-    def _transferChangeRate(data):  # STC3117 exclusive
-        # LSB is 8.789 mC, scaling factor is 8.789 = 8789/1000
-        ret = (data * 8789 + 500) / 1000
-        return ret
-
-    @staticmethod
-    def _transferVoltage(data):
-        # LSB is 2.2mV, so scale by factor 2.20 = 22/10
-        ret = (data * 22 + 5) / 10
-        return Voltage(ret)
-
-    def _transferCurrent(self, data):
-        # Actually, we read out the voltage drop over the sense resistor.
-        # LSB is 5.88V, so first scaling factor is 5.88 = 294/50
-        # Value is signed!
-        # R = U/I  so we get I = U/R; Note that R is given in milliOhm!
-        # So, finally we scale by 294 / 50 * 1000 / rs = 294 * 20 / rs = 5880 / rs.
-        rs = self.REGISTER.CONFIG_GASGAUGE_0_RSENSE
-        if data >= 0:
-            ret = (data * 5880 + (rs / 2)) / rs
-        else:
-            ret = (data * 5880 - (rs / 2)) / rs
-        return ret
-
-    # /**
-    #  * AVG_CURRENT transfer function
-    #  */
-    def _transferCurrentAvg(self, data):  # STC3117 exclusive
-        if self.REGISTER.CHIP_TYPE is not ChipType.STC3117:
-            ret = Current.invalid  # Function is not implemented for this chip
-        else:
-            # Again, we actually read out the voltage drop over the sense resistor.
-            # LSB is 1.47V, partial scaling factor is 1.47 = 147/100
-            # Value is signed!
-            # Total scaling factor is: 147 / 100 * 1000 / rs = 147 * 10 / rs = 1470 / rs.
-            rs = self.REGISTER.CONFIG_GASGAUGE_0_RSENSE
-            if data >= 0:
-                ret = (data * 1470 + rs/2) / rs
-            else:
-                ret = (data * 1470 - rs/2) / rs
-            ret = Current(ret)
-        return ret
-
-    @staticmethod
-    def _transferTemperature(data):
-        # LSB is 1 °C, so we don't need any scaling.
-        return Temperature(data)
-
-    @staticmethod
-    def _transfertOCV(data):
+    def _transferOCV(data):
         # LSB is 0.55 mV, so scale by factor 0.55 = 55/100 = 11/20.
-        ret = (data * 11 + 10) / 20
+        ret = (data * 11 + 10) // 20
         return Voltage(ret)
 
     @staticmethod
     def _invTransferOCV(value):
         # LSB is 0.55 mV, so scale by factor 1/0.55 = 100/55 = 20/11.
-        ret = (value * 20 + 5) / 11
+        ret = (value * 20 + 5) // 11
         return ret
 
     @staticmethod
@@ -333,10 +435,10 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
             ret ^= data[idx]
         return ret
 
-    @staticmethod
-    def _checkRamConsistency(self, data, length):
+    def _checkRamConsistency(self, data):
         # check if RAM test register value is correct
-        if len(data) < length or data[self.REGISTER.IDX_RAM_TEST] != self.REGISTER.RAM_TEST:
+        if (len(data) < self.REGISTER.RAM_SIZE) or \
+           (data[self.REGISTER.IDX_RAM_TEST] != self.REGISTER.RAM_TEST):
             ret = ErrorCode.errCorruptData
         else:
             code = self._crc(data, self.REGISTER.RAM_SIZE - 1)
@@ -346,46 +448,91 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
                 ret = ErrorCode.errOk
         return ret
 
-    def _getOperatingMode(self):
-        data, err = SerialBusDevice.readByteRegister(self,  self.REGISTER.REG_MODE)
-        if err.isOk():
-            if data and self.REGISTER.MODE_GG_RUN:
-                if data and self.REGISTER.MODE_VMODE:
-                    ret = OperatingMode.opModeVoltage
-                else:
-                    ret = OperatingMode.opModeMixed
-            else:
-                ret = OperatingMode.opModeStandby
-        else:
-            ret = OperatingMode.opModeUnknown
-        return ret
+# UNUSED static ErrorCode_t updateRamWord( const Device_Index_t devIdx, const unsigned int ramIndex, const uint16_t newData )
+# {
+#     ErrorCode_t ret = errOk;
+#     uint8_t buffer[RAM_SIZE + 1];
+#     uint8_t *ramContent;
+#     uint8_t data8;
+#
+#     ramContent = &buffer[1];
+#     data8 = REG_RAM_FIRST;
+#     ret = Serial_Bus_read_write_Buffer( &dContext[devIdx].sdev, ramContent, RAM_SIZE, &data8, 1);
+#
+#     if( ret == errOk )
+#     {
+#         ret = checkRamConsistency( ramContent, RAM_SIZE );
+#     }
+#     if( ret == errOk )
+#     {
+#         ramContent[ramIndex] = newData & 0xFF;
+#         ramContent[ramIndex+1] = newData >> 8;
+#         ramContent[IDX_RAM_CRC] = crc( ramContent, RAM_SIZE-1 );
+#         buffer[0] = REG_RAM_FIRST;
+#         ret = Serial_Bus_write_Buffer( &dContext[devIdx].sdev, buffer, RAM_SIZE + 1 );
+#     }
+#     return ret;
+# }
+#
+# UNUSED static ErrorCode_t backupRam( const Device_Index_t devIdx )
+# {
+#     ErrorCode_t ret = errOk;
+#     uint8_t buffer[RAM_SIZE + 1];
+#     uint8_t *ramContent;
+#     uint16_t data16;
+#
+#     ramContent = &buffer[1];
+#     memset( ramContent, 0, RAM_SIZE );
+#     ramContent[IDX_RAM_TEST] = RAM_TEST;
+#     ret = Serial_Bus_read_Reg_Word( &dContext[devIdx].sdev, REG_SOC, &data16 );
+#     ramContent[IDX_RAM_SOC_L]= data16 & 0xFF;
+#     ramContent[IDX_RAM_SOC_H]= data16 >> 8;
+#     ret = Serial_Bus_read_Reg_Word( &dContext[devIdx].sdev, REG_CC_CNF, &data16 );
+#     ramContent[IDX_RAM_CC_CNF_L]= data16 & 0xFF;
+#     ramContent[IDX_RAM_CC_CNF_H]= data16 >> 8;
+#     ret = Serial_Bus_read_Reg_Word( &dContext[devIdx].sdev, REG_VM_CNF, &data16 );
+#     ramContent[IDX_RAM_VM_CNF_L]= data16 & 0xFF;
+#     ramContent[IDX_RAM_VM_CNF_H]= data16 >> 8;
+#     ramContent[IDX_RAM_CRC] =   crc( ramContent, RAM_SIZE - 1 );
+#     buffer[0] = REG_RAM_FIRST;
+#     Serial_Bus_write_Buffer(&dContext[devIdx].sdev, buffer, RAM_SIZE + 1 );
+#
+#     return ret;
+# }
 
-    def _checkID(self):
-        data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_ID)
+    def _setupAlarm(self):
+        # REG_ALARM_SOC, LSB=0,5%, scaling = 2.
+        data = self.alarmSOC * 2
+        err = self.writeByteRegister( self.REGISTER.REG_ALARM_SOC, data)
         if err.isOk():
-            err = ErrorCode.errOk if (data == self.REGISTER.CHIP_ID) else ErrorCode.errFailure
+            # REG_ALARM_VOLTAGE, LSB=17,6mV, scaling = 10/176 = 5/88
+            data = (self.alarmVoltage * 5 + 44) // 88
+            err = self.writeByteRegister( self.REGISTER.REG_ALARM_VOLTAGE, data)
         return err
-
-    def _setup(self):  # TODO: implement this function into open()?
-        # TODO: this function is still Work In Progress and will not work at all
-        return ErrorCode.errNotImplemented
-        ramContent = None  # TODO: where does RAM content come from?
-        params = None  # TODO: insert according confs where params is used
-        memset = None  # TODO: see original implementation
-        buffer = None  # TODO: see original implementation
-
-        # check communication
-        err = self._checkID()
-        # read RAM
+    
+    def _setupCurrentMonitoring(self):
+        # REG_CURRENT_THRES, LSB=47,04µV
+        # scaling = 1/47040 as relax current is in micro Ampere!
+        data = (self.relaxCurrent * self.batImpedance + 23520) // 47040
+        err = self.writeByteRegister( self.REGISTER.REG_CURRENT_THRES, data )
+        # Sub classes must handle their REG_RELAX_MAX / REG_CMONIT_MAX counters
+        return err
+    
+    def _setup(self):
+        # Check communication
+        data, err = self.readByteRegister(self.REGISTER.REG_ID)
         if err.isOk():
-            data, err = SerialBusDevice.readWriteBuffer(self, self.REGISTER.RAM_SIZE, 1)
-        # check RAM consistency
-        canRestore = False  # disable RAM restoration
+            err = ErrorCode.errOk if (data == self.REGISTER.CHIP_ID) else ErrorCode.errResourceConflict
+        # Read RAM content
         if err.isOk():
-            err = self._checkRamConsistency(ramContent, self.REGISTER.RAM_SIZE)
+            ramContent, err = self.readBufferRegister(self.REGISTER.REG_RAM_FIRST, self.REGISTER.RAM_SIZE)
+        # Check RAM consistency
+        canRestore = False  # Set True to enable RAM restoration
+        if err.isOk():
+            err = self._checkRamConsistency(ramContent)
             if err.isOk():
                 # check CTRL_PORDET and CTRL_BATFAIL
-                data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_CTRL)
+                data, err = self.readByteRegister(self.REGISTER.REG_CTRL)
                 if err.isOk():
                     if data & (self.REGISTER.CTRL_BATFAIL | self.REGISTER.CTRL_PORDET):
                         # battery removed / voltage dropped below threshold
@@ -399,191 +546,98 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
             if canRestore:
                 # restore configuration from RAM
                 # ensure that GG_RUN is cleared
-                SerialBusDevice.writeByteRegister(self, self.REGISTER.REG_MODE, self.REGISTER.MODE_OFF)
+                self.writeByteRegister(self.REGISTER.REG_MODE, self.REGISTER.MODE_OFF)
                 # restore REG_CC_CNF
-                data16 = (ramContent[self.REGISTER.IDX_RAM_CC_CNF_H] << 8) | ramContent[self.REGISTER.IDX_RAM_CC_CNF_L]
-                SerialBusDevice.writeWordRegister(self, self.REGISTER.REG_CC_CNF, data16)
+                data = (ramContent[self.REGISTER.IDX_RAM_CC_CNF_H] << 8) | ramContent[self.REGISTER.IDX_RAM_CC_CNF_L]
+                self.writeWordRegister(self.REGISTER.REG_CC_CNF, data)
                 # restore REG_VM_CNF
-                data16 = (ramContent[self.REGISTER.IDX_RAM_VM_CNF_H] << 8) | ramContent[self.REGISTER.IDX_RAM_VM_CNF_L]
-                SerialBusDevice.writeWordRegister(self, self.REGISTER.REG_VM_CNF, data16)
+                data = (ramContent[self.REGISTER.IDX_RAM_VM_CNF_H] << 8) | ramContent[self.REGISTER.IDX_RAM_VM_CNF_L]
+                self.writeWordRegister(self.REGISTER.REG_VM_CNF, data)
                 # restore REG_SOC
-                data16 = (ramContent[self.REGISTER.IDX_RAM_SOC_H] << 8) | ramContent[self.REGISTER.IDX_RAM_SOC_L]
-                SerialBusDevice.writeWordRegister(self, self.REGISTER.REG_SOC, data16)
+                data = (ramContent[self.REGISTER.IDX_RAM_SOC_H] << 8) | ramContent[self.REGISTER.IDX_RAM_SOC_L]
+                self.writeWordRegister(self.REGISTER.REG_SOC, data)
             else:
                 # initialize configuration with defaults
                 # run gas gauge to get first OCV and current measurement
-                data8 = self.REGISTER.MODE_OFF | self.REGISTER.MODE_GG_RUN |self.REGISTER.MODE_FORCE_CC
-                SerialBusDevice.writeByteRegister(self, self.REGISTER.REG_MODE, data8)
+                data = self.REGISTER.MODE_OFF | self.REGISTER.MODE_GG_RUN |self.REGISTER.MODE_FORCE_CC
+                self.writeByteRegister(self.REGISTER.REG_MODE, data)
                 # read OCV
-                data, _ = SerialBusDevice.readWordRegister(self, self.REGISTER.REG_OCV)
-                ocv = self._transfertOCV(data)
+                data, _ = self.readWordRegister(self.REGISTER.REG_OCV)
+                ocv = self._transferOCV(data)
                 # read current
-                data, _ = SerialBusDevice.readWordRegister(self, self.REGISTER.REG_CURRENT)
+                data, _ = self.readWordRegister(self.REGISTER.REG_CURRENT)
                 current = self._transferCurrent(data)
                 # ensure that GG_RUN is cleared
-                SerialBusDevice.writeByteRegister(self, self.REGISTER.REG_MODE, self.REGISTER.MODE_OFF)
-                # REG_CC_CNF
-                SerialBusDevice.writeWordRegister(self, self.REGISTER.REG_CC_CNF, params.regCCcnf)  # TODO: get from params
-                # REG_VM_CNF
-                SerialBusDevice.writeWordRegister(self, self.REGISTER.REG_VM_CNF, params.regVMcnf)  # TODO: same as above
+                self.writeByteRegister(self.REGISTER.REG_MODE, self.REGISTER.MODE_OFF)
+                # Determine and write the content of REG_CC_CNF
+                # Following the STC3115 data sheet, chapter 6.2.1. on coulomb counter,
+                # this register "scales the charge integrated by the
+                # sigma delta converter into a percentage value of the battery capacity"
+                # It depends on the battery capacity (Cnom) and the current sense resistor (Rsense) as follows:
+                # REG_CC_CNF = Rsense [mOhm] * Cnom [mAh] ⁄ 49,556
+                # Scaling factor: 1/49,556 = 1000/49556 = 250/12389
+                cnfCC = (self.RSense * self.batCapacity * 250 + 6194) // 12389
+                self.writeWordRegister(self.REGISTER.REG_CC_CNF, cnfCC)
+                # Determine and write the content of REG_VM_CNF
+                # Following to chapter 6.2.2, this register "configures the parameter used by the algorithm".
+                # It is calculated from the battery's impedance (Ri) and apacity (Cnom) as follows:
+                # REG_VM_CNF = Ri [mOhm] * Cnom [mAh] ⁄ 977,78
+                # Scaling factor: 1/977.78 = 100/97778 = 50/48889
+                cnfVM = (self.batImpedance * self.batCapacity * 50 + 24444) // 48889
+                self.writeWordRegister(self.REGISTER.REG_VM_CNF, cnfVM)
                 # compensate OCV
                 if current > 1000000:
-                    current /= 1000
-                    ocv = ocv - current * CFG_SUBSECTATR( BATTERY, CONFIG_GASGAUGE_0_BATTERY_IDX, IMPEDANCE ) / 1000
+                    current //= 1000
+                    ocv = ocv - current * self.batImpedance // 1000
                 else:
-                    ocv = ocv - current * CFG_SUBSECTATR(BATTERY, CONFIG_GASGAUGE_0_BATTERY_IDX, IMPEDANCE) / (1000 * 1000)
-                data16 = self._invTransferOCV(ocv)
+                    ocv = ocv - current * self.batImpedance // (1000 * 1000)
+                data = self._invTransferOCV(ocv)
                 # write OCV back
-                SerialBusDevice.writeWordRegister(self, self.REGISTER.REG_OCV, data16)
-                # wait 1ßßms to get valid SOC
-                data, _ = SerialBusDevice.readWordRegister(self, self.REGISTER.REG_SOC)
+                self.writeWordRegister(self.REGISTER.REG_OCV, data)
+                # wait 100ms to get valid SOC
+                if hasattr(time, "sleep_ms"):
+                    time.sleep_ms(100)
+                else:
+                    time.sleep(0.1)
+                data, _ = self.readWordRegister(self.REGISTER.REG_SOC)
                 # store new backup to RAM
-                memset(ramContent, 0, self.REGISTER.RAM_SIZE)
+                ramContent = [0] * self.REGISTER.RAM_SIZE
                 ramContent[self.REGISTER.IDX_RAM_TEST] = self.REGISTER.RAM_TEST
-                ramContent[self.REGISTER.IDX_RAM_SOC_L] = data16 & 0xFF
-                ramContent[self.REGISTER.IDX_RAM_SOC_H] = data16 >> 8
-                ramContent[self.REGISTER.IDX_RAM_CC_CNF_L] = params.regCCcnf & 0xFF
-                ramContent[self.REGISTER.IDX_RAM_CC_CNF_H] = params.regCCcnf >> 8
-                ramContent[self.REGISTER.IDX_RAM_VM_CNF_L] = params.regVMcnf & 0xFF
-                ramContent[self.REGISTER.IDX_RAM_VM_CNF_H] = params.regVMcnf >> 8
-                ramContent[self.REGISTER.IDX_RAM_CRC] = crc(ramContent, self.REGISTER.RAM_SIZE - 1)
-                buffer[0] = self.REGISTER.REG_RAM_FIRST
-                SerialBusDevice.writeBuffer(self, self.REGISTER.RAM_SIZE + 1)
-
-    # API functions exported to the outside
-
-    def _setRunLevel(self, level):
-        mode = self.REGISTER.MODE_OFF
-        if level in [RunLevel.active, RunLevel.idle]:  # TODO: not sure if this is the best "pythonic^TM" way
-            # Mixed mode: coulomb counter + voltage gas gauge -> Leave VMODE off
-            mode = self.REGISTER.MODE_OFF | self.REGISTER.MODE_GG_RUN | self.REGISTER.MODE_FORCE_CC
-            if self.pinInt._fIntEnabled:
-                mode |= self.REGISTER.MODE_ALM_ENA
-            ret = ErrorCode.errOk
-        elif level in [RunLevel.relax, RunLevel.snooze, RunLevel.nap, RunLevel.sleep, RunLevel.deepSleep]:
-            # Power saving mode: voltage gas gauge, only. -> VMODE = 1
-            mode = self.REGISTER.MODE_OFF | self.REGISTER.MODE_VMODE | self.REGISTER.MODE_GG_RUN | self.REGISTER.MODE_FORCE_VM
-            if self.pinInt._fIntEnabled:
-                mode |= self.REGISTER.MODE_ALM_ENA
-            ret = ErrorCode.errOk
-        elif level == RunLevel.shutdown:
-            # ret = backupRam(self)
-            mode = self.REGISTER.MODE_VMODE | self.REGISTER.MODE_FORCE_VM
-            ret = ErrorCode.errOk
-        else:
-            ret = ErrorCode.errNotSupported
-        # set mode and return ErrorCode
-        if ret.isOk():
-            ret = SerialBusDevice.writeByteRegister(self,  self.REGISTER.REG_MODE, mode)
-        return ret
-
-    # Gas gauge specific API implementation
-
-    def reset(self):
-        """Soft resets the device.
-
-        The device is in some default state, afterwards and must be
-        re-configured according to the application's needs.
-        :return: An error code indicating either success or the reason of failure.
-        :rtype: ErrorCode
-        """
-        # UNDOCUMENTED: At the end of the reset phase, the MODE_GG_RUN bit is cleared.
-        # In order to detect this, we have to set it, first:
-        mode_data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_MODE)
-        if err.isOk() and not (mode_data & self.REGISTER.MODE_GG_RUN):
-            mode_data |= self.REGISTER.MODE_GG_RUN
-            err = SerialBusDevice.writeByteRegister(self, self.REGISTER.REG_MODE, mode_data)
-            # same applies for beneath
-        # Do a soft reset by asserting CTRL:PORDET
-        if err.isOk():
-            # TODO: consider adding a set_ctrl / get_ctrl / add_ctrl method for this purpose; same for mdoe
-            ctrl_data = self.REGISTER.CTRL_IO0DATA | self.REGISTER.CTRL_GG_RST | self.REGISTER.CTRL_PORDET
-            err = SerialBusDevice.writeByteRegister(self, self.REGISTER.REG_CTRL, ctrl_data)
-        # Delay: Loop until we see the MODE_GG_RUN bit cleared:
-        if err.isOk():
-            has_timed_out = True
-            for i in range(self.REGISTER.POR_DELAY_LOOPS_MAX):
-                mode_data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_MODE)
-                if not (err.isOk() and (mode_data & self.REGISTER.MODE_GG_RUN)):
-                    has_timed_out = False  # loop ended before i == POR_DELAY_LOOPS_MAY
-                    break
-            if has_timed_out:
-                err = ErrorCode.errMalfunction
-        # Then, re-initialize the device
-        if err.isOk():
-            STC311x._setup(self)
+                ramContent[self.REGISTER.IDX_RAM_SOC_L] = data & 0xFF
+                ramContent[self.REGISTER.IDX_RAM_SOC_H] = data >> 8
+                ramContent[self.REGISTER.IDX_RAM_CC_CNF_L] = cnfCC & 0xFF
+                ramContent[self.REGISTER.IDX_RAM_CC_CNF_H] = cnfCC >> 8
+                ramContent[self.REGISTER.IDX_RAM_VM_CNF_L] = cnfVM & 0xFF
+                ramContent[self.REGISTER.IDX_RAM_VM_CNF_H] = cnfVM >> 8
+                ramContent[self.REGISTER.IDX_RAM_CRC] = self._crc(ramContent, self.REGISTER.RAM_SIZE - 1)
+                self.writeBufferRegister(self.REGISTER.REG_RAM_FIRST, ramContent)
+            
+            # Common steps (post-phase)
+            self._setupAlarm()
+            self._setupCurrentMonitoring()
+            
+            # Clear interrupts
+            # IO0DATA = 1 to see alarm conditions on the ALM pin
+            # GG_RST  = 1 do reset the conversion counter
+            # GG_VM   = 0, cannot be written
+            # BATFAIL = 0 to clear this flag
+            # PORDET  = 0 to clear the POR detection flag
+            # ALM_SOC = 0 to clear low-SOC condition
+            # ALM_VOLT= 0 to clear low voltage condition
+            # UVLOD   = 0 to clear UVLO event.
+            data = (self.REGISTER.CTRL_IO0DATA | self.REGISTER.CTRL_GG_RST)
+            err = self.writeByteRegister( self.REGISTER.REG_CTRL, data )
+    
+            # Run the gas gauge
+            err = self.setRunLevel( RunLevel.active )
+    
         return err
 
-    def getID(self):
-        data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_ID)
-        ret = data if err.isOk() else err
-        return ret
 
-    def getStateOfCharge(self):
-        """Retrieves the state of charge.
-        That is the fraction of electric energy from the total capacity,
-        that is still or already stored in the battery. This information
-        is valid for both, the charging and the discharging process.
 
-        :return: A percentage [0...100] value or :attr:`Percentage.invalid`\
-        to indicate that this information could not be retrieved.
-        :rtype: Percentage
-        """
-        # SOC is a 16bit value with LSB = 1/512 %
-        # But reading just the high-byte results in an inconsistent response.
-        # So, read the full word.
-        data, err = SerialBusDevice.readWordRegister(self, self.REGISTER.REG_SOC)
-        if err.isOk():
-            ret = self._transferSOC(data)
-            # future RAM-functions could be implemented here
-            # if ret != Percentage.invalid:
-            #    updateRamWord(self,  self.REGISTER._IDX_RAM_SOC)
-        else:
-            ret = Percentage.invalid
-        return ret
-
-    def getChangeRate(self):  # function is STC3117 exclusive
-        """Retrieves the SOC change rate in milli C.
-
-        Remember that 1C = 100% in 1 hour. This information may be used
-        to estimate the remaining stamina or how long the charging
-        process will still take.
-        :return: A SOC change rate (non-negative) or :attr:'SOCChangeRate.invalid`\
-        to indicate that this information could not be retrieved.
-        :rtype: SOCChangeRate
-        """
-        if self.REGISTER.CHIP_TYPE != ChipType.STC3117:  # STC3117 exclusive
-            ret = SOCChangeRate.invalid
-        else:
-            opMode = self._getOperatingMode()
-            if opMode == opMode.opModeVoltage:
-                data, err = SerialBusDevice.readWordRegister(self, self.REGISTER.REG_AVG_CURRENT)
-                if err.isOk():
-                    ret = self._transferChangeRate(data)
-                else:
-                    ret = SOCChangeRate.invalid
-            else:
-                ret = SOCChangeRate.invalid
-        return ret
-
-    def getBatteryTemperature(self):
-        # This device does not measure any temperature data
-        return Temperature.invalid
-
-    def getChipTemperature(self):
-        """Retrieve the current temperature of the chip.
-
-        :return: Temperature value.
-        :rtype: Temperature
-        """
-        data, err = SerialBusDevice.readByteRegister(self, self.REGISTER.REG_TEMPERATURE)
-        if err.isOk():
-            ret = self._transferTemperature(data)
-        else:
-            ret = Temperature.invalid
-        return ret
-
-    # Interruptable API implementation
+    #
+    # Interruptable API
+    #
 
     def registerInterruptHandler(self, onEvent=Event.evtInt1, callerFeedBack=None, handler=None):
         if handler is not None:  # Enable; from app (=sink) to hardware (=source)
@@ -611,22 +665,81 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         return err
 
     def enableInterrupt(self):
-        # err = GPIO.enableInterrupt(self, self.REGISTER.CONFIG_GASGAUGE_0_GPIO_ALARM)  # TODO: implement GPIO interrupt, check if it does infact return an error (not sure)
-        # if err.is_ok():  # TODO: do we really want these lines to override this error, and not just return the given error?
-        #     ret = ErrorCode.errOk
-        # else:
-        #     ret = ErrorCode.errInvalidParameter
-        # return ret
-        return ErrorCode.errOk  # TODO: why doesn't this function do anything (see max77960)
+        if self.pinInt:
+            err = self.pinInt.enableInterrupt()
+        else:
+            err = ErrorCode.errUnavailable
+        return err
 
     def disableInterrupt(self):
-        # err = GPIO_disableInterrupt(self)  # TODO: implement GPIO interrupt, check if it does infact return an error (not sure)
-        # if err.is_ok():  # TODO: do we really want these lines to override this error, and not just return the given error?
-        #     ret = ErrorCode.errOk
-        # else:
-        #     ret = ErrorCode.errInvalidParameter
-        # return ret
-        return ErrorCode.errOk  # TODO: why doesn't this function do anything (see max77960)
+        if self.pinInt:
+            err = self.pinInt.disableInterrupt()
+        else:
+            err = ErrorCode.errUnavailable
+        return err
 
     def _getEventContext(self, event):
         pass  # TODO: this function, see original implementation
+
+    # ErrorCode_t stc311x_getEventContext( const Device_Index_t devIdx,
+    #                                      const gasgauge_Event_t event,
+    #                                       gasgauge_EventContext_t *context )
+    # {
+    #     ErrorCode_t ret = errOk;
+    #     uint8_t data8=0, clear8;
+    #
+    #     if( (devIdx == DEVICE_INDEX_INVALID) || (devIdx >= CONFIG_GASGAUGE_COUNT) || (context == NULL) )
+    #     {
+    #         ret = errInvalidParameter;
+    #     } else if( event == gasgauge_EvtNone ) {
+    #         ret = errFewData;
+    #     } else if( event != gasgauge_EvtInt1 ) {
+    #         ret = errCorruptData;
+    #     } else {
+    #
+    #         ret = Serial_Bus_read_Reg_Byte( &dContext[devIdx].sdev, REG_CTRL, &data8 );
+    #         if( ret == errOk )
+    #         {
+    #             context->source = gasgauge_EvtSrcUnknown;
+    #     #if defined(CONFIG_GASGAUGE_IS_STC3117)
+    #             clear8 = CTRL_IO0DATA | CTRL_BATFAIL | CTRL_ALM_SOC | CTRL_ALM_VOLT | CTRL_UVLOD;
+    #     #else
+    #             clear8 = CTRL_IO0DATA | CTRL_BATFAIL | CTRL_ALM_SOC | CTRL_ALM_VOLT;
+    #     #endif
+    #
+    #             // Highest priority, as by reading, PORDET was cleared, so we don't get it another time!
+    #             if( data8 & CTRL_PORDET )
+    #             {
+    #                 context->source = gasgauge_EvtSrcPOR;
+    #             } else if( data8 & CTRL_ALM_VOLT )
+    #             {
+    #                 context->source = gasgauge_EvtSrcLowVolt;
+    #                 context->detail.voltage = stc311x_getBatteryVoltage( devIdx );
+    #                 clear8 &= ~CTRL_ALM_VOLT;
+    #             } else if( data8 & CTRL_ALM_SOC )
+    #             {
+    #                 context->source = gasgauge_EvtSrcLowSOC;
+    #                 context->detail.soc = stc311x_getStateOfCharge( devIdx );
+    #                 clear8 &= ~CTRL_ALM_SOC;
+    #             } else if( data8 & CTRL_BATFAIL )
+    #             {
+    #                 context->source = gasgauge_EvtSrcBatFail;
+    #                 clear8 &= ~CTRL_BATFAIL;
+    #             }
+    #     #if defined(CONFIG_GASGAUGE_IS_STC3117)
+    #             else if( data8 & CTRL_UVLOD )
+    #             {
+    #                 context->source = stc311x_EvtSrcUndervoltage;
+    #                 clear8 &= ~CTRL_UVLOD;
+    #             }
+    #     #endif
+    #
+    #             if( context->source != gasgauge_EvtSrcUnknown )
+    #             {
+    #                 ret = Serial_Bus_write_Reg_Byte( &dContext[devIdx].sdev, REG_CTRL, clear8 );
+    #             }
+    #         }
+    #     }
+    #     return ret;
+    # }
+

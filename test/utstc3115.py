@@ -3,8 +3,8 @@
 import argparse
 import unittest
 
-from philander.stc311x import STC311x as Driver
-from philander.stc311x_reg import ChipType, _STC311x_Reg 
+from philander.stc311x import OperatingMode
+from philander.stc3115 import STC3115 as Driver
 from philander.battery import Level
 from philander.gasgauge import SOCChangeRate, EventSource, EventContext, StatusID
 from philander.gpio import GPIO
@@ -12,12 +12,11 @@ from philander.primitives import Percentage, Voltage, Current
 from philander.systypes import ErrorCode
 
 
-class TestSTC311x( unittest.TestCase ):
+class TestSTC3115( unittest.TestCase ):
 
     def setUp(self):
         self.config = {
             "SerialBus.designator": 0, #"/dev/i2c-1",
-            "Gasgauge.ChipType": ChipType.STC3117,
             }
         parser = argparse.ArgumentParser()
         parser.add_argument("--bus", help="designator of the i2c bus", default=None)
@@ -34,10 +33,26 @@ class TestSTC311x( unittest.TestCase ):
         self.assertIsNotNone( cfg )
         self.assertTrue( "SerialBusDevice.address" in cfg )
         self.assertTrue( cfg["SerialBusDevice.address"] in Driver.ADDRESSES_ALLOWED )
-        self.assertTrue( "Gasgauge.ChipType" in cfg )
-        self.assertEqual( cfg["Gasgauge.ChipType"], ChipType.STC3117)
         self.assertTrue( "Gasgauge.SenseResistor" in cfg )
-        self.assertEqual( cfg["Gasgauge.SenseResistor"], _STC311x_Reg.CONFIG_RSENSE_DEFAULT)
+        self.assertEqual( cfg["Gasgauge.SenseResistor"], Driver.RSENSE_DEFAULT)
+        self.assertTrue( "Gasgauge.battery.capacity" in cfg )
+        self.assertEqual( cfg["Gasgauge.battery.capacity"], Driver.BAT_CAPACITY_DEFAULT)
+        self.assertTrue( "Gasgauge.battery.impedance" in cfg )
+        self.assertEqual( cfg["Gasgauge.battery.impedance"], Driver.BAT_IMPEDANCE_DEFAULT)
+        self.assertTrue( "Gasgauge.alarm.soc" in cfg )
+        self.assertEqual( cfg["Gasgauge.alarm.soc"], Driver.ALARM_SOC_DEFAULT)
+        self.assertTrue( "Gasgauge.alarm.voltage" in cfg )
+        self.assertEqual( cfg["Gasgauge.alarm.voltage"], Driver.ALARM_VOLTAGE_DEFAULT)
+        self.assertTrue( "Gasgauge.relax.current" in cfg )
+        self.assertEqual( cfg["Gasgauge.relax.current"], Driver.RELAX_CURRENT_DEFAULT)
+        self.assertTrue( "Gasgauge.relax.timer" in cfg )
+        self.assertEqual( cfg["Gasgauge.relax.timer"], Driver.RELAX_TIMER_DEFAULT)
+        self.assertTrue( "Gasgauge.int.gpio.direction" in cfg )
+        self.assertEqual( cfg["Gasgauge.int.gpio.direction"], GPIO.DIRECTION_IN)
+        self.assertTrue( "Gasgauge.int.gpio.trigger" in cfg )
+        self.assertEqual( cfg["Gasgauge.int.gpio.trigger"], GPIO.TRIGGER_EDGE_FALLING)
+        self.assertTrue( "Gasgauge.int.gpio.bounce" in cfg )
+        self.assertEqual( cfg["Gasgauge.int.gpio.bounce"], GPIO.BOUNCE_NONE)
 
     def test_open(self):
         cfg = self.config.copy()
@@ -70,9 +85,10 @@ class TestSTC311x( unittest.TestCase ):
     
         info, err = device.getInfo()
         self.assertTrue( err.isOk(), f"getInfo: {err}." )
-        validity = info.validChipID
-        self.assertEqual( info.validity ^ validity, 0 )
+        self.assertTrue( info.validity & info.validChipID )
         self.assertEqual( info.chipID, device.REGISTER.CHIP_ID, f"chipID: {info.chipID}." )
+        self.assertTrue( info.validity & info.validModelID )
+        self.assertEqual( info.modelID, device.MODEL_ID, f"modelID: {info.modelID}.")
     
         err = device.close()
         self.assertTrue( err.isOk() )
@@ -85,14 +101,13 @@ class TestSTC311x( unittest.TestCase ):
         err = device.open(cfg)
         self.assertTrue( err.isOk() )
     
-        info, err = device.getStatus( StatusID.batTemp )
-        self.assertTrue( err.isOk(), f"getStatus(batTemp): {err}." )
-        self.assertGreaterEqual( info, 0, f"batTemp={info}.")
-        self.assertLessEqual( info, 100, f"batTemp={info}.")
         info, err = device.getStatus( StatusID.dieTemp )
         self.assertTrue( err.isOk(), f"getStatus(dieTemp): {err}." )
         self.assertGreaterEqual( info, 0, f"dieTemp={info}.")
         self.assertLessEqual( info, 150, f"dieTemp={info}.")
+        om = device._getOperatingMode()
+        self.assertNotEqual( om, OperatingMode.opModeUnknown, f"OpMode={om}.")
+        self.assertNotEqual( om, OperatingMode.opModeStandby, f"OpMode={om}.")
         
         err = device.close()
         self.assertTrue( err.isOk() )
@@ -109,21 +124,6 @@ class TestSTC311x( unittest.TestCase ):
         self.assertNotEqual( perc, Percentage.invalid)
         self.assertGreaterEqual( perc, 0, f"perc={perc}.")
         self.assertLessEqual( perc, 100, f"perc={perc}.")
-        
-        err = device.close()
-        self.assertTrue( err.isOk() )
-    
-    def test_changeRate(self):
-        cfg = self.config.copy()
-        Driver.Params_init( cfg )
-        device = Driver()
-        self.assertIsNotNone( device )
-        err = device.open(cfg)
-        self.assertTrue( err.isOk() )
-    
-        cr = device.getChangeRate()
-        self.assertNotEqual( cr, SOCChangeRate.invalid)
-        self.assertGreaterEqual( cr, 0, f"rate={cr}.")
         
         err = device.close()
         self.assertTrue( err.isOk() )
@@ -159,23 +159,7 @@ class TestSTC311x( unittest.TestCase ):
         
         err = device.close()
         self.assertTrue( err.isOk() )
-    
-    def test_batterCurrentAvg(self):
-        cfg = self.config.copy()
-        Driver.Params_init( cfg )
-        device = Driver()
-        self.assertIsNotNone( device )
-        err = device.open(cfg)
-        self.assertTrue( err.isOk() )
-    
-        current = device.getBatteryCurrentAvg()
-        self.assertNotEqual( current, Current.invalid)
-        self.assertGreaterEqual( current, 0, f"avgCurrent={current}.")
-        self.assertLessEqual( current, 3000000, f"avgCurrent={current}.")
         
-        err = device.close()
-        self.assertTrue( err.isOk() )
-    
     def test_RatedSOC(self):
         cfg = self.config.copy()
         Driver.Params_init( cfg )
