@@ -49,7 +49,7 @@ class Level(Enum):
             lst = list(Level)
             lst.remove(Level.invalid)
             for lvl in lst:
-                if (lvl.value <= percentage) and \
+                if (percentage >= lvl.value) and \
                      ((new_lvl is Level.invalid) or \
                       (lvl.value > new_lvl.value) ):
                     # check if percentage is above certain level

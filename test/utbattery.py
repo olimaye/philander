@@ -17,9 +17,12 @@ class TestBattery( unittest.TestCase ):
         self.assertEqual( Level.invalid.value, Percentage.invalid )
     
     def test_fromPercentage(self):
-        for p in range(0, 101):
+        for pv in range(0, 101):
+            p = Percentage(pv)
             lvl = Level.fromPercentage(p)
-            self.assertLessEqual( lvl.value, p )
+            self.assertGreaterEqual( p, lvl.value )
+            lvl = Level.fromPercentage(pv)
+            self.assertGreaterEqual( pv, lvl.value )
         self.assertGreaterEqual( Level.fromPercentage(100).value, Level.full.value)
         self.assertEqual( Level.fromPercentage(100), Level.max)
         self.assertLessEqual( Level.fromPercentage(0).value, Level.empty.value)
