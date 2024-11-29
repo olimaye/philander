@@ -75,7 +75,7 @@ class Info:
     validChipID    = 0x01  # The chipID is valid
     validRevMajor  = 0x02  # Major revision is valid.
     validRevMinor  = 0x04  # Minor revision is valid.
-    validModelID   = 0x08  # Valid module identification.
+    validModelID   = 0x08  # Valid model identification.
     validManufacID = 0x10  # Valid manufacturer ID
     validSerialNum = 0x20  # Serial number is valid.
     validNothing   = 0x00  # No attribute valid.
