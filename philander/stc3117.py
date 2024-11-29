@@ -1,11 +1,8 @@
-# TODO: all the comments
-
-# -*- coding: utf-8 -*-
 """A module to provide base classes and data types for gas gauge driver implementations.
 """
 __author__ = "Carl Bellgardt"
 __version__ = "0.1"
-__all__ = ["STC311x", "ChipType"]
+__all__ = ["STC3117",]
 
 from philander.gasgauge import SOCChangeRate
 from philander.primitives import Current

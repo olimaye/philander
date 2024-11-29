@@ -1,6 +1,3 @@
-# TODO: all the comments
-
-# -*- coding: utf-8 -*-
 """A module to provide base classes and data types for ST gas gauge driver implementations.
 """
 __author__ = "Carl Bellgardt"
