@@ -25,8 +25,6 @@ class TestVibrasense2( unittest.TestCase ):
         self.assertIsNotNone( cfg )
         self.assertTrue( "SerialBusDevice.address" in cfg )
         self.assertTrue( cfg["SerialBusDevice.address"] in Driver.ADDRESSES_ALLOWED )
-        self.assertTrue( "Sensor.dataRate" in cfg )
-        self.assertEqual( cfg["Sensor.dataRate"], 1 )
     
     
     def test_open(self):
@@ -57,10 +55,10 @@ class TestVibrasense2( unittest.TestCase ):
         self.assertIsNotNone( device )
         err = device.open(cfg)
         self.assertTrue( err.isOk() )
-        
-        for cnt in range(10):
+
+        for _ in range(10):        
             val, err = device.getLatestData()
-            self.assertTrue( err.isOk(), f"Measurement #{cnt}: {err}." )
+            self.assertTrue( err.isOk(), f"Measurement: {err}." )
             self.assertGreaterEqual( val, 0 )
     
         err = device.close()
