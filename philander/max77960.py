@@ -168,27 +168,27 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
         Key name                             Value type, meaning and default
         =================================    ==========================================================================================================
         SerialBusDevice.address              ``int`` I2C serial device address; default is :attr:`ADDRESSES_ALLOWED` [0].
-        Charger.Comm.Mode                    ``int`` Communication mode; default is :attr:`.COMM_MODE_DEFAULT`.
-        Charger.DisIBS                       ``int`` ; default is :attr:`.DISIBS_DEFAULT`.
-        Charger.Mode                         ``int`` ; default is :attr:`.MODE_DEFAULT`.
-        Charger.Prequal                      ``int`` ; default is :attr:`.PQEN_DEFAULT`.
-        Charger.Restart                      ``int`` ; default is :attr:`.CHG_RSTRT_DEFAULT`.
-        Charger.Stat                         ``int`` ; default is :attr:`.STAT_EN_DEFAULT`.
-        Charger.Timer.FastCharge             ``int`` ; default is :attr:`.FCHGTIME_DEFAULT`.
-        Charger.Current.FastCharge           ``int`` ; default is :attr:`.CHGCC_DEFAULT`.
-        Charger.Timer.Topoff                 ``int`` ; default is :attr:`.TO_TIME_DEFAULT`.
-        Charger.Current.Topoff               ``int`` ; default is :attr:`.TO_ITH_DEFAULT`.
-        Charger.Voltage.ChargeTermination    ``int`` ; default is :attr:`.CHG_CV_PRM_DEFAULT`.
-        Charger.Current.Trickle              ``int`` ; default is :attr:`.ITRICKLE_DEFAULT`.
-        Charger.Current.Batt2Sys             ``int`` ; default is :attr:`.B2SOVRC_DEFAULT`.
-        Charger.Jeita                        ``int`` ; default is :attr:`.JEITA_EN_DEFAULT`.
-        Charger.Temp.Reg                     ``int`` ; default is :attr:`.REGTEMP_DEFAULT`.
-        Charger.Voltage.Jeita.Term           ``int`` ; default is :attr:`.VCHGCV_COOL_DEFAULT`.
-        Charger.Current.Jeita.FastCharge     ``int`` ; default is :attr:`.ICHGCC_COOL_DEFAULT`.
-        Charger.Current.Input                ``int`` ; default is :attr:`.CHGIN_ILIM_DEFAULT`.
-        Charger.Current.OTG                  ``int`` ; default is :attr:`.OTG_ILIM_DEFAULT`.
-        Charger.Voltage.MinVSys              ``int`` ; default is :attr:`.MINVSYS_DEFAULT`.
-        Charger.Voltage.ChargeIn             ``int`` ; default is :attr:`.VCHGIN_REG_DEFAULT`.
+        Charger.Comm.Mode                    ``int`` Communication mode; default is :attr:`MAX77960_Reg.COMM_MODE_DEFAULT`.
+        Charger.DisIBS                       ``int`` ; default is :attr:`MAX77960_Reg.DISIBS_DEFAULT`.
+        Charger.Mode                         ``int`` ; default is :attr:`MAX77960_Reg.MODE_DEFAULT`.
+        Charger.Prequal                      ``int`` ; default is :attr:`MAX77960_Reg.PQEN_DEFAULT`.
+        Charger.Restart                      ``int`` ; default is :attr:`MAX77960_Reg.CHG_RSTRT_DEFAULT`.
+        Charger.Stat                         ``int`` ; default is :attr:`MAX77960_Reg.STAT_EN_DEFAULT`.
+        Charger.Timer.FastCharge             ``int`` ; default is :attr:`MAX77960_Reg.FCHGTIME_DEFAULT`.
+        Charger.Current.FastCharge           ``int`` ; default is :attr:`MAX77960_Reg.CHGCC_DEFAULT`.
+        Charger.Timer.Topoff                 ``int`` ; default is :attr:`MAX77960_Reg.TO_TIME_DEFAULT`.
+        Charger.Current.Topoff               ``int`` ; default is :attr:`MAX77960_Reg.TO_ITH_DEFAULT`.
+        Charger.Voltage.ChargeTermination    ``int`` ; default is :attr:`MAX77960_Reg.CHG_CV_PRM_DEFAULT`.
+        Charger.Current.Trickle              ``int`` ; default is :attr:`MAX77960_Reg.ITRICKLE_DEFAULT`.
+        Charger.Current.Batt2Sys             ``int`` ; default is :attr:`MAX77960_Reg.B2SOVRC_DEFAULT`.
+        Charger.Jeita                        ``int`` ; default is :attr:`MAX77960_Reg.JEITA_EN_DEFAULT`.
+        Charger.Temp.Reg                     ``int`` ; default is :attr:`MAX77960_Reg.REGTEMP_DEFAULT`.
+        Charger.Voltage.Jeita.Term           ``int`` ; default is :attr:`MAX77960_Reg.VCHGCV_COOL_DEFAULT`.
+        Charger.Current.Jeita.FastCharge     ``int`` ; default is :attr:`MAX77960_Reg.ICHGCC_COOL_DEFAULT`.
+        Charger.Current.Input                ``int`` ; default is :attr:`MAX77960_Reg.CHGIN_ILIM_DEFAULT`.
+        Charger.Current.OTG                  ``int`` ; default is :attr:`MAX77960_Reg.OTG_ILIM_DEFAULT`.
+        Charger.Voltage.MinVSys              ``int`` ; default is :attr:`MAX77960_Reg.MINVSYS_DEFAULT`.
+        Charger.Voltage.ChargeIn             ``int`` ; default is :attr:`MAX77960_Reg.VCHGIN_REG_DEFAULT`.
         All Charger.int.gpio.* settings as documented at :meth:`.GPIO.Params_init`.
         ===============================================================================================================================================
         

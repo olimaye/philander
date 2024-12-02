@@ -8,7 +8,7 @@ __author__ = "Carl Bellgardt"
 __version__ = "0.1"
 __all__ = ["STC3115_Reg", ]
 
-from philander.STC311x_Reg import STC311x_Reg
+from philander.stc311x_reg import STC311x_Reg
 
 class STC3115_Reg(STC311x_Reg):
     """Definition of the STC3115 exclusive registers and values.

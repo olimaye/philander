@@ -1568,7 +1568,7 @@ class BMA456( BMA456_Reg, SerialBusDevice, Accelerometer, Interruptable ):
 
         :return: The measurement data and an error code indicating\
         either success or the reason of failure.
-        :rtype: Data, ErrorCode
+        :rtype: accelerometer.Data, ErrorCode
         """
         buf, ret = self.readBufferRegister( BMA456.BMA456_REG_ACC_X, 6 )
         if (ret == ErrorCode.errOk):
@@ -1598,7 +1598,7 @@ class BMA456( BMA456_Reg, SerialBusDevice, Accelerometer, Interruptable ):
 
         :return: The measurement data and an error code indicating\
         either success or the reason of failure.
-        :rtype: Data, ErrorCode
+        :rtype: accelerometer.Data, ErrorCode
         """
         done = False
         while( not done ):
