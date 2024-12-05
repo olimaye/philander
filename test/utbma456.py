@@ -45,7 +45,7 @@ class TestBMA456( unittest.TestCase ):
         self.assertIsNotNone( sensor )
         # Simple open
         err = sensor.open(cfg)
-        self.assertEqual( err, ErrorCode.errOk )
+        self.assertTrue( err.isOk(), f"Open failed: {err}." )
         self.assertTrue( err.isOk() )
         # Corresponding close
         err = sensor.close()
@@ -69,7 +69,7 @@ class TestBMA456( unittest.TestCase ):
         sensor = BMA()
         self.assertIsNotNone( sensor )
         err = sensor.open(cfg)
-        self.assertTrue( err.isOk() )
+        self.assertTrue( err.isOk(), f"Open failed: {err}." )
         err = sensor.selfTest( SelfTest.CONNECTION )
         self.assertTrue( err.isOk() )
         err = sensor.close()
@@ -81,7 +81,7 @@ class TestBMA456( unittest.TestCase ):
         sensor = BMA()
         self.assertIsNotNone( sensor )
         err = sensor.open(cfg)
-        self.assertTrue( err.isOk() )
+        self.assertTrue( err.isOk(), f"Open failed: {err}." )
         for _ in range(10):
             meas, err = sensor.getLatestData()
             self.assertTrue( err.isOk() )
