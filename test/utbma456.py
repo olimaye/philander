@@ -9,27 +9,18 @@ from philander.sensor import SelfTest
 from philander.serialbus import SerialBusType
 from philander.systypes import ErrorCode
 
-class TestBMA456( unittest.TestCase ):
+config = {
+    "SerialBus.designator": 0, #"/dev/i2c-1",
+    "Sensor.dataRange"    : 4000,
+    "Sensor.dataRate"     : 100,
+    "BMA456.INT_MAP_DATA": 0xFF,
+}
 
-    def setUp(self):
-        self.configSensor = {
-            "SerialBus.designator": 0, #"/dev/i2c-1",
-            "Sensor.dataRange"    : 4000,
-            "Sensor.dataRate"     : 100,
-            "BMA456.INT_MAP_DATA": 0xFF,
-        }
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--bus", help="designator of the i2c bus", default=None)
-        parser.add_argument("--adr", help="i2c address of the device", type=int, default=None)
-        args = parser.parse_args()
-        if args.bus:
-            self.configSensor["SerialBus.designator"] = args.bus
-        if args.adr:
-            self.configSensor["SerialBusDevice.address"] = args.adr
-        
+class TestBMA456( unittest.TestCase ):
             
     def test_paramsinit(self):
-        cfg = self.configSensor.copy()
+        global config
+        cfg = config.copy()
         BMA.Params_init( cfg )
         self.assertIsNotNone( cfg )
         self.assertTrue( "SerialBus.designator" in cfg )
@@ -39,7 +30,8 @@ class TestBMA456( unittest.TestCase ):
         self.assertTrue( cfg["SerialBusDevice.address"] in (0x18, 0x19) )
 
     def test_open(self):
-        cfg = self.configSensor.copy()
+        global config
+        cfg = config.copy()
         BMA.Params_init( cfg )
         sensor = BMA()
         self.assertIsNotNone( sensor )
@@ -64,7 +56,8 @@ class TestBMA456( unittest.TestCase ):
         self.assertFalse( err.isOk() )
 
     def test_selftest(self):
-        cfg = self.configSensor.copy()
+        global config
+        cfg = config.copy()
         BMA.Params_init( cfg )
         sensor = BMA()
         self.assertIsNotNone( sensor )
@@ -76,7 +69,8 @@ class TestBMA456( unittest.TestCase ):
         self.assertTrue( err.isOk() )
     
     def test_working(self):
-        cfg = self.configSensor.copy()
+        global config
+        cfg = config.copy()
         BMA.Params_init( cfg )
         sensor = BMA()
         self.assertIsNotNone( sensor )
@@ -99,5 +93,15 @@ class TestBMA456( unittest.TestCase ):
 
         
 if __name__ == '__main__':
+    import sys
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--bus", help="designator of the i2c bus", default=None)
+    parser.add_argument("--adr", help="i2c address of the device", type=int, default=None)
+    args, unknown = parser.parse_known_args()
+    if args.bus:
+        config["SerialBus.designator"] = args.bus
+    if args.adr:
+        config["SerialBusDevice.address"] = args.adr
+    sys.argv = [sys.argv[0],] + unknown
     unittest.main()
 
