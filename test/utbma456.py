@@ -1,6 +1,7 @@
 """
 """
 import argparse
+import sys
 import unittest
 
 from philander.bma456 import BMA456 as BMA
@@ -93,7 +94,6 @@ class TestBMA456( unittest.TestCase ):
 
         
 if __name__ == '__main__':
-    import sys
     parser = argparse.ArgumentParser()
     parser.add_argument("--bus", help="designator of the i2c bus", default=None)
     parser.add_argument("--adr", help="i2c address of the device", type=int, default=None)
@@ -102,6 +102,7 @@ if __name__ == '__main__':
         config["SerialBus.designator"] = args.bus
     if args.adr:
         config["SerialBusDevice.address"] = args.adr
-    sys.argv = [sys.argv[0],] + unknown
+    if sys.argv:
+        sys.argv = [sys.argv[0],] + unknown
     unittest.main()
 
