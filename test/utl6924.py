@@ -1,6 +1,7 @@
 """
 """
 import argparse
+import sys
 import unittest
 
 from philander.battery import Status as BatStatus
@@ -9,25 +10,16 @@ from philander.gpio import GPIO
 from philander.l6924 import L6924 as Driver
 from philander.systypes import ErrorCode
 
+config = {
+    "L6924.St1.gpio.pinDesignator": 2, 
+    "L6924.St2.gpio.pinDesignator": 3, 
+}
 
 class TestL6924( unittest.TestCase ):
-
-    def setUp(self):
-        self.config = {
-            "L6924.St1.gpio.pinDesignator": 2, 
-            "L6924.St2.gpio.pinDesignator": 3, 
-        }
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--st1", help="designator of the ST1 GPIO pin", default=None)
-        parser.add_argument("--st2", help="designator of the ST2 GPIO pin", default=None)
-        args = parser.parse_args()
-        if args.st1:
-            self.configSensor["L6924.St1.gpio.pinDesignator"] = args.st1
-        if args.st2:
-            self.configSensor["L6924.St2.gpio.pinDesignator"] = args.st2
             
     def test_paramsinit(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         self.assertIsNotNone( cfg )
         self.assertTrue( "L6924.St1.gpio.direction" in cfg )
@@ -44,7 +36,8 @@ class TestL6924( unittest.TestCase ):
         self.assertTrue( cfg["L6924.St2.gpio.inverted"] )
 
     def test_open(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -65,7 +58,8 @@ class TestL6924( unittest.TestCase ):
         self.assertTrue( err.isOk() )
 
     def test_infostatus(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -99,7 +93,8 @@ class TestL6924( unittest.TestCase ):
     
 
     def test_restart(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -118,5 +113,15 @@ class TestL6924( unittest.TestCase ):
 
         
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--st1", help="designator of the ST1 GPIO pin", default=None)
+    parser.add_argument("--st2", help="designator of the ST2 GPIO pin", default=None)
+    args, unknown = parser.parse_known_args()
+    if args.st1:
+        config["L6924.St1.gpio.pinDesignator"] = args.st1
+    if args.st2:
+        config["L6924.St2.gpio.pinDesignator"] = args.st2
+    if sys.argv:
+        sys.argv = [sys.argv[0],] + unknown
     unittest.main()
 

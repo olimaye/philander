@@ -1,26 +1,20 @@
 """
 """
 import argparse
+import sys
 import unittest
 
 from philander.systypes import ErrorCode
 from philander.vibrasense2 import VibraSense2 as Driver
 
+config = {
+    "SerialBus.designator": 0, #"/dev/i2c-1",
+}
 
 class TestVibrasense2( unittest.TestCase ):
-
-    def setUp(self):
-        self.config = {
-            "SerialBus.designator": 0, #"/dev/i2c-1",
-        }
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--bus", help="designator of the i2c bus", default=None)
-        args = parser.parse_args()
-        if args.bus:
-            self.configSensor["SerialBus.designator"] = args.bus
             
     def test_paramsinit(self):
-        cfg = self.config.copy()
+        cfg = dict()
         Driver.Params_init( cfg )
         self.assertIsNotNone( cfg )
         self.assertTrue( "SerialBusDevice.address" in cfg )
@@ -28,7 +22,8 @@ class TestVibrasense2( unittest.TestCase ):
     
     
     def test_open(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -49,7 +44,8 @@ class TestVibrasense2( unittest.TestCase ):
         self.assertTrue( err.isOk() )
     
     def test_measurements(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -66,5 +62,12 @@ class TestVibrasense2( unittest.TestCase ):
     
         
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--bus", help="designator of the i2c bus", default=None)
+    args, unknown = parser.parse_known_args()
+    if args.bus:
+        config["SerialBus.designator"] = args.bus
+    if sys.argv:
+        sys.argv = [sys.argv[0],] + unknown
     unittest.main()
 

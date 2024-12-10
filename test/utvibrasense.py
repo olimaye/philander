@@ -1,12 +1,21 @@
 """
 """
 import argparse
+import sys
 import time
 import unittest
 
 from philander.gpio import GPIO
 from philander.systypes import ErrorCode
 from philander.vibrasense import VibraSense as Driver
+
+config = {
+    #"VibraSense.slot"   :   1,
+    "VibraSense.int.gpio.pinDesignator": 0, 
+    "VibraSense.int.gpio.pull"         :   GPIO.PULL_NONE,
+    "VibraSense.int.gpio.trigger"      :   GPIO.TRIGGER_EDGE_RISING,
+    "VibraSense.enable.gpio.pinDesignator": 1, 
+}
 
 # We use a global variable to make calls of the event handler
 # visible to the tester.
@@ -22,26 +31,6 @@ def handlerFunc( *arg):
 
 
 class TestVibrasense( unittest.TestCase ):
-
-    def setUp(self):
-        self.config = {
-            #"VibraSense.slot"   :   1,
-            "VibraSense.int.gpio.pinDesignator": 0, 
-            "VibraSense.int.gpio.pull"         :   GPIO.PULL_NONE,
-            "VibraSense.int.gpio.trigger"      :   GPIO.TRIGGER_EDGE_RISING,
-            "VibraSense.enable.gpio.pinDesignator": 1, 
-        }
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--slot", help="slot number [1|2] of the click board", default=None)
-        parser.add_argument("--int", help="designator of the INT GPIO pin", default=None)
-        parser.add_argument("--enable", help="designator of the EN GPIO pin", default=None)
-        args = parser.parse_args()
-        if args.slot:
-            self.configSensor["VibraSense.slot"] = args.slot
-        if args.int:
-            self.configSensor["VibraSense.int.gpio.pinDesignator"] = args.int
-        if args.enable:
-            self.configSensor["VibraSense.enable.gpio.pinDesignator"] = args.enable
             
     def test_paramsinit(self):
         cfg = dict()
@@ -86,7 +75,8 @@ class TestVibrasense( unittest.TestCase ):
     
     
     def test_open(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -107,7 +97,8 @@ class TestVibrasense( unittest.TestCase ):
         self.assertTrue( err.isOk() )
     
     def test_poll(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -121,7 +112,7 @@ class TestVibrasense( unittest.TestCase ):
         while not done:
             v, err = device.getLatestData()
             t = time.time()
-            if (not err.isOk()) or (v!=v0) or (t-t0 > 10):
+            if (not err.isOk()) or (v!=v0) or (t-t0 > 5):
                 done = True
         self.assertTrue( err.isOk(), f"Error: {err}." )
         self.assertNotEqual( v, v0, f"Output didn't change: {v}.")
@@ -132,7 +123,8 @@ class TestVibrasense( unittest.TestCase ):
 
     def test_interrupt(self):
         global callReflect
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -149,7 +141,7 @@ class TestVibrasense( unittest.TestCase ):
         done = False
         while not done:
             t = time.time()
-            if (callReflect!=0) or (t-t0 > 10):
+            if (callReflect!=0) or (t-t0 > 5):
                 done = True
         self.assertNotEqual( callReflect, 0 )
         
@@ -158,5 +150,18 @@ class TestVibrasense( unittest.TestCase ):
 
         
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--slot", help="slot number [1|2] of the click board", default=None)
+    parser.add_argument("--int", help="designator of the INT GPIO pin", default=None)
+    parser.add_argument("--enable", help="designator of the EN GPIO pin", default=None)
+    args, unknown = parser.parse_known_args()
+    if args.slot:
+        config["VibraSense.slot"] = args.slot
+    if args.int:
+        config["VibraSense.int.gpio.pinDesignator"] = args.int
+    if args.enable:
+        config["VibraSense.enable.gpio.pinDesignator"] = args.enable
+    if sys.argv:
+        sys.argv = [sys.argv[0],] + unknown
     unittest.main()
 

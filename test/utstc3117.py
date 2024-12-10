@@ -1,6 +1,7 @@
 """
 """
 import argparse
+import sys
 import unittest
 
 from philander.stc311x import OperatingMode
@@ -11,24 +12,15 @@ from philander.gpio import GPIO
 from philander.primitives import Percentage, Voltage, Current
 from philander.systypes import ErrorCode, RunLevel
 
+config = {
+    "SerialBus.designator": 0, #"/dev/i2c-1",
+    }
 
 class TestSTC3117( unittest.TestCase ):
-
-    def setUp(self):
-        self.config = {
-            "SerialBus.designator": 0, #"/dev/i2c-1",
-            }
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--bus", help="designator of the i2c bus", default=None)
-        parser.add_argument("--int", help="designator of the ALM GPIO pin", default=None)
-        args = parser.parse_args()
-        if args.bus:
-            self.configSensor["SerialBus.designator"] = args.bus
-        if args.int:
-            self.config["Gasgauge.int.gpio.pinDesignator"] = args.int
             
     def test_paramsinit(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         self.assertIsNotNone( cfg )
         self.assertTrue( "SerialBusDevice.address" in cfg )
@@ -55,7 +47,8 @@ class TestSTC3117( unittest.TestCase ):
         self.assertEqual( cfg["Gasgauge.int.gpio.bounce"], GPIO.BOUNCE_NONE)
 
     def test_open(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -76,7 +69,8 @@ class TestSTC3117( unittest.TestCase ):
         self.assertTrue( err.isOk() )
     
     def test_info(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -94,7 +88,8 @@ class TestSTC3117( unittest.TestCase ):
         self.assertTrue( err.isOk() )
     
     def test_status(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -113,7 +108,8 @@ class TestSTC3117( unittest.TestCase ):
         self.assertTrue( err.isOk() )
     
     def test_stateOfCharge(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -129,7 +125,8 @@ class TestSTC3117( unittest.TestCase ):
         self.assertTrue( err.isOk() )
     
     def test_changeRate(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -147,7 +144,8 @@ class TestSTC3117( unittest.TestCase ):
         self.assertTrue( err.isOk() )
     
     def test_batterVoltage(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -163,7 +161,8 @@ class TestSTC3117( unittest.TestCase ):
         self.assertTrue( err.isOk() )
     
     def test_batterCurrent(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -179,7 +178,8 @@ class TestSTC3117( unittest.TestCase ):
         self.assertTrue( err.isOk() )
     
     def test_batterCurrentAvg(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -198,7 +198,8 @@ class TestSTC3117( unittest.TestCase ):
         self.assertTrue( err.isOk() )
     
     def test_RatedSOC(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -213,7 +214,8 @@ class TestSTC3117( unittest.TestCase ):
         self.assertTrue( err.isOk() )
     
     def test_RatedSOCStr(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -230,5 +232,15 @@ class TestSTC3117( unittest.TestCase ):
 
         
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--bus", help="designator of the i2c bus", default=None)
+    parser.add_argument("--int", help="designator of the ALM GPIO pin", default=None)
+    args, unknown = parser.parse_known_args()
+    if args.bus:
+        config["SerialBus.designator"] = args.bus
+    if args.int:
+        config["Gasgauge.int.gpio.pinDesignator"] = args.int
+    if sys.argv:
+        sys.argv = [sys.argv[0],] + unknown
     unittest.main()
 

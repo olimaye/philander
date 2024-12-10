@@ -1,6 +1,7 @@
 """
 """
 import argparse
+import sys
 import unittest
 
 from philander.max77960 import MAX77960 as Driver
@@ -10,24 +11,15 @@ from philander.charger import Status as ChgStatus, DCStatus, PowerSrc, Temperatu
 from philander.gpio import GPIO
 from philander.systypes import ErrorCode
 
+config = {
+    "SerialBus.designator": 0, #"/dev/i2c-1",
+    }
 
 class TestMAX77960( unittest.TestCase ):
-
-    def setUp(self):
-        self.config = {
-            "SerialBus.designator": 0, #"/dev/i2c-1",
-            }
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--bus", help="designator of the i2c bus", default=None)
-        parser.add_argument("--int", help="designator of the INTB GPIO pin", default=None)
-        args = parser.parse_args()
-        if args.bus:
-            self.configSensor["SerialBus.designator"] = args.bus
-        if args.int:
-            self.config["Charger.int.gpio.pinDesignator"] = args.int
             
     def test_paramsinit(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         self.assertIsNotNone( cfg )
         self.assertTrue( "SerialBusDevice.address" in cfg )
@@ -82,7 +74,8 @@ class TestMAX77960( unittest.TestCase ):
         self.assertEqual( cfg["Charger.int.gpio.bounce"], GPIO.BOUNCE_NONE )
 
     def test_open(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -103,7 +96,8 @@ class TestMAX77960( unittest.TestCase ):
         self.assertTrue( err.isOk() )
     
     def test_infostatus(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -144,7 +138,8 @@ class TestMAX77960( unittest.TestCase ):
     
     
     def test_restart(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -163,5 +158,15 @@ class TestMAX77960( unittest.TestCase ):
 
         
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--bus", help="designator of the i2c bus", default=None)
+    parser.add_argument("--int", help="designator of the INTB GPIO pin", default=None)
+    args, unknown = parser.parse_known_args()
+    if args.bus:
+        config["SerialBus.designator"] = args.bus
+    if args.int:
+        config["Charger.int.gpio.pinDesignator"] = args.int
+    if sys.argv:
+        sys.argv = [sys.argv[0],] + unknown
     unittest.main()
 

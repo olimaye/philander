@@ -1,6 +1,7 @@
 """
 """
 import argparse
+import sys
 import time
 import unittest
 
@@ -8,24 +9,18 @@ from philander.button import Button
 from philander.gpio import GPIO
 from philander.systypes import ErrorCode
 
-class TestButton( unittest.TestCase ):
+config = {
+    "Button.label"               : "My nice button",
+    "Button.gpio.pinDesignator"  : 6,
+    "Button.gpio.pull"           : GPIO.PULL_UP,
+    "Button.gpio.trigger"        : GPIO.TRIGGER_EDGE_FALLING,
+}
 
-    def setUp(self):
-        self.configSensor = {
-            "Button.label"        : "My nice button",
-            "Button.gpio.pinDesignator"  : 6,
-            "Button.gpio.pull"           : GPIO.PULL_UP,
-            "Button.gpio.trigger"        : GPIO.TRIGGER_EDGE_FALLING,
-        }
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--pin", help="designator of the gpio pin", default=None)
-        args = parser.parse_args()
-        if args.pin:
-            self.configSensor["gpio.pinDesignator"] = args.pin
-        
+class TestButton( unittest.TestCase ):
             
     def test_paramsinit(self):
-        cfg = self.configSensor.copy()
+        global config
+        cfg = config.copy()
         Button.Params_init( cfg )
         self.assertIsNotNone( cfg )
         self.assertTrue( "Button.label" in cfg )
@@ -35,7 +30,8 @@ class TestButton( unittest.TestCase ):
         self.assertEqual( cfg["Button.gpio.bounce"], Button._DEBOUNCE_MS )
 
     def test_open(self):
-        cfg = self.configSensor.copy()
+        global config
+        cfg = config.copy()
         Button.Params_init( cfg )
         button = Button()
         self.assertIsNotNone( button )
@@ -57,7 +53,8 @@ class TestButton( unittest.TestCase ):
         self.assertTrue( err.isOk() )
 
     def test_label(self):
-        cfg = self.configSensor.copy()
+        global config
+        cfg = config.copy()
         Button.Params_init( cfg )
         button = Button()
         self.assertIsNotNone( button )
@@ -74,7 +71,8 @@ class TestButton( unittest.TestCase ):
         button.close()
 
     def test_working(self):
-        cfg = self.configSensor.copy()
+        global config
+        cfg = config.copy()
         Button.Params_init( cfg )
         button = Button()
         self.assertIsNotNone( button )
@@ -101,5 +99,12 @@ class TestButton( unittest.TestCase ):
         
         
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--pin", help="designator of the gpio pin", default=None)
+    args, unknown = parser.parse_known_args()
+    if args.pin:
+        config["Button.gpio.pinDesignator"] = args.pin
+    if sys.argv:
+        sys.argv = [sys.argv[0],] + unknown
     unittest.main()
 

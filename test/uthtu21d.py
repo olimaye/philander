@@ -1,6 +1,7 @@
 """
 """
 import argparse
+import sys
 import unittest
 
 from philander.htu21d import HTU21D as Sensor, StatusID
@@ -8,26 +9,16 @@ from philander.sensor import SelfTest
 from philander.serialbus import SerialBusType
 from philander.systypes import ErrorCode
 
+config = {
+    "SerialBus.designator": 0, #"/dev/i2c-1",
+    "Sensor.dataRate"     : 100,
+}
 
 class TestHTU21D( unittest.TestCase ):
-
-    def setUp(self):
-        self.configSensor = {
-            "SerialBus.designator": 0, #"/dev/i2c-1",
-            "Sensor.dataRate"     : 100,
-        }
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--bus", help="designator of the i2c bus", default=None)
-        parser.add_argument("--adr", help="i2c address of the device", type=int, default=None)
-        args = parser.parse_args()
-        if args.bus:
-            self.configSensor["SerialBus.designator"] = args.bus
-        if args.adr:
-            self.configSensor["SerialBusDevice.address"] = args.adr
-        
             
     def test_paramsinit(self):
-        cfg = self.configSensor.copy()
+        global config
+        cfg = config.copy()
         Sensor.Params_init( cfg )
         self.assertIsNotNone( cfg )
         self.assertTrue( "SerialBus.designator" in cfg )
@@ -37,7 +28,8 @@ class TestHTU21D( unittest.TestCase ):
         self.assertTrue( cfg["SerialBusDevice.address"] in (Sensor.ADDRESS, ) )
 
     def test_open(self):
-        cfg = self.configSensor.copy()
+        global config
+        cfg = config.copy()
         Sensor.Params_init( cfg )
         sensor = Sensor()
         self.assertIsNotNone( sensor )
@@ -59,7 +51,8 @@ class TestHTU21D( unittest.TestCase ):
         self.assertTrue( err.isOk() )
 
     def test_selftest(self):
-        cfg = self.configSensor.copy()
+        global config
+        cfg = config.copy()
         Sensor.Params_init( cfg )
         sensor = Sensor()
         self.assertIsNotNone( sensor )
@@ -71,7 +64,8 @@ class TestHTU21D( unittest.TestCase ):
         self.assertTrue( err.isOk() )
     
     def test_working(self):
-        cfg = self.configSensor.copy()
+        global config
+        cfg = config.copy()
         Sensor.Params_init( cfg )
         sensor = Sensor()
         self.assertIsNotNone( sensor )
@@ -88,7 +82,8 @@ class TestHTU21D( unittest.TestCase ):
         self.assertTrue( err.isOk() )
 
     def test_status(self):
-        cfg = self.configSensor.copy()
+        global config
+        cfg = config.copy()
         Sensor.Params_init( cfg )
         sensor = Sensor()
         self.assertIsNotNone( sensor )
@@ -102,5 +97,15 @@ class TestHTU21D( unittest.TestCase ):
 
         
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--bus", help="designator of the i2c bus", default=None)
+    parser.add_argument("--adr", help="i2c address of the device", type=int, default=None)
+    args, unknown = parser.parse_known_args()
+    if args.bus:
+        config["SerialBus.designator"] = args.bus
+    if args.adr:
+        config["SerialBusDevice.address"] = args.adr
+    if sys.argv:
+        sys.argv = [sys.argv[0],] + unknown
     unittest.main()
 

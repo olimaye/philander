@@ -1,35 +1,24 @@
 """
 """
 import argparse
+import sys
 #import time
 import unittest
 
 from philander.mcp40 import MCP40 as Driver
 from philander.systypes import ErrorCode
 
+config = {
+    "SerialBus.designator"      : 0, #"/dev/i2c-1",
+    #"SerialBusDevice.address"   : 0x2E,
+    "Potentiometer.resistance.max": 100000,
+    }
 
 class TestMCP40( unittest.TestCase ):
-
-    def setUp(self):
-        self.config = {
-            "SerialBus.designator"      : 0, #"/dev/i2c-1",
-            #"SerialBusDevice.address"   : 0x2E,
-            "Potentiometer.resistance.max": 100000,
-            }
-        parser = argparse.ArgumentParser()
-        parser.add_argument("--bus", help="designator of the i2c bus", default=None)
-        parser.add_argument("--adr", help="i2c address of the device", type=int, default=None)
-        parser.add_argument("--rmax", help="maximum resistance in Ohms.", type=int, default=None)
-        args = parser.parse_args()
-        if args.bus:
-            self.config["SerialBus.designator"] = args.bus
-        if args.adr:
-            self.config["SerialBusDevice.address"] = args.adr
-        if args.rmax:
-            self.config["Potentiometer.resistance.max"] = args.rmax
             
     def test_paramsinit(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         self.assertIsNotNone( cfg )
         self.assertTrue( "SerialBusDevice.address" in cfg )
@@ -46,7 +35,8 @@ class TestMCP40( unittest.TestCase ):
         
 
     def test_open(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -67,7 +57,8 @@ class TestMCP40( unittest.TestCase ):
         self.assertTrue( err.isOk() )
     
     def test_digital(self):
-        cfg = self.config.copy()
+        global config
+        cfg = config.copy()
         Driver.Params_init( cfg )
         device = Driver()
         self.assertIsNotNone( device )
@@ -100,7 +91,8 @@ class TestMCP40( unittest.TestCase ):
         self.assertTrue( err.isOk() )
 
     # def test_manual(self):
-    #     cfg = self.config.copy()
+    #     global config
+    #     cfg = config.copy()
     #     Driver.Params_init( cfg )
     #     device = Driver()
     #     self.assertIsNotNone( device )
@@ -118,5 +110,18 @@ class TestMCP40( unittest.TestCase ):
     
         
 if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--bus", help="designator of the i2c bus", default=None)
+    parser.add_argument("--adr", help="i2c address of the device", type=int, default=None)
+    parser.add_argument("--rmax", help="maximum resistance in Ohms.", type=int, default=None)
+    args, unknown = parser.parse_known_args()
+    if args.bus:
+        config["SerialBus.designator"] = args.bus
+    if args.adr:
+        config["SerialBusDevice.address"] = args.adr
+    if args.rmax:
+            config["Potentiometer.resistance.max"] = args.rmax
+    if sys.argv:
+        sys.argv = [sys.argv[0],] + unknown
     unittest.main()
 
