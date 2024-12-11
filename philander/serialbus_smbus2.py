@@ -104,3 +104,34 @@ class _SerialBus_SMBus2( SerialBus ):
             err = ErrorCode.errFailure
         return err
 
+    def readBuffer( self, device, length ):
+        err = ErrorCode.errOk
+        try:
+            msg = self.msg.read( device.address, length )
+            self.bus.i2c_rdwr( msg )
+            data = list(msg)
+        except OSError:
+            err = ErrorCode.errFailure
+            data = list()
+        return data, err
+
+    def writeBuffer( self, device, buffer ):
+        err = ErrorCode.errOk
+        try:
+            msg = self.msg.write( device.address, buffer )
+            self.bus.i2c_rdwr( msg )
+        except OSError:
+            err = ErrorCode.errFailure
+        return err
+    
+    def readWriteBuffer( self, device, inLength, outBuffer ):
+        err = ErrorCode.errOk
+        try:
+            msgW = self.msg.write( device.address, outBuffer )
+            msgR = self.msg.read( device.address, inLength )
+            self.bus.i2c_rdwr( msgW, msgR )
+            data = list(msgR)
+        except OSError:
+            err = ErrorCode.errFailure
+            data = list()
+        return data, err
