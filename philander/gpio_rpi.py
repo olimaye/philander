@@ -73,7 +73,7 @@ class _GPIO_RPi( GPIO ):
             self.Params_init(defaults)
 
             RPiGPIO.setmode( self._dictNumScheme[self.numScheme] )
-            if self._direction == GPIO.DIRECTION_OUT:
+            if self.direction == GPIO.DIRECTION_OUT:
                 level = paramDict.get("gpio.level", defaults["gpio.level"])
                 RPiGPIO.setup( self.designator, RPiGPIO.OUT, initial=self._dictLevel[level] )
             else:
