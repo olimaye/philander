@@ -22,7 +22,7 @@ class TestMCP40( unittest.TestCase ):
         Driver.Params_init( cfg )
         self.assertIsNotNone( cfg )
         self.assertTrue( "SerialBusDevice.address" in cfg )
-        self.assertTrue( cfg["SerialBusDevice.address"] in Driver.ADDRESSES_ALLOWED, f"SerialBusDevice.address={cfg["SerialBusDevice.address"]}." )
+        self.assertTrue( cfg["SerialBusDevice.address"] in Driver.ADDRESSES_ALLOWED, f"SerialBusDevice.address={cfg['SerialBusDevice.address']}." )
         key = "Potentiometer.resistance.max"
         self.assertTrue( key in cfg )
         self.assertTrue( isinstance(cfg[key], (int, float, complex)) and not isinstance(cfg[key], bool) )
