@@ -119,7 +119,7 @@ def getStatus():
             num = charger.getNumCells()
             print(f"#Num battery cells: {num}.")
             batstat = charger.getBatStatus()
-            print( "Battery status    : ", hex(batstat), str(batstat) )
+            print( "Battery status    : ", hex(batstat.value), str(batstat) )
             print( "    Physical      : ", str( BatStatus( batstat & BatStatus.problemPhysical)) )
             print( "    Electrical    : ", str( BatStatus( batstat & BatStatus.problemElectrical)) )
             print( "    Thermal       : ", str( BatStatus( batstat & BatStatus.problemThermal)) )

@@ -46,7 +46,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
     REVISION_MINOR_MAX  = 0x1F
     
     def getRegisterMap(self):
-        return self._registerMap
+        return self.registerMap
     
     def getRegContentStr( self, regDescr, content ):
         ret=''
@@ -62,7 +62,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
 
     def getAllRegistersStr(self):
         ret = []
-        for descr in self._registerMap:
+        for descr in self.registerMap:
             cont, err = self.readByteRegister( descr[0] )
             if (err == ErrorCode.errOk):
                 contStr = self.getRegContentStr( descr, cont )
