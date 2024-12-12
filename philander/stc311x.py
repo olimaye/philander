@@ -388,9 +388,10 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
         # Value is signed!
         # R = U/I  so we get I = U/R; Note that R is given in milliOhm!
         # So, finally we scale by 294 / 50 * 1000 / rs = 294 * 20 / rs = 5880 / rs.
-        if data >= 0:
+        if data < 0x8000:
             ret = (data * 5880 + (self.RSense // 2)) // self.RSense
         else:
+            data = 0x10000 - data
             ret = (data * 5880 - (self.RSense // 2)) // self.RSense
         return ret
 
