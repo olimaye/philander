@@ -30,9 +30,10 @@ class _SerialBus_SMBus2( SerialBus ):
             try:
                 self.bus = SMBus( self.designator )
                 ret = ErrorCode.errOk
-            except Exception as exc:
-                ret = ErrorCode.errInternal
-                raise OSError("Couldn't initialize serial bus ["+str(self.designator)+"]. Designator right? Access to interface granted?") from exc
+            except Exception:
+                ret = ErrorCode.errLowLevelFail
+                #raise OSError("Couldn't initialize serial bus ["+str(self.designator)+"]. Designator right? Access to interface granted?") from exc
+                # better log something
         return ret
 
     def close( self ):
