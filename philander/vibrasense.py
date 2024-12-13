@@ -119,13 +119,13 @@ class VibraSense( EventEmitter, Sensor, Interruptable):
     
     def close(self):
         ret = ErrorCode.errOk
+        if self.gpioSignal:
+            ret = self.gpioSignal.close()
+            self.gpioSignal = None
         if self.gpioEnable:
             self.gpioEnable.set( GPIO.LEVEL_LOW )
             ret = self.gpioEnable.close()
             self.gpioEnable = None
-        if self.gpioSignal:
-            ret = self.gpioSignal.close()
-            self.gpioSignal = None
         return ret
 
     #
@@ -133,7 +133,7 @@ class VibraSense( EventEmitter, Sensor, Interruptable):
     #
     
     def _intHandler(self, *arg):
-        self.emit(GPIO.EVENT_DEFAULT, arg)
+        self.emit(GPIO.EVENT_DEFAULT, *arg)
     
     def getLatestData(self):
         return self.getNextData()

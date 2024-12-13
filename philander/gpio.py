@@ -202,8 +202,10 @@ class GPIO( Module, Interruptable ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
+        ret = ErrorCode.errOk
         if self.isOpen:
-            ret = self.registerInterruptHandler(None)
+            if self.direction == GPIO.DIRECTION_IN:
+                ret = self.registerInterruptHandler()
             self.isOpen = False
         else:
             ret = ErrorCode.errResourceConflict
