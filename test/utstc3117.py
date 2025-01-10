@@ -208,7 +208,7 @@ class TestSTC3117( unittest.TestCase ):
     
         lvl = device.getRatedSOC()
         self.assertNotEqual( lvl, Level.invalid )
-        self.assertGreaterEqual( lvl, 0, f"soc={str(lvl)} ({lvl}).")
+        self.assertGreaterEqual( lvl.value, 0, f"soc={str(lvl)} ({lvl}).")
         
         err = device.close()
         self.assertTrue( err.isOk() )

@@ -39,12 +39,12 @@ class TestGPIO( unittest.TestCase ):
         gpioParams = {\
             "gpio.pinDesignator":   17,
             "gpio.direction"    :   GPIO.DIRECTION_IN,
-            "gpio.pull"         :   GPIO.PULL_NONE,
+            "gpio.pull"         :   GPIO.PULL_UP,
             }
         GPIO.Params_init( gpioParams )
         self.assertEqual( gpioParams["gpio.pinDesignator"], 17 )
         self.assertEqual( gpioParams["gpio.direction"], GPIO.DIRECTION_IN )
-        self.assertEqual( gpioParams["gpio.pull"], GPIO.PULL_NONE )
+        self.assertEqual( gpioParams["gpio.pull"], GPIO.PULL_UP )
         err = pin.open(gpioParams)
         self.assertEqual( err, ErrorCode.errOk )
         value = pin.get()
@@ -52,7 +52,7 @@ class TestGPIO( unittest.TestCase ):
         print("Waiting 2 seconds for the input to change...")
         sleep(2)
         newValue = pin.get()
-        self.assertTrue( value ^ newValue, "Input value didn't change!" )
+        self.assertTrue( value ^ newValue, f"Input value didn't change: {value}->{newValue}!" )
         err = pin.close()
         self.assertEqual( err, ErrorCode.errOk )
         

@@ -172,6 +172,12 @@ class GPIO( Module, Interruptable ):
         if self.designator is None:
             ret = ErrorCode.errInvalidParameter
         else:
+            if not isinstance( self.designator, int ):
+                try:
+                    num = int(self.designator)
+                    self.designator = num
+                except ValueError:
+                    pass
             self.numScheme = paramDict.get("gpio.pinNumbering", defaults["gpio.pinNumbering"])
             self.direction = paramDict.get("gpio.direction", defaults["gpio.direction"])
             self.inverted = paramDict.get("gpio.inverted", defaults["gpio.inverted"])
@@ -196,8 +202,10 @@ class GPIO( Module, Interruptable ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
+        ret = ErrorCode.errOk
         if self.isOpen:
-            ret = self.registerInterruptHandler(None)
+            if self.direction == GPIO.DIRECTION_IN:
+                ret = self.registerInterruptHandler()
             self.isOpen = False
         else:
             ret = ErrorCode.errResourceConflict

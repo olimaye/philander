@@ -17,4 +17,4 @@ class Data:
     
     Measurement data should always be expressed as percentage.
     """
-    humidity:  Percentage
+    humidity:  Percentage = 0

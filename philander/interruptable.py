@@ -266,5 +266,5 @@ class Interruptable:
         if len(args) == 0:
             self.eventEmitter.emit( event, fb )
         else:
-            self.eventEmitter.emit( event, fb, args )
+            self.eventEmitter.emit( event, fb, *args )
         return None

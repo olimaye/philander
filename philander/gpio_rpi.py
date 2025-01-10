@@ -4,12 +4,15 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["_GPIO_RPi"]
 
+import logging
 import RPi.GPIO as RPiGPIO
 
 from philander.gpio import GPIO
 from philander.sysfactory import SysProvider
 from philander.systypes import ErrorCode
 
+# Disable RuntimeWarning: This channel is already in use ...
+RPiGPIO.setwarnings(False)
 
 class _GPIO_RPi( GPIO ):
     """Implementation of the GPIO abstract interface for the RPi.GPIO lib.
@@ -64,6 +67,7 @@ class _GPIO_RPi( GPIO ):
         :rtype: ErrorCode
         """
         if self.isOpen:
+            logging.warning("GPIO_RPi:open> pin #%s already open.", self.designator)
             ret = ErrorCode.errResourceConflict
         else:
             ret = super().open( paramDict )
@@ -72,17 +76,25 @@ class _GPIO_RPi( GPIO ):
             defaults = {}
             self.Params_init(defaults)
 
+            # With RPi.GPIO, it may happen that abandoned references to instances
+            # of this class still block hardware resources. This results in a
+            # RuntimeWarning: This channel is already in use, continuing anyway...
             RPiGPIO.setmode( self._dictNumScheme[self.numScheme] )
-            if self._direction == GPIO.DIRECTION_OUT:
+            if self.direction == GPIO.DIRECTION_OUT:
+                logging.debug("GPIO_RPi:open> pin #%s is output.", self.designator)
                 level = paramDict.get("gpio.level", defaults["gpio.level"])
                 RPiGPIO.setup( self.designator, RPiGPIO.OUT, initial=self._dictLevel[level] )
             else:
                 pull = paramDict.get("gpio.pull", defaults["gpio.pull"])
                 feedback = paramDict.get("gpio.feedback", defaults["gpio.feedback"])
                 handler = paramDict.get("gpio.handler", defaults["gpio.handler"])
+                logging.debug("GPIO_RPi:open> pin #%s is input, pull=%s.", self.designator, self._dictPull[pull])
                 RPiGPIO.setup( self.designator, RPiGPIO.IN, pull_up_down=self._dictPull[pull] )
+                # Kill zombie registrations that may exist
+                RPiGPIO.remove_event_detect(self.designator)
                 if handler:
                     ret = self.registerInterruptHandler( GPIO.EVENT_DEFAULT, feedback, handler )
+        logging.info("GPIO_RPi:open> pin #%s returns %s.", self.designator, ret)
         return ret
 
     def close(self):
@@ -99,7 +111,10 @@ class _GPIO_RPi( GPIO ):
         ret = super().close()
         if ret.isOk():
             if not self.designator is None:
+                logging.debug("GPIO_RPi:close> pin #%s, direction=%s.",
+                              self.designator, self.direction)
                 RPiGPIO.cleanup(self.designator)
+        logging.info("GPIO_RPi:close> pin #%s returns %s.", self.designator, ret)
         return ret
 
     def enableInterrupt(self):
@@ -115,16 +130,24 @@ class _GPIO_RPi( GPIO ):
         """
         ret = ErrorCode.errOk
         if not self.isOpen:
+            logging.warning("GPIO_RPi:enableInterrupt> pin #%s not open.", self.designator)
             ret = ErrorCode.errResourceConflict
         elif self.isIntEnabled:
+            logging.warning("GPIO_RPi:enableInterrupt> pin #%s INT already enabled.", self.designator)
             ret = ErrorCode.errOk
         else:
-            btime = self.bounce if self.bounce > 0 else None
-            RPiGPIO.add_event_detect( self.designator,
-                                      self._dictTrigger[self.trigger],
-                                      callback=self._callback,
-                                      bouncetime=btime )
+            logging.debug("GPIO_RPi:enableInterrupt> pin #%s, bounce=%s.", self.designator, self.bounce)
+            if self.bounce > 0:
+                RPiGPIO.add_event_detect( self.designator,
+                                          self._dictTrigger[self.trigger],
+                                          callback=self._callback,
+                                          bouncetime=self.bounce )
+            else:
+                RPiGPIO.add_event_detect( self.designator,
+                                          self._dictTrigger[self.trigger],
+                                          callback=self._callback )
             self.isIntEnabled = True
+        logging.info("GPIO_RPi:enableInterrupt> pin #%s returns %s.", self.designator, ret)
         return ret
 
     def disableInterrupt(self):
@@ -139,12 +162,17 @@ class _GPIO_RPi( GPIO ):
         """
         ret = ErrorCode.errOk
         if not self.isOpen:
+            logging.warning("GPIO_RPi:disableInterrupt> pin #%s not open.", self.designator)
             ret = ErrorCode.errResourceConflict
         elif not self.isIntEnabled:
+            logging.warning("GPIO_RPi:disableInterrupt> pin #%s INT not enabled.", self.designator)
             ret = ErrorCode.errOk
         else:
-            RPiGPIO.remove_event_detect( self.designator )
+            logging.debug("GPIO_RPi:disableInterrupt> pin #%s disabling INT.", self.designator)
+            # At RPi.GPIO v0.7.1a4, this seems to be buggy, as it produces "Speicherzugriffsfehler"
+            # RPiGPIO.remove_event_detect( self.designator )
             self.isIntEnabled = False
+        logging.info("GPIO_RPi:disableInterrupt> pin #%s returns %s.", self.designator, ret)
         return ret
 
     def get(self):

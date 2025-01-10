@@ -1,6 +1,7 @@
 """
 """
 import argparse
+import logging
 import sys
 import time
 import unittest
@@ -28,7 +29,7 @@ def handlerFunc( *arg):
         callReflect = arg[0]
     else:
         callReflect = callReflect+1
-
+    
 
 class TestVibrasense( unittest.TestCase ):
             
@@ -116,11 +117,10 @@ class TestVibrasense( unittest.TestCase ):
                 done = True
         self.assertTrue( err.isOk(), f"Error: {err}." )
         self.assertNotEqual( v, v0, f"Output didn't change: {v}.")
-    
+
         err = device.close()
         self.assertTrue( err.isOk() )
     
-
     def test_interrupt(self):
         global callReflect
         global config
@@ -145,6 +145,7 @@ class TestVibrasense( unittest.TestCase ):
                 done = True
         self.assertNotEqual( callReflect, 0 )
         
+        device.off_all()
         err = device.close()
         self.assertTrue( err.isOk() )
 
@@ -154,6 +155,7 @@ if __name__ == '__main__':
     parser.add_argument("--slot", help="slot number [1|2] of the click board", default=None)
     parser.add_argument("--int", help="designator of the INT GPIO pin", default=None)
     parser.add_argument("--enable", help="designator of the EN GPIO pin", default=None)
+    parser.add_argument("--log", help="Log level, one of: [DEBUG|INFO|WARNING|CRITICAL|ERROR]", default="WARNING")
     args, unknown = parser.parse_known_args()
     if args.slot:
         config["VibraSense.slot"] = args.slot
@@ -161,6 +163,8 @@ if __name__ == '__main__':
         config["VibraSense.int.gpio.pinDesignator"] = args.int
     if args.enable:
         config["VibraSense.enable.gpio.pinDesignator"] = args.enable
+    if args.log:
+        logging.basicConfig( level = args.log.upper() )
     if sys.argv:
         sys.argv = [sys.argv[0],] + unknown
     unittest.main()

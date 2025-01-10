@@ -58,9 +58,12 @@ class SysFactory():
         for ent in providers:
             try:
                 module = __import__( ent[1] )
-                getattr(module, ent[2])
-                ret = ent[0]
-                break
+                if hasattr(module, ent[2]):
+                    ret = ent[0]
+                    break
+                else:
+                    # log something
+                    pass
             except ImportError:
                 pass
         return ret
@@ -113,7 +116,7 @@ class SysFactory():
         :return: A GPIO implementation object, or None in case of an error.
         :rtype: GPIO
         """
-        provs = [(SysProvider.RPIGPIO, "RPi", "GPIO"),
+        provs = [(SysProvider.RPIGPIO, "RPi.GPIO", "GPIO"),
                 (SysProvider.GPIOZERO, "gpiozero", "DigitalOutputDevice"),
                 (SysProvider.PERIPHERY, "periphery", "GPIO"),
                 (SysProvider.MICROPYTHON, "machine", "Pin"),
