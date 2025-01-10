@@ -4,13 +4,13 @@
 
 <!-- one of [proposed | rejected | accepted | deprecated | superseded by [linked ADR](adr-link.md)] -->
 
-proposed
+accepted
 
 ## Date <!-- optional -->
 
 <!-- YYYY-MM-DD (no period!) Date when this decision was last updated -->
 
-2024-07-12
+2025-01-10
 
 ## Deciders <!-- optional -->
 
@@ -77,7 +77,7 @@ The error code is placed last, as in:
 Chosen option: "[option 1]", because [justification. e.g., only option, which meets k.o. criterion decision driver | which resolves force force | … | comes out best (see below)].
 -->
 
-Chosen option: "Option A", because the error code appears to be more relevant when interpreting the result of a method call.
+Chosen option: "Option B", in favor of the majority of code.
 
 ## Consequences
 
@@ -89,7 +89,7 @@ Chosen option: "Option A", because the error code appears to be more relevant wh
 
 We are aware of the following:
 * We have to check the whole code, modify part of it and thoroughly test the result.
-* In orderto prevent from divergence, we have to stick to this decision, in the future.
+* In order to prevent from divergence, we have to stick to this decision, in the future.
 
 ## Related ADRs <!-- optional -->
 
@@ -112,3 +112,4 @@ We are aware of the following:
 -->
 
 * 2024-07-12 O. Maye: PROPOSED. ADR created and options A and B outlined.
+* 2025-01-10 O. Maye: ACCEPTED. Decided for option B (data, err).
