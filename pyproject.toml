@@ -37,7 +37,6 @@ classifiers = [
 dependencies = [
 	"pymitter",
 
-    "bleak; platform_machine == \"aarch64\"",
 	# "RPi.GPIO; platform_machine == \"aarch64\" and sys_platform==\"Linux\"",
 	"gpiozero; platform_machine == \"aarch64\"",
 	# "python-periphery; platform_machine == \"aarch64\"",

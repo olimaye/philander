@@ -59,6 +59,8 @@ This is the summary of relevant changes throughout different releases.
 
 ### Removed
 - SMBUS package is no longer supported. Use SMBUS2, instead!
+- BLE module was removed. As per ADR, [aioble](https://github.com/micropython/micropython-lib/tree/master/micropython/bluetooth/aioble) is the preferred BLE API.
+- The `fastgait` module should be part of the application.
 
 ### Fixed
 - `BMA456.getLatestData` and `getNextData` return a `Data` object, instead of a list, as defined by the `Sensor` interface.

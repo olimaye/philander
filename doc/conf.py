@@ -12,10 +12,10 @@ sys.path.insert(0, os.path.abspath('..'))
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#project-information
 
 project = 'philander'
-copyright = '2023-2024, Oliver Maye'
+copyright = '2023-2025, Oliver Maye'
 author = 'Oliver Maye'
-version = '0.3'
-release = '0.3'
+version = '0.4'
+release = '0.4'
 
 # -- General configuration ---------------------------------------------------
 # https://www.sphinx-doc.org/en/master/usage/configuration.html#general-configuration

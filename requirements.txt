@@ -2,7 +2,6 @@
 sphinx
 sphinx_rtd_theme
 readthedocs-sphinx-search
-bleak
 pymitter
 python-periphery
 smbus2
