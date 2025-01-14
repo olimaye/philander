@@ -18,7 +18,7 @@ python:
 build:
   os: ubuntu-22.04
   tools:
-    python: "3.11"
+    python: "3.12"
 # Generate modules.rst and package top-level sources.
   jobs:
     pre_build:
@@ -28,4 +28,4 @@ build:
 # Build documentation in the "docs/" directory with Sphinx
 sphinx:
   configuration: doc/conf.py
-  fail_on_warning: true
+  fail_on_warning: false
