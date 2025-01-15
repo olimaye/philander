@@ -8,12 +8,12 @@ build-backend = "hatchling.build"
 name = "philander"
 dynamic = ["version"]
 authors = [
-  { name="Oliver Maye", email="maye@ihp-microelectronics.com" },
+  { name="Oliver Maye"}, { email="maye@ihp-microelectronics.com" },
 ]
 description = "Driver collection for embedded systems or wireless sensor nodes."
 readme = "readme.md"
 requires-python = ">=3.4"
-license = "EUPL-1.2"
+license = {text = "EUPL-1.2"}
 keywords = ["accelerometer", "BMA456", "driver", "hardware abstraction", "platform", "WSN" ]
 classifiers = [
 	"Development Status :: 6 - Mature",
