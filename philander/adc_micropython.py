@@ -38,22 +38,31 @@ class _ADC_Micropython( ADC ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        wasOpen = self.isOpen
-        ret = super().open( paramDict )
+        if self.isOpen and not hasattr( Driver, 'init'):
+            ret = ErrorCode.errResourceConflict
+        else:
+            wasOpen = self.isOpen
+            ret = super().open( paramDict )
         if ret.isOk():
+            self.isOpen = False
             if self.samplingTime > 0:
-                if wasOpen:
-                    self._adc.init( self.designator, self.samplingTime*1000 )
-                else:
-                    self._adc = Driver( self.designator, self.samplingTime*1000 )
+                try:
+                    if wasOpen:
+                        self._adc.init( sample_ns=self.samplingTime*1000 )
+                    else:
+                        self._adc = Driver( self.designator, sample_ns=self.samplingTime*1000 )
+                except TypeError:   # keyword argument 'sample_ns' not supported
+                    ret = ErrorCode.errInvalidParameter
+                    
             else:
                 if wasOpen:
-                    self._adc.init( self.designator )
+                    self._adc.init()
                 else:
                     self._adc = Driver( self.designator )
             if self._adc is None:
                 ret = ErrorCode.errLowLevelFail
-                self.isOpen = False
+        if ret.isOk():
+            self.isOpen = True
         return ret
 
     #
@@ -90,15 +99,17 @@ class _ADC_Micropython( ADC ):
         an error code indicating either success or the reason of failure.
         :rtype: int, ErrorCode
         """
-        if self.isOpen:
+        if not self.isOpen:
+            val = self.vref_lower
+            err = ErrorCode.errResourceConflict
+        elif not hasattr( self._adc, "read_uv"):
+            val, err = super().getVoltage()
+        else:
             val = self._adc.read_uv()
             if( val >= 0):
                 val = (val + 500) / 1000
             else:
                 val = (val - 500) / 1000
             err = ErrorCode.errOk
-        else:
-            val = self.vref_lower
-            err = ErrorCode.errResourceConflict
         return val, err
 

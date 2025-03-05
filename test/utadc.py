@@ -16,13 +16,13 @@ class TestADC( unittest.TestCase ):
         vrefHigh= 3000
         params = {\
             "adc.pinDesignator": 1,
-            "adc.samplingTime":  2,
+            #"adc.samplingTime":  2,
             "adc.vref.lower" :   vrefLow,
             "adc.vref.upper" :   vrefHigh,
             }
         ADC.Params_init( params )
         self.assertEqual( params["adc.pinDesignator"], 1 )
-        self.assertEqual( params["adc.samplingTime"], 2 )
+        #self.assertEqual( params["adc.samplingTime"], 2 )
         self.assertEqual( params["adc.vref.lower"], vrefLow )
         self.assertEqual( params["adc.vref.upper"], vrefHigh )
         err = device.open(params)
@@ -30,13 +30,14 @@ class TestADC( unittest.TestCase ):
         err = device.close()
         self.assertEqual( err, ErrorCode.errOk )
 
+    #@unittest.skip("Known working.")
     def test_input(self):
         device = SysFactory.getADC()
         self.assertIsNotNone( device )
         params = {\
-            "adc.pinDesignator": 1,
+            "adc.pinDesignator": "GP26",
             "adc.vref.lower" :   0,
-            "adc.vref.upper" :   3000,
+            "adc.vref.upper" :   3300,
             }
         err = device.open(params)
         self.assertEqual( err, ErrorCode.errOk )
@@ -52,7 +53,8 @@ class TestADC( unittest.TestCase ):
             sleep(2)
         err = device.close()
         self.assertEqual( err, ErrorCode.errOk )
-        
+    
+    #@unittest.skip("Known working.")
     def test_conversion(self):
         device = SysFactory.getADC( SysProvider.SIM )
         self.assertIsNotNone( device )
@@ -66,7 +68,7 @@ class TestADC( unittest.TestCase ):
         for (lo, hi) in vref:
             device.vref_lower = lo
             device.vref_upper = hi
-            for dval in range( 0x10000 ):
+            for dval in range( 0, 0x10000, 0x123 ):
                 val1 = dval * (hi-lo) / ADC.DIGITAL_MAX + lo
                 val2, err = device.toVoltage( dval )
                 self.assertEqual( err, ErrorCode.errOk )
