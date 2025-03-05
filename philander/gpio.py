@@ -56,12 +56,9 @@ class GPIO( Module, Interruptable ):
     def __init__(self):
         """Initialize the instance with defaults.
         
-        As part of the construction, the underlying implementation is
-        determined. So, at this time, one of the supported gpio packages
-        will be accessed.
-        Still, note that just after construction, the instance is not
-        operable, yet. Call open() to configure it and set it into a
-        functional state.
+        Note that just after construction, the instance is not
+        operable, yet. Call :meth:`open` to configure it and set it
+        into a functional state.
         """
         self._dictDirection = {}
         self._dictLevel = {}

@@ -132,4 +132,23 @@ class SysFactory():
             provider = SysFactory._autoDetectProvider( provs, SysProvider.SIM )
         ret = SysFactory._createInstance( provider, impls )
         return ret
-    
+
+    @staticmethod
+    def getADC( provider=SysProvider.AUTO ):
+        """Generates an ADC implementation according to the requested provider.
+        
+        :param SysProvider provider: The low-level lib to rely on, or AUTO\
+        for automatic detection.
+        :return: An ADC implementation object, or None in case of an error.
+        :rtype: ADC
+        """
+        provs = [(SysProvider.MICROPYTHON, "machine", "ADC"),
+                ]
+        impls = {
+                  SysProvider.MICROPYTHON:  ("philander.adc_micropython", "_ADC_Micropython"),
+                  SysProvider.SIM:          ("philander.adc_sim", "_ADC_Sim"),
+                }
+        if provider == SysProvider.AUTO:
+            provider = SysFactory._autoDetectProvider( provs, SysProvider.SIM )
+        ret = SysFactory._createInstance( provider, impls )
+        return ret

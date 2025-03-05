@@ -11,7 +11,10 @@ This is the summary of relevant changes throughout different releases.
 <!---### Security--->
 
 ## [Unreleased]
-- nothing yet.
+
+### Added
+- Module ADC and implementation for Micropython plus SIM and test
+
 
 ## [0.4] - 2024-11-15
 
