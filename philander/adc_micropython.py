@@ -38,31 +38,38 @@ class _ADC_Micropython( ADC ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        if self.isOpen and not hasattr( Driver, 'init'):
-            ret = ErrorCode.errResourceConflict
-        else:
-            wasOpen = self.isOpen
-            ret = super().open( paramDict )
-        if ret.isOk():
-            self.isOpen = False
-            if self.samplingTime > 0:
-                try:
-                    if wasOpen:
-                        self._adc.init( sample_ns=self.samplingTime*1000 )
-                    else:
-                        self._adc = Driver( self.designator, sample_ns=self.samplingTime*1000 )
-                except TypeError:   # keyword argument 'sample_ns' not supported
-                    ret = ErrorCode.errInvalidParameter
-                    
+        if self.isOpen:
+            if not hasattr( Driver, 'init'):
+                ret = ErrorCode.errResourceConflict
             else:
-                if wasOpen:
+                ret = super().open( paramDict )
+            if ret.isOk():
+                if self.samplingTime > 0:
+                    try:
+                        self._adc.init( sample_ns=self.samplingTime*1000 )
+                    except TypeError:   # keyword argument 'sample_ns' not supported
+                        ret = ErrorCode.errInvalidParameter
+                else:
                     self._adc.init()
+        else:
+            ret = super().open( paramDict )
+            if ret.isOk():
+                if self.designator == ADC.CHANNEL_DIE_TEMP:
+                    if not hasattr( Driver, 'CORE_TEMP'):
+                        ret = ErrorCode.errInvalidParameter
+                    else:
+                        self.designator = Driver.CORE_TEMP
+            if ret.isOk():
+                if self.samplingTime > 0:
+                    try:
+                        self._adc = Driver( self.designator, sample_ns=self.samplingTime*1000 )
+                    except TypeError:   # keyword argument 'sample_ns' not supported
+                        ret = ErrorCode.errInvalidParameter
                 else:
                     self._adc = Driver( self.designator )
-            if self._adc is None:
-                ret = ErrorCode.errLowLevelFail
-        if ret.isOk():
-            self.isOpen = True
+                if self._adc is None:
+                    ret = ErrorCode.errLowLevelFail
+            self.isOpen = ret.isOk()
         return ret
 
     #

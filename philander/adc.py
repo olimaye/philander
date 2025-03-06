@@ -24,6 +24,8 @@ class ADC( Module ):
     of the implementing package.
     """
     
+    CHANNEL_DIE_TEMP = -1       # Internal ADC channel for die/core temp.
+     
     DIGITAL_MAX = 0xFFFF        # Maximum digital value
 
     DEFAULT_SAMPLING_TIME = 100 # default sampling time in microseconds
@@ -134,6 +136,7 @@ class ADC( Module ):
         ret = ErrorCode.errOk
         if self.isOpen:
             self.isOpen = False
+            self._adc = None
         else:
             ret = ErrorCode.errResourceConflict
         logging.debug("ADC base> close <%s> returns %s.", self.designator, ret)
