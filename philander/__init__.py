@@ -2,7 +2,7 @@
 """
 __author__ = "Oliver Maye"
 __version__ = "0.4"
-__all__ = ["accelerometer", "actuator",
+__all__ = ["accelerometer", "actuator", "adc",
            "battery", "ble", "bma456", "button",
            "charger", "configurable",
            "dictionary",
