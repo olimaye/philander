@@ -1,8 +1,9 @@
-"""Provide the serial bus API while relying on the SMBus and SMBus2 package.
+"""Provide the serial bus API while relying on the SMBus2 package.
 
 An application should never use this module directly. Instead, the
 system factory will provide suitable instances.
 """
+from serialbus import SerialBusType
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["_SerialBus_SMBus2" ]
@@ -16,6 +17,8 @@ from philander.systypes import ErrorCode
 
 class _SerialBus_SMBus2( SerialBus ):
     """SMBUS2 serial bus implementation.
+    
+    Supports I2C, only.
     """
 
     def __init__(self):
@@ -25,7 +28,10 @@ class _SerialBus_SMBus2( SerialBus ):
         
     def open( self, paramDict ):
         # Scan the parameters
-        ret = super().open(paramDict)
+        if paramDict.get( "SerialBus.type", None) != SerialBusType.I2C:
+            ret = ErrorCode.errNotSupported
+        else:
+            ret = super().open(paramDict)
         if (ret.isOk()):
             try:
                 self.bus = SMBus( self.designator )

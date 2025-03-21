@@ -92,9 +92,9 @@ class SysFactory():
         :return: A serial bus implementation object, or None in case of an error.
         :rtype: SerialBus
         """
-        provs = [(SysProvider.SMBUS2, "smbus2", "SMBus"),
-                (SysProvider.PERIPHERY, "periphery", "I2C"),
+        provs = [(SysProvider.PERIPHERY, "periphery", "I2C"),
                 (SysProvider.MICROPYTHON, "machine", "I2C"),
+                (SysProvider.SMBUS2, "smbus2", "SMBus"),
                 ]
         impls = {
                   SysProvider.MICROPYTHON:  ("philander.serialbus_micropython", "_SerialBus_Micropython"),
