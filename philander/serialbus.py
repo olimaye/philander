@@ -60,7 +60,7 @@ class SerialBusDevice( Module ):
         """Initialize the set of configuration parameters with supported options.
         Supported configuration key names and their meanings are:
         
-        * ``SerialBusDevice.address``: The address of the device.\
+        * ``SerialBusDevice.address``: The address of the device if on I2C-type bus.\
         The value should be given as an integer number.\
         Must be unique in that, a serial bus does not allow two devices\
         with the same address being attached.\
@@ -73,8 +73,22 @@ class SerialBusDevice( Module ):
         :returns: none
         :rtype: None
         """
-        paramDict["SerialBusDevice.address"] = paramDict.get("SerialBusDevice.address", SerialBusDevice.DEFAULT_ADDRESS)
-        SerialBus.Params_init(paramDict)
+        # Add bus-related defaults
+        bus = paramDict.get("SerialBusDevice.bus", None)
+        if bus:
+            bus.Params_init(paramDict)
+        else:
+            SerialBus.Params_init(paramDict)
+        # Add device-related defaults; may depend on bus type.
+        btype = paramDict.get("SerialBus.type", None)
+        defaults = {}
+        if btype == SerialBusType.I2C:
+            defaults = {
+                "SerialBusDevice.address": SerialBusDevice.DEFAULT_ADDRESS,
+            }
+        for key, value in defaults.items():
+            if not key in paramDict:
+                paramDict[key] = value
         return None
     
     def open(self, paramDict):
@@ -379,6 +393,25 @@ class SerialBusType(Enum):
     SPI = 20
     UART= 30
 
+@unique
+@idiotypic
+class SPIMode(Enum):
+    """SPI mode specification.
+    
+    The basic SPI specification leaves some degree of freedom with respect
+    to the clock idle state, often referred to as clock polarity (CPOL).
+    It may be chosen either low or high.
+    Also the phase (edge), at which to read data can either be first or
+    second. This is referred to as the clock phase (CPHA).
+    Varying CPOL and CPHA offers in total 4 modes that SPI can be operated
+    in. For more information on SPI modes refer to:
+    https://en.wikipedia.org/wiki/Serial_Peripheral_Interface#Clock_polarity_and_phase 
+    """
+    CPOL0_CPHA0 = 0         # idle low, read on first edge (rising)
+    CPOL0_CPHA1 = 1         # idle low, read on second edge (falling)
+    CPOL1_CPHA0 = 2         # idle high, read on first edge (falling)
+    CPOL1_CPHA1 = 3         # idle high, read on second edge (rising)
+
 class SerialBus( Module ):
     """Convergence layer to abstract from multiple implementations of\
     serial communication (I2C, SPI), such as smbus or periphery.
@@ -394,6 +427,13 @@ class SerialBus( Module ):
     
     _STATUS_FREE		= 1
     _STATUS_OPEN		= 2
+    
+    DEFAULT_TYPE        = SerialBusType.I2C
+    DEFAULT_DESGINATOR  = "/dev/i2c-1"
+    DEFAULT_SPI_MODE    = SPIMode.CPOL1_CPHA1
+    DEFAULT_SPI_SPEED   = 1000000
+    DEFAULT_SPI_BIT_ORDER= "MSB"
+    DEFAULT_SPI_BITS_PER_WORD = 8
     
     #
     # Internal helpers
@@ -415,22 +455,27 @@ class SerialBus( Module ):
     @classmethod
     def Params_init( cls, paramDict ):
         """Initialize parameters with default values.
-        Supported key names and their meanings are:
         
-        * ``SerialBus.type``: A :class:`SerialBusType` to indicate the\
-        serial protocol. The default is :attr:`SerialBusType.I2C`.
-        * ``SerialBus.designator``: A string or number to identify\
-        the bus port, such as "/dev/i2c-3" or 1. Defaults to "/dev/i2c-1".
+        Supported key names and their meanings are:
 
+        ==================    =================================================    ================================
+        Key                   Range                                                Default
+        ==================    =================================================    ================================
+        SerialBus.type        :class:`SerialBusType` to indicate the protocol.     :attr:`SerialBus.DEFAULT_TYPE`.
+        SerialBus.designator  [string | number]: bus port, "/dev/i2c-3" or 1.      "/dev/i2c-1".
+        ==================    =================================================    ================================
+        
         :param dict(str, object) paramDict: Configuration parameters as obtained from :meth:`Params_init`, possibly.
         :return: none
         :rtype: None
         """
-        # Fill paramDict with defaults
-        if not ("SerialBus.type" in paramDict):
-            paramDict["SerialBus.type"] = SerialBusType.I2C
-        if not ("SerialBus.designator" in paramDict):
-            paramDict["SerialBus.designator"] = "/dev/i2c-1"
+        defaults = {
+            "SerialBus.type":       SerialBus.DEFAULT_TYPE,
+            "SerialBus.designator": SerialBus.DEFAULT_DESGINATOR,
+        }
+        for key, value in defaults.items():
+            if not key in paramDict:
+                paramDict[key] = value
         return None
 
     def open(self, paramDict):
@@ -467,9 +512,6 @@ class SerialBus( Module ):
                 self.designator = defaults["SerialBus.designator"]
                 paramDict["SerialBus.designator"] = self.designator
             
-            if self.type != SerialBusType.I2C:
-                #raise NotImplementedError('Currently, only I2C is supported!')
-                ret = ErrorCode.errNotSupported
         if( ret.isOk() ):
             self._status = SerialBus._STATUS_OPEN
         return ret

@@ -25,5 +25,5 @@ __all__ = ["generalTestSuite",
            "utimath", "utinterruptable",
            "utl6924",
            "utpenum", "utpotentiometer", "utpymitter",
-           "utserialbus",
+           "utserialbus", "utserialbus_impl",
            "utthermometer", ]
