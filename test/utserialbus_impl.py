@@ -5,15 +5,20 @@ import unittest
 from philander.serialbus import SerialBusDevice, SerialBusType, SPIMode
 from philander.systypes import ErrorCode
 from philander.sysfactory import SysFactory, SysProvider
-from philander.simBMA456 import SimDevBMA456
+#from philander.simBMA456 import SimDevBMA456
 
 class TestSerialBus( unittest.TestCase ):
 
+    ProviderUnderTest = SysProvider.MICROPYTHON
+    I2C_PortDesignator = 0  # "/dev/i2c-1"
+    SPI_PortDesignator = 0  # "/dev/spidev0.1"
+    SPI_CS = 17
+    
     #@unittest.skip("step-wise testing")
     def test_i2c(self):
         # Enforce specific implementation of serial bus
         # and open the device
-        bus = SysFactory.getSerialBus( SysProvider.PERIPHERY )
+        bus = SysFactory.getSerialBus( self.ProviderUnderTest )
         dev = SerialBusDevice()
         #bus = SysFactory.getSerialBus( SysProvider.SIM )
         #dev.sim = SimDevBMA456()
@@ -21,15 +26,15 @@ class TestSerialBus( unittest.TestCase ):
 
         # Assume BMA456 @ I2C.1 to be the device under test.
         params = {\
-            "SerialBus.designator":   "/dev/i2c-1",     #1,
+            "SerialBus.designator":   self.I2C_PortDesignator,
             "SerialBusDevice.address":    0x18,
             "SerialBusDevice.bus":    bus,
             }
         SerialBusDevice.Params_init( params )
-        self.assertEqual( params["SerialBus.designator"], "/dev/i2c-1" )
+        self.assertEqual( params["SerialBus.designator"], self.I2C_PortDesignator )
         self.assertEqual( params["SerialBusDevice.bus"], bus )
         err = dev.open(params)
-        self.assertEqual( err, ErrorCode.errOk )
+        self.assertEqual( err, ErrorCode.errOk, "Open: "+str(err) )
 
         # Read chip ID, error and status
         data, err = dev.readByteRegister( 0 )   # ChipID
@@ -69,23 +74,24 @@ class TestSerialBus( unittest.TestCase ):
     def test_spi(self):
         # Enforce specific implementation of serial bus
         # and open the device
-        bus = SysFactory.getSerialBus( SysProvider.PERIPHERY )
+        bus = SysFactory.getSerialBus( self.ProviderUnderTest )
         dev = SerialBusDevice()
         self.assertIsNotNone( dev )
 
         # Assume BME280 @ SPI.1 to be the device under test.
         params = {\
             "SerialBus.type":         SerialBusType.SPI,
-            "SerialBus.designator":   "/dev/spidev0.1",
+            "SerialBus.designator":   self.SPI_PortDesignator,
             #"SerialBus.SPI.mode":     SPIMode.CPOL1_CPHA1,
             "SerialBusDevice.bus":    bus,
+            "SerialBusDevice.CS.gpio.pinDesignator": self.SPI_CS,
             }
         SerialBusDevice.Params_init( params )
-        self.assertEqual( params["SerialBus.designator"], "/dev/spidev0.1" )
+        self.assertEqual( params["SerialBus.designator"], self.SPI_PortDesignator )
         self.assertEqual( params["SerialBus.SPI.mode"], SPIMode.CPOL1_CPHA1 )
         self.assertEqual( params["SerialBusDevice.bus"], bus )
         err = dev.open(params)
-        self.assertEqual( err, ErrorCode.errOk )
+        self.assertEqual( err, ErrorCode.errOk, "Open: "+str(err) )
 
         # Initialize = set to active mode; read back and check
         regNum = 0xF4   # ctrl_meas

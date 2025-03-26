@@ -14,6 +14,7 @@ This is the summary of relevant changes throughout different releases.
 
 ### Added
 - Module ADC and implementation for Micropython plus SIM and test
+- SerialBus: SPI support for periphery and MicroPython environments
 
 
 ## [0.4] - 2024-11-15

@@ -30,6 +30,7 @@ __all__ = ["SerialBus", "SerialBusDevice", "SerialBusType"]
 
 from philander.penum import Enum, unique, auto, idiotypic
 
+from philander.gpio import GPIO
 from philander.module import Module
 from philander.sysfactory import SysProvider, SysFactory
 from philander.systypes import ErrorCode
@@ -54,17 +55,19 @@ class SerialBusDevice( Module ):
         self.provider = SysProvider.NONE
         self.serialBus   = None
         self.address = SerialBusDevice.DEFAULT_ADDRESS
+        self.pinCS = None
 
     @classmethod
     def Params_init( cls, paramDict ):
         """Initialize the set of configuration parameters with supported options.
         Supported configuration key names and their meanings are:
         
-        * ``SerialBusDevice.address``: The address of the device if on I2C-type bus.\
-        The value should be given as an integer number.\
-        Must be unique in that, a serial bus does not allow two devices\
-        with the same address being attached.\
-        Defaults to :attr:`DEFAULT_ADDRESS`.
+        =========================    ===================================================================
+        Key                          Range, meaning and default
+        =========================    ===================================================================
+        SerialBusDevice.address      int; I2C address of the device; :attr:`DEFAULT_ADDRESS`
+        SerialBusDevice.CS.gpio.*    SPI chip select pin configuration; See :meth:`.GPIO.Params_init`.
+        =========================    ===================================================================
         
         Also see :meth:`.module.Module.Params_init`.
         
@@ -85,6 +88,10 @@ class SerialBusDevice( Module ):
         if btype == SerialBusType.I2C:
             defaults = {
                 "SerialBusDevice.address": SerialBusDevice.DEFAULT_ADDRESS,
+            }
+        elif btype == SerialBusType.SPI:
+            defaults = {
+                "SerialBusDevice.CS.gpio.direction": GPIO.DIRECTION_OUT,
             }
         for key, value in defaults.items():
             if not key in paramDict:
@@ -118,15 +125,6 @@ class SerialBusDevice( Module ):
         """
         result = ErrorCode.errOk
         if (self.serialBus is None ):
-            adr = paramDict.get("SerialBusDevice.address", SerialBusDevice.DEFAULT_ADDRESS)
-            if not isinstance(adr, int):
-                try:
-                    adr = int( adr, 0 )
-                except ValueError:
-                    adr = SerialBusDevice.DEFAULT_ADDRESS
-                    
-            paramDict["SerialBusDevice.address"] = adr
-            self.address = adr
             if ("SerialBusDevice.bus" in paramDict):
                 sb = paramDict["SerialBusDevice.bus"]
                 if not( isinstance(sb, SerialBus)):
@@ -141,6 +139,27 @@ class SerialBusDevice( Module ):
                     result = sb.open(paramDict)
                 if (result.isOk()):
                     paramDict["SerialBusDevice.bus"] = sb
+
+            if (result.isOk()):
+                if sb.type == SerialBusType.I2C:
+                    # Determine I2C address
+                    self.address = paramDict.get("SerialBusDevice.address", SerialBusDevice.DEFAULT_ADDRESS)
+                    if not isinstance(self.address, int):
+                        try:
+                            self.address = int( self.address, 0 )
+                        except ValueError:
+                            self.address = SerialBusDevice.DEFAULT_ADDRESS
+                elif sb.type == SerialBusType.SPI:
+                    # Setup GPIO pin for CS line
+                    if ("SerialBusDevice.CS.gpio.pinDesignator" in paramDict):
+                        paramDict["SerialBusDevice.CS.gpio.direction"] = GPIO.DIRECTION_OUT
+                        paramDict["SerialBusDevice.CS.gpio.level"] = GPIO.LEVEL_HIGH
+                        prefix = "SerialBusDevice.CS."
+                        gpioParams = dict( [(k.replace(prefix, ""),v) for k,v in paramDict.items() if k.startswith(prefix)] )
+                        self.pinCS = SysFactory.getGPIO()
+                        # open GPIO pin
+                        result = self.pinCS.open(gpioParams)
+
             if (result.isOk()):
                 result = sb.attach( self )
         else:
@@ -159,8 +178,12 @@ class SerialBusDevice( Module ):
         :rtype: ErrorCode
         """
         result = ErrorCode.errOk
-        if not (self.serialBus is None ):
+        if self.serialBus is not None:
             result = self.serialBus.detach(self)
+        if self.pinCS is not None:
+            err = self.pinCS.close()
+            if result.isOk():
+                result = err
         return result
     
     
@@ -430,8 +453,11 @@ class SerialBus( Module ):
     
     DEFAULT_TYPE        = SerialBusType.I2C
     DEFAULT_DESGINATOR  = "/dev/i2c-1"
-    DEFAULT_SPI_MODE    = SPIMode.CPOL1_CPHA1
     DEFAULT_SPI_SPEED   = 1000000
+    DEFAULT_I2C_SPEED   = 400000
+    DEFAULT_SPEED       = DEFAULT_I2C_SPEED
+
+    DEFAULT_SPI_MODE    = SPIMode.CPOL1_CPHA1
     DEFAULT_SPI_BIT_ORDER= "MSB"
     DEFAULT_SPI_BITS_PER_WORD = 8
     
@@ -458,12 +484,16 @@ class SerialBus( Module ):
         
         Supported key names and their meanings are:
 
-        ==================    =================================================    ================================
-        Key                   Range                                                Default
-        ==================    =================================================    ================================
-        SerialBus.type        :class:`SerialBusType` to indicate the protocol.     :attr:`SerialBus.DEFAULT_TYPE`.
-        SerialBus.designator  [string | number]: bus port, "/dev/i2c-3" or 1.      "/dev/i2c-1".
-        ==================    =================================================    ================================
+        ======================    =================================================    ==============================================
+        Key                       Range                                                Default
+        ======================    =================================================    ==============================================
+        SerialBus.type            :class:`SerialBusType` to indicate the protocol.     :attr:`SerialBus.DEFAULT_TYPE`.
+        SerialBus.designator      [string | number]: bus port, "/dev/i2c-3" or 1.      "/dev/i2c-1".
+        SerialBus.speed           [int|float] maximum bus clock frequency in Hz.       :attr:`SerialBus.DEFAULT_SPEED`.
+        SerialBus.SPI.mode        :class:`SPIMode` mode; only for SPI.                 :attr:`SerialBus.DEFAULT_SPI_MODE`.
+        SerialBus.SPI.bitorder    ["msb"|"lsb"] bit transmission order.                :attr:`SerialBus.DEFAULT_SPI_BIT_ORDER`.
+        SerialBus.SPI.bpw         int; bits per word                                   :attr:`SerialBus.DEFAULT_SPI_BITS_PER_WORD`.
+        ======================    =================================================    ==============================================
         
         :param dict(str, object) paramDict: Configuration parameters as obtained from :meth:`Params_init`, possibly.
         :return: none
@@ -476,6 +506,31 @@ class SerialBus( Module ):
         for key, value in defaults.items():
             if not key in paramDict:
                 paramDict[key] = value
+                
+        if paramDict.get( "SerialBus.type", None ) == SerialBusType.I2C:
+            I2Cdefaults = {
+                "SerialBus.speed":          SerialBus.DEFAULT_I2C_SPEED,
+            }
+            for key, value in I2Cdefaults.items():
+                if not key in paramDict:
+                    paramDict[key] = value
+        elif paramDict.get( "SerialBus.type", None ) == SerialBusType.SPI:
+            SPIdefaults = {
+                "SerialBus.speed":          SerialBus.DEFAULT_SPI_SPEED,
+                "SerialBus.SPI.mode":       SerialBus.DEFAULT_SPI_MODE,
+                "SerialBus.SPI.bitorder":   SerialBus.DEFAULT_SPI_BIT_ORDER,
+                "SerialBus.SPI.bpw":        SerialBus.DEFAULT_SPI_BITS_PER_WORD,
+            }
+            for key, value in SPIdefaults.items():
+                if not key in paramDict:
+                    paramDict[key] = value
+        else:
+            GENdefaults = {
+                "SerialBus.speed":          SerialBus.DEFAULT_SPEED,
+            }
+            for key, value in GENdefaults.items():
+                if not key in paramDict:
+                    paramDict[key] = value
         return None
 
     def open(self, paramDict):
@@ -497,20 +552,10 @@ class SerialBus( Module ):
             ret = ErrorCode.errResourceConflict
         else:
             # Retrieve defaults
-            defaults = {}
-            self.Params_init( defaults )
+            self.Params_init(paramDict)
             # Scan parameters
-            if "SerialBus.type" in paramDict:
-                self.type = paramDict["SerialBus.type"]
-            else:
-                self.type = defaults["SerialBus.type"]
-                paramDict["SerialBus.type"] = self.type
-    
-            if "SerialBus.designator" in paramDict:
-                self.designator = paramDict["SerialBus.designator"]
-            else:
-                self.designator = defaults["SerialBus.designator"]
-                paramDict["SerialBus.designator"] = self.designator
+            self.type = paramDict["SerialBus.type"]
+            self.designator = paramDict["SerialBus.designator"]
             
         if( ret.isOk() ):
             self._status = SerialBus._STATUS_OPEN

@@ -22,48 +22,15 @@ class _SerialBus_Periphery( SerialBus ):
         super().__init__()
         self.provider = SysProvider.PERIPHERY
         
-    @classmethod
-    def Params_init( cls, paramDict ):
-        """Initialize parameters with default values.
-        
-        Supported key names and their meanings are:
-
-        ======================    =================================================    ==============================================
-        Key                       Range                                                Default
-        ======================    =================================================    ==============================================
-        SerialBus.SPI.mode        :class:`SPIMode` mode; only for SPI.                 :attr:`SerialBus.DEFAULT_SPI_MODE`.
-        SerialBus.SPI.speed       [int|float] maximum SPI clock frequency in Hz.       :attr:`SerialBus.DEFAULT_SPI_SPEED`.
-        SerialBus.SPI.bitorder    ["msb"|"lsb"] bit transmission order.                :attr:`SerialBus.DEFAULT_SPI_BIT_ORDER`.
-        SerialBus.SPI.bpw         int; bits per word                                   :attr:`SerialBus.DEFAULT_SPI_BITS_PER_WORD`.
-        ======================    =================================================    ==============================================
-        
-        :param dict(str, object) paramDict: Configuration parameters as obtained from :meth:`Params_init`, possibly.
-        :return: none
-        :rtype: None
-        """
-        SPIdefaults = {
-            "SerialBus.SPI.mode":       SerialBus.DEFAULT_SPI_MODE,
-            "SerialBus.SPI.speed":      SerialBus.DEFAULT_SPI_SPEED,
-            "SerialBus.SPI.bitorder":   SerialBus.DEFAULT_SPI_BIT_ORDER,
-            "SerialBus.SPI.bpw":        SerialBus.DEFAULT_SPI_BITS_PER_WORD,
-        }
-        SerialBus.Params_init( paramDict )
-        if paramDict.get( "SerialBus.type", None ) == SerialBusType.SPI:
-            for key, value in SPIdefaults.items():
-                if not key in paramDict:
-                    paramDict[key] = value
-        return None
-
     def open( self, paramDict ):
         # Scan the parameters
-        self.Params_init(paramDict)
         ret = super().open(paramDict)
         if (ret.isOk()):
             if self.type == SerialBusType.I2C:
                 self.bus = I2C( self.designator )
             elif self.type == SerialBusType.SPI:
+                speed= paramDict["SerialBus.speed"]
                 mode = paramDict["SerialBus.SPI.mode"]
-                speed= paramDict["SerialBus.SPI.speed"]
                 bitorder = paramDict["SerialBus.SPI.bitorder"]
                 bpw  = paramDict["SerialBus.SPI.bpw"]
                 self.bus = SPI( self.designator, mode.value, speed, bitorder, bpw )
