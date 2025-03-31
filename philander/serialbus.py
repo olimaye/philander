@@ -392,22 +392,22 @@ class SerialBusDevice( Module ):
         """
         return self.serialBus.writeBuffer( self, buffer )
     
-    def readWriteBuffer( self, inLength, outBuffer ):
+    def writeReadBuffer( self, outBuffer, inLength ):
         """Writes and reads a number of bytes.
         
         The call is delegated to the corresponding method at the bus that
         this device is attached to.
          
-        Also see: :meth:`SerialBus.readWriteBuffer`.
+        Also see: :meth:`SerialBus.writeReadBuffer`.
         
+        :param int[] outBuffer: The data to write to the device.
         :param int inLength: The number of bytes to read from the device.\
         Should be greater than zero.
-        :param int[] outBuffer: The data to write to the device.
         :return: A buffer of the indicated length holding the response\
         and an error code indicating success or the reason of failure.
         :rtype: int[], ErrorCode
         """
-        return self.serialBus.readWriteBuffer( self, inLength, outBuffer )
+        return self.serialBus.writeReadBuffer( self, outBuffer, inLength )
 
 @unique
 @idiotypic
@@ -935,10 +935,27 @@ class SerialBus( Module ):
         del device, buffer
         return ErrorCode.errNotImplemented
     
-    def readWriteBuffer( self, device, inLength, outBuffer ):
-        """Writes and reads a number of bytes.
+    def writeReadBuffer( self, device, outBuffer, inLength ):
+        """Writes and reads a number of bytes simultaneously, if possible.
         
-        Also see: :meth:`SerialBusDevice.readWriteBuffer`.
+        The output buffer is written. The last ``inLength`` number of
+        bytes of the resulting input buffer are returned. E.g.
+        ``inLength=2`` will the method make return the last two bytes
+        (one word) of the buffer retrieved while/after writing the given
+        ``outBuffer``.
+        
+        If data can be read simultaneously while writing (SPI), that
+        input is considered. Again, ``inLength`` is counted
+        from the end of the buffer. If that number is larger the given
+        ``outBuffer``´s length, dummy bytes are written, accordingly. So,
+        the total traffic caused in this case is
+        ``max( len(outBuffer), inLength )`` bytes.
+        
+        If reading simultaneously is impossible (I2C), the given number
+        of bytes are read by a separate message. The total traffic
+        caused in this case is ``len(outBuffer) + inLength`` bytes.
+        
+        Also see: :meth:`SerialBusDevice.writeReadBuffer`.
         
         :param SerialBusDevice device: The device to communicate with.
         :param int inLength: The number of bytes to read from the device.\
@@ -949,5 +966,5 @@ class SerialBus( Module ):
         :rtype: int[], ErrorCode
         """
         # A sub-class implementation must overwrite this method.
-        del device, inLength, outBuffer
+        del device, outBuffer, inLength 
         return [], ErrorCode.errNotImplemented

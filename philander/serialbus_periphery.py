@@ -136,7 +136,39 @@ class _SerialBus_Periphery( SerialBus ):
         _, err = self.transfer( device, outBuf=buffer )
         return err
     
-    def readWriteBuffer( self, device, inLength, outBuffer ):
-        inData, err = self.transfer( device, outBuf=outBuffer, inNum=inLength)
-        return inData, err
+    def writeReadBuffer( self, device, outBuffer, inLength ):
+        err = ErrorCode.errOk
+        resultData = None
+        
+        outData = [] if outBuffer is None else outBuffer
+        if (len(outData) < 1) and (inLength < 1):
+            err = ErrorCode.errInvalidParameter
+        else:
+            try:
+                if self.type == SerialBusType.I2C:
+                    msgs = []
+                    if len(outData) > 0:
+                        msgs = [self.bus.Message( outData ) ]
+                    if inLength > 0:
+                        inData = [0] * inLength
+                        inMsg = self.bus.Message( inData, read=True)
+                        msgs.append( inMsg )
+                    self.bus.transfer( device.address, msgs)
+                    if inLength > 0:
+                        resultData = inMsg.data
+                elif self.type == SerialBusType.SPI:
+                    # Note that CS activation/de-activation is done by hardware
+                    outData += [0] * (inLength-len(outData))
+                    inData = self.bus.transfer(outData)
+                    if inLength > 0:
+                        resultData = inData[-inLength:]
+                else:
+                    err = ErrorCode.errNotSupported
+            except (I2CError, SPIError):
+                err = ErrorCode.errLowLevelFail
+            except TypeError:
+                err = ErrorCode.errInvalidParameter
+            except ValueError:
+                err = ErrorCode.errCorruptData
+        return resultData, err
 

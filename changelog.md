@@ -16,6 +16,9 @@ This is the summary of relevant changes throughout different releases.
 - Module ADC and implementation for Micropython plus SIM and test
 - SerialBus: SPI support for periphery and MicroPython environments
 
+### Changed
+- SerialBus: renamed readWriteBuffer() into writeReadBuffer() and redefined contract
+
 
 ## [0.4] - 2024-11-15
 

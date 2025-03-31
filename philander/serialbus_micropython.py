@@ -167,14 +167,14 @@ class _SerialBus_Micropython( SerialBus ):
         return err
 
     def readBuffer( self, device, length ):
-        data, err = self.readWriteBuffer( device, length )
+        data, err = self.writeReadBuffer( device, None, length )
         return data, err
 
     def writeBuffer( self, device, buffer ):
-        _, err = self.readWriteBuffer( device, 0, buffer )
+        _, err = self.writeReadBuffer( device, buffer, 0 )
         return err
     
-    def readWriteBuffer( self, device, inLength=0, outBuffer=None ):
+    def writeReadBuffer( self, device, outBuffer, inLength, ):
         err = ErrorCode.errOk
         data = []
         if self.type == SerialBusType.I2C:
@@ -189,11 +189,11 @@ class _SerialBus_Micropython( SerialBus ):
         elif self.type == SerialBusType.SPI:
             device.pinCS.set( GPIO.LEVEL_LOW )
             try:
-                if (outBuffer is not None) and (len(outBuffer) > 0):
-                    self.bus.write( bytes(outBuffer) )
+                tempData = [] if outBuffer is None else outBuffer
+                tempData += [0] * (inLength-len(tempData))
+                self.bus.write_readinto( tempData, tempData)
                 if inLength > 0:
-                    resp = self.bus.read(inLength)
-                    data = list(resp)
+                    data = tempData[-inLength:]
             except OSError:
                 err = ErrorCode.errLowLevelFail
             finally:

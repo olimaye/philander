@@ -131,7 +131,7 @@ class _SerialBus_SMBus2( SerialBus ):
             err = ErrorCode.errFailure
         return err
     
-    def readWriteBuffer( self, device, inLength, outBuffer ):
+    def writeReadBuffer( self, device, outBuffer, inLength ):
         err = ErrorCode.errOk
         try:
             msgW = self.msg.write( device.address, outBuffer )

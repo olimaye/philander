@@ -123,7 +123,7 @@ class TestSerialBus( unittest.TestCase ):
             self.assertEqual( newData, data )
 
             data = (data + 1) & 0xFF
-            newData, err = dev.readWriteBuffer( outBuffer=[regNum & 0x7F, data, regNum | 0x80], inLength=1 )
+            newData, err = dev.writeReadBuffer( outBuffer=[regNum & 0x7F, data, regNum | 0x80, 0], inLength=1 )
             self.assertEqual( err, ErrorCode.errOk )
             self.assertEqual( newData[0], data )
             
