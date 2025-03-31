@@ -189,11 +189,13 @@ class _SerialBus_Micropython( SerialBus ):
         elif self.type == SerialBusType.SPI:
             device.pinCS.set( GPIO.LEVEL_LOW )
             try:
-                tempData = [] if outBuffer is None else outBuffer
-                tempData += [0] * (inLength-len(tempData))
+                tempData = bytearray() if outBuffer is None else bytearray(outBuffer)
+                diff = inLength - len(tempData)
+                if diff > 0:
+                    tempData += bytearray( diff )
                 self.bus.write_readinto( tempData, tempData)
                 if inLength > 0:
-                    data = tempData[-inLength:]
+                    data = list( tempData[-inLength:] )
             except OSError:
                 err = ErrorCode.errLowLevelFail
             finally:
