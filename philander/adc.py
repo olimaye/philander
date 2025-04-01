@@ -23,14 +23,16 @@ class ADC( Module ):
     this class is to hide specifics and to level syntactic requirements
     of the implementing package.
     """
-    
+
+    # Static constants, independent from the implementation    
     CHANNEL_DIE_TEMP = -1       # Internal ADC channel for die/core temp.
      
-    DIGITAL_MAX = 0xFFFF        # Maximum digital value
-
     DEFAULT_SAMPLING_TIME = 100 # default sampling time in microseconds
     DEFAULT_VREF_LOWER = 0      # default lower reference Voltage VRef-
     DEFAULT_VREF_UPPER = 3000   # default upper reference Voltage VRef+
+
+    # Constants, that may depend on the implementing class
+    DIGITAL_MAX = 0xFFFF        # Maximum digital value
     
     def __init__(self):
         """Initialize the instance with defaults.
@@ -40,7 +42,7 @@ class ADC( Module ):
         into a functional state.
         """
         self._adc = None
-        self.designator = None
+        self.channel = None
         self.isOpen = False
         self.provider = SysProvider.NONE
         self.samplingTime = 0                   # show it's not set
@@ -63,7 +65,7 @@ class ADC( Module ):
         ==================    ==============================================    =========================
         Key                   Range                                             Default
         ==================    ==============================================    =========================
-        adc.pinDesignator     pin name or channel number (e.g. 2 or "2")        None
+        adc.channel           pin name or channel number (e.g. 2 or "2")        None
         adc.samplingTime      Sampling time in microseconds; integer>=0         None
         adc.vref.lower        lower reference voltage in mV; integer            :attr:`DEFAULT_VREF_LOWER`
         adc.vref.upper        upper reference voltage in mV; integer            :attr:`DEFAULT_VREF_UPPER`
@@ -102,14 +104,14 @@ class ADC( Module ):
         defaults = {}
         self.Params_init(defaults)
         # Scan parameters
-        self.designator = paramDict.get("adc.pinDesignator", None)
-        if self.designator is None:
-            ret = ErrorCode.errInvalidParameter
+        self.channel = paramDict.get("adc.channel", None)
+        if self.channel is None:
+            ret = ErrorCode.errFewData
         else:
-            if not isinstance( self.designator, int ):
+            if not isinstance( self.channel, int ):
                 try:
-                    num = int(self.designator)
-                    self.designator = num
+                    num = int(self.channel)
+                    self.channel = num
                 except ValueError:
                     pass
             self.samplingTime = paramDict.get("adc.samplingTime", 0)
@@ -119,7 +121,7 @@ class ADC( Module ):
                 self.isOpen = True
             else:
                 ret = ErrorCode.errInvalidParameter
-        logging.debug("ADC base> open <%s> returns %s.", self.designator, ret)
+        logging.debug("ADC base> open <%s> returns %s.", self.channel, ret)
         return ret
 
     def close(self):
@@ -139,7 +141,7 @@ class ADC( Module ):
             self._adc = None
         else:
             ret = ErrorCode.errResourceConflict
-        logging.debug("ADC base> close <%s> returns %s.", self.designator, ret)
+        logging.debug("ADC base> close <%s> returns %s.", self.channel, ret)
         return ret
 
     def setRunLevel(self, level):
@@ -209,10 +211,10 @@ class ADC( Module ):
             err = ErrorCode.errResourceConflict
         elif not isinstance(digital, int):
             err = ErrorCode.errInvalidParameter
-        elif (digital < 0) or (digital > 0xFFFF):
+        elif (digital < 0) or (digital > self.DIGITAL_MAX):
             err = ErrorCode.errSpecRange
         else:
             val = digital * (self.vref_upper-self.vref_lower)
-            val = (val + (ADC.DIGITAL_MAX // 2)) // ADC.DIGITAL_MAX
+            val = (val + (self.DIGITAL_MAX // 2)) // self.DIGITAL_MAX
             val = val + self.vref_lower
         return val, err

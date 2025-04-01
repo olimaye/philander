@@ -4,6 +4,7 @@ import unittest
 
 from test.utaccel import TestAccel
 from test.utactuator import TestActuator
+from test.utadc import TestADC
 from test.utbattery import TestBattery
 #from test.utbutton import TestButton
 from test.utdictionary import TestDictionary
@@ -18,6 +19,7 @@ def suite():
     suite = unittest.TestSuite()
     suite.addTest( TestAccel() )
     suite.addTest( TestActuator() )
+    suite.addTest( TestADC() )
     suite.addTest( TestBattery )
     #suite.addTest( TestButton )
     suite.addTest( TestDictionary )

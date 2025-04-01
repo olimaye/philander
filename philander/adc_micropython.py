@@ -13,6 +13,9 @@ from machine import ADC as Driver
 class _ADC_Micropython( ADC ):
     """Implementation of the abstract ADC interface for the Micropython environment.
     """
+
+    # Overwrite implementation-specific constants
+    DIGITAL_MAX = 0xFFFF        # Maximum digital value
     
     def __init__(self):
         """Initialize the instance with defaults.
@@ -54,21 +57,21 @@ class _ADC_Micropython( ADC ):
         else:
             ret = super().open( paramDict )
             if ret.isOk():
-                if self.designator == ADC.CHANNEL_DIE_TEMP:
+                if self.channel == ADC.CHANNEL_DIE_TEMP:
                     if not hasattr( Driver, 'CORE_TEMP'):
                         ret = ErrorCode.errInvalidParameter
                     else:
-                        self.designator = Driver.CORE_TEMP
+                        self.channel = Driver.CORE_TEMP
             if ret.isOk():
                 if self.samplingTime > 0:
                     try:
-                        self._adc = Driver( self.designator, sample_ns=self.samplingTime*1000 )
+                        self._adc = Driver( self.channel, sample_ns=self.samplingTime*1000 )
                     except TypeError:   # keyword argument 'sample_ns' not supported
                         ret = ErrorCode.errInvalidParameter
                 else:
-                    self._adc = Driver( self.designator )
-                if self._adc is None:
-                    ret = ErrorCode.errLowLevelFail
+                    self._adc = Driver( self.channel )
+            if ret.isOk() and (self._adc is None):
+                ret = ErrorCode.errLowLevelFail
             self.isOpen = ret.isOk()
         return ret
 
@@ -114,9 +117,9 @@ class _ADC_Micropython( ADC ):
         else:
             val = self._adc.read_uv()
             if( val >= 0):
-                val = (val + 500) / 1000
+                val = (val + 500) // 1000
             else:
-                val = (val - 500) / 1000
+                val = (val - 500) // 1000
             err = ErrorCode.errOk
         return val, err
 

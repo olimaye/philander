@@ -16,7 +16,7 @@ from philander.systypes import ErrorCode
 @unique
 @idiotypic
 class SysProvider(Enum):
-    """Menmonic designator for a lower-level lib, package or system\
+    """Mnemonic designator for a lower-level lib, package or system\
     environment to rely the implementation on.
     """
     NONE      = auto()
@@ -27,6 +27,10 @@ class SysProvider(Enum):
     """
     SIM       = auto()
     """Built-in hardware simulation.
+    """
+
+    COMPOSITE = auto()
+    """Supported by a matching upper-level driver API, such as ADC via SPI. 
     """
 
     GPIOZERO = auto()
@@ -50,12 +54,12 @@ class SysFactory():
     """
 
     @staticmethod
-    def _autoDetectProvider( providers, fallback=SysProvider.NONE):
+    def _autoDetectProvider( dependencies, fallback=SysProvider.NONE):
         ret = fallback
         # List of supported libs.
         # Each entry is a tuple of SysProvider Mnemonics, module name, class name,
         # such as in (SysProvider.PERIPHERY, "periphery", "I2C")
-        for ent in providers:
+        for ent in dependencies:
             try:
                 module = __import__( ent[1] )
                 if hasattr(module, ent[2]):
@@ -92,7 +96,7 @@ class SysFactory():
         :return: A serial bus implementation object, or None in case of an error.
         :rtype: SerialBus
         """
-        provs = [(SysProvider.PERIPHERY, "periphery", "I2C"),
+        deps = [(SysProvider.PERIPHERY, "periphery", "I2C"),
                 (SysProvider.MICROPYTHON, "machine", "I2C"),
                 (SysProvider.SMBUS2, "smbus2", "SMBus"),
                 ]
@@ -103,7 +107,7 @@ class SysFactory():
                   SysProvider.SMBUS2:       ("philander.serialbus_smbus2", "_SerialBus_SMBus2"),
                 }
         if provider == SysProvider.AUTO:
-            provider = SysFactory._autoDetectProvider( provs, SysProvider.SIM )
+            provider = SysFactory._autoDetectProvider( deps, SysProvider.SIM )
         ret = SysFactory._createInstance( provider, impls )
         return ret
 
@@ -116,7 +120,7 @@ class SysFactory():
         :return: A GPIO implementation object, or None in case of an error.
         :rtype: GPIO
         """
-        provs = [(SysProvider.RPIGPIO, "RPi.GPIO", "GPIO"),
+        deps = [(SysProvider.RPIGPIO, "RPi.GPIO", "GPIO"),
                 (SysProvider.GPIOZERO, "gpiozero", "DigitalOutputDevice"),
                 (SysProvider.PERIPHERY, "periphery", "GPIO"),
                 (SysProvider.MICROPYTHON, "machine", "Pin"),
@@ -129,7 +133,7 @@ class SysFactory():
                   SysProvider.SIM:          ("philander.gpio_sim", "_GPIO_Sim"),
                 }
         if provider == SysProvider.AUTO:
-            provider = SysFactory._autoDetectProvider( provs, SysProvider.SIM )
+            provider = SysFactory._autoDetectProvider( deps, SysProvider.SIM )
         ret = SysFactory._createInstance( provider, impls )
         return ret
 
@@ -142,13 +146,15 @@ class SysFactory():
         :return: An ADC implementation object, or None in case of an error.
         :rtype: ADC
         """
-        provs = [(SysProvider.MICROPYTHON, "machine", "ADC"),
+        deps = [(SysProvider.MICROPYTHON, "machine", "ADC"),
+                 (SysProvider.COMPOSITE,   "philander.stadc1283", "STADC1283"),
                 ]
         impls = {
                   SysProvider.MICROPYTHON:  ("philander.adc_micropython", "_ADC_Micropython"),
+                  SysProvider.COMPOSITE:    ("philander.stadc1283", "STADC1283"),
                   SysProvider.SIM:          ("philander.adc_sim", "_ADC_Sim"),
                 }
         if provider == SysProvider.AUTO:
-            provider = SysFactory._autoDetectProvider( provs, SysProvider.SIM )
+            provider = SysFactory._autoDetectProvider( deps, SysProvider.SIM )
         ret = SysFactory._createInstance( provider, impls )
         return ret
