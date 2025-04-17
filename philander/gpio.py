@@ -13,7 +13,7 @@ import time
 
 from philander.interruptable import Interruptable
 from philander.module import Module
-from philander.sysfactory import SysProvider
+from philander.sysfactory import SysProvider, SysFactory
 from philander.systypes import ErrorCode
 
 
@@ -52,6 +52,32 @@ class GPIO( Module, Interruptable ):
     BOUNCE_DEFAULT = 200    # Default de-bounce interval in ms.
 
     EVENT_DEFAULT = "gpioFired"  # Specific event fired on interrupt.
+
+    @staticmethod
+    def getGPIO( provider=SysProvider.AUTO ):
+        """Generates a GPIO implementation according to the requested provider.
+        
+        :param SysProvider provider: The low-level lib to rely on, or AUTO\
+        for automatic detection.
+        :return: A GPIO implementation object, or None in case of an error.
+        :rtype: GPIO
+        """
+        deps = [(SysProvider.RPIGPIO, "RPi.GPIO", "GPIO"),
+                (SysProvider.GPIOZERO, "gpiozero", "DigitalOutputDevice"),
+                (SysProvider.PERIPHERY, "periphery", "GPIO"),
+                (SysProvider.MICROPYTHON, "machine", "Pin"),
+                ]
+        impls = {
+                  SysProvider.GPIOZERO:     ("philander.gpio_zero", "_GPIO_Zero"),
+                  SysProvider.MICROPYTHON:  ("philander.gpio_micropython", "_GPIO_Micropython"),
+                  SysProvider.PERIPHERY:    ("philander.gpio_periphery", "_GPIO_Periphery"),
+                  SysProvider.RPIGPIO:      ("philander.gpio_rpi", "_GPIO_RPi"),
+                  SysProvider.SIM:          ("philander.gpio_sim", "_GPIO_Sim"),
+                }
+        if provider == SysProvider.AUTO:
+            provider = SysFactory.autoDetectProvider( deps, SysProvider.SIM )
+        ret = SysFactory.createInstance( provider, impls )
+        return ret
 
     def __init__(self):
         """Initialize the instance with defaults.

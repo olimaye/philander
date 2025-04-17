@@ -132,7 +132,7 @@ class SerialBusDevice( Module ):
                 elif not( sb.isOpen().isOk() ):
                     result = sb.open(paramDict)
             else:
-                sb = SysFactory.getSerialBus()
+                sb = SerialBus.getSerialBus()
                 if (sb is None):
                     result = ErrorCode.errExhausted
                 else:
@@ -460,6 +460,31 @@ class SerialBus( Module ):
     DEFAULT_SPI_MODE    = SPIMode.CPOL1_CPHA1
     DEFAULT_SPI_BIT_ORDER= "MSB"
     DEFAULT_SPI_BITS_PER_WORD = 8
+    
+    
+    @staticmethod
+    def getSerialBus( provider=SysProvider.AUTO ):
+        """Generates a serial bus implementation according to the requested provider.
+        
+        :param SysProvider provider: The low-level lib to rely on, or AUTO\
+        for automatic detection.
+        :return: A serial bus implementation object, or None in case of an error.
+        :rtype: SerialBus
+        """
+        deps = [(SysProvider.PERIPHERY, "periphery", "I2C"),
+                (SysProvider.MICROPYTHON, "machine", "I2C"),
+                (SysProvider.SMBUS2, "smbus2", "SMBus"),
+                ]
+        impls = {
+                  SysProvider.MICROPYTHON:  ("philander.serialbus_micropython", "_SerialBus_Micropython"),
+                  SysProvider.PERIPHERY:    ("philander.serialbus_periphery", "_SerialBus_Periphery"),
+                  SysProvider.SIM:          ("philander.serialbus_sim", "_SerialBus_Sim"),
+                  SysProvider.SMBUS2:       ("philander.serialbus_smbus2", "_SerialBus_SMBus2"),
+                }
+        if provider == SysProvider.AUTO:
+            provider = SysFactory.autoDetectProvider( deps, SysProvider.SIM )
+        ret = SysFactory.createInstance( provider, impls )
+        return ret
     
     #
     # Internal helpers

@@ -4,7 +4,7 @@ from time import sleep
 import unittest
 
 from philander.adc import ADC
-from philander.sysfactory import SysFactory, SysProvider
+from philander.sysfactory import SysProvider
 from philander.systypes import ErrorCode
 
 class TestADC_Impl( unittest.TestCase ):
@@ -18,7 +18,7 @@ class TestADC_Impl( unittest.TestCase ):
     VRefHigh= 3300
     
     def test_open(self):
-        device = SysFactory.getADC( self.ProviderUnderTest )
+        device = ADC.getADC( self.ProviderUnderTest )
         self.assertIsNotNone( device )
         params = {\
             "SerialBus.designator":   self.PortDesignator,
@@ -40,7 +40,7 @@ class TestADC_Impl( unittest.TestCase ):
 
     #@unittest.skip("Known working.")
     def test_input(self):
-        device = SysFactory.getADC( self.ProviderUnderTest )
+        device = ADC.getADC( self.ProviderUnderTest )
         self.assertIsNotNone( device )
         params = {\
             "SerialBus.designator":   self.PortDesignator,

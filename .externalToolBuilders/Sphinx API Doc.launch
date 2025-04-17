@@ -4,7 +4,7 @@
     <booleanAttribute key="org.eclipse.ui.externaltools.ATTR_BUILDER_ENABLED" value="true"/>
     <stringAttribute key="org.eclipse.ui.externaltools.ATTR_LOCATION" value="${python_loc}/Scripts/sphinx-apidoc.exe"/>
     <stringAttribute key="org.eclipse.ui.externaltools.ATTR_RUN_BUILD_KINDS" value="full,incremental,"/>
-    <stringAttribute key="org.eclipse.ui.externaltools.ATTR_TOOL_ARGUMENTS" value="-f -o doc philander philander/adc_*.py philander/gpio_*.py philander/serialbus_*.py"/>
+    <stringAttribute key="org.eclipse.ui.externaltools.ATTR_TOOL_ARGUMENTS" value="-f -o doc philander philander/adc_*.py philander/gpio_*.py philander/pwm_*.py philander/serialbus_*.py"/>
     <booleanAttribute key="org.eclipse.ui.externaltools.ATTR_TRIGGERS_CONFIGURED" value="true"/>
     <stringAttribute key="org.eclipse.ui.externaltools.ATTR_WORKING_DIRECTORY" value="${workspace_loc:/philander}"/>
 </launchConfiguration>

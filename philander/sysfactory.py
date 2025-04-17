@@ -49,21 +49,39 @@ class SysProvider(Enum):
     """System Management Bus v2 (SMBUS2) implementation (https://pypi.org/project/smbus2/).
     """
 
+
 class SysFactory():
     """As a factory, provide implementations for specific hardware resources.
     """
 
     @staticmethod
-    def _autoDetectProvider( dependencies, fallback=SysProvider.NONE):
+    def autoDetectProvider( dependencies, fallback=SysProvider.NONE):
+        """Automatically detect a eligible provider.
+        
+        Test the given dependencies and for the first available, return
+        the associated provider mnemonic.
+        
+        The dependencies are given as a list of constellations to check.
+        Each entry of that list is a tuple of (SysProvider Mnemonics, module name, class name)
+        such as in (SysProvider.PERIPHERY, "periphery", "I2C").
+        
+        The fallback parameter is to override SysProvider.NONE in case
+        none of the dependencies is fulfilled.
+
+        :param list dependencies: List of tuples describing the supported libs.
+        :param SysProvider fallback: Value to be returned, if none of
+            the dependencies is fulfilled.
+        :return: Mnemonic to identify the first dependency fulfilled.
+            SysProvider.NONE or the given fallback, if no matching dependency
+            could be found.
+        :rtype: SysProvider
+        """
         ret = fallback
-        # List of supported libs.
-        # Each entry is a tuple of SysProvider Mnemonics, module name, class name,
-        # such as in (SysProvider.PERIPHERY, "periphery", "I2C")
-        for ent in dependencies:
+        for entry in dependencies:
             try:
-                module = __import__( ent[1] )
-                if hasattr(module, ent[2]):
-                    ret = ent[0]
+                module = __import__( entry[1] )     # module name
+                if hasattr(module, entry[2]):       # class name
+                    ret = entry[0]                  # Mnemonics
                     break
                 else:
                     # log something
@@ -73,7 +91,34 @@ class SysFactory():
         return ret
 
     @staticmethod
-    def _createInstance( provider, implementations ):
+    def createInstance( provider, implementations ):
+        """Instantiate a certain implementation.
+        
+        Create an instance of an implementation identified by a provider
+        mnemonics.
+        
+        The given provider parameter is the key argument into the
+        dictionary of the implementations. It could be the result of
+        calling :meth:`autoDetectProvider`.
+        
+        The implementations are given as a dictionary translating a
+        SysProvider type key into a tuple (pair) -value comprised of
+        module name and class name. For example:
+        
+        SysProvider.PERIPHERY:    ("philander.serialbus_periphery", "_SerialBus_Periphery")
+        
+        Instantiation is done by calling the empty constructor of the
+        identified class.
+        
+        :param SysProvider provider: The provider mnemonics identifying
+            the implementation to be instantiated.
+        :param dict implementations: The dictionary describing where to
+            find the specific class that must be instantiated, for a given
+            provider key.
+        :return: An object, which is an instance of the specific
+            implementation or None in case of an error.
+        :rtype: object
+        """
         if provider in implementations:
             moduleName, className = implementations.get( provider )
             module = __import__(moduleName, None, None, [className])
@@ -87,29 +132,6 @@ class SysFactory():
             ret = None
         return ret
         
-    @staticmethod
-    def getSerialBus( provider=SysProvider.AUTO ):
-        """Generates a serial bus implementation according to the requested provider.
-        
-        :param SysProvider provider: The low-level lib to rely on, or AUTO\
-        for automatic detection.
-        :return: A serial bus implementation object, or None in case of an error.
-        :rtype: SerialBus
-        """
-        deps = [(SysProvider.PERIPHERY, "periphery", "I2C"),
-                (SysProvider.MICROPYTHON, "machine", "I2C"),
-                (SysProvider.SMBUS2, "smbus2", "SMBus"),
-                ]
-        impls = {
-                  SysProvider.MICROPYTHON:  ("philander.serialbus_micropython", "_SerialBus_Micropython"),
-                  SysProvider.PERIPHERY:    ("philander.serialbus_periphery", "_SerialBus_Periphery"),
-                  SysProvider.SIM:          ("philander.serialbus_sim", "_SerialBus_Sim"),
-                  SysProvider.SMBUS2:       ("philander.serialbus_smbus2", "_SerialBus_SMBus2"),
-                }
-        if provider == SysProvider.AUTO:
-            provider = SysFactory._autoDetectProvider( deps, SysProvider.SIM )
-        ret = SysFactory._createInstance( provider, impls )
-        return ret
 
     @staticmethod
     def getGPIO( provider=SysProvider.AUTO ):
@@ -133,28 +155,6 @@ class SysFactory():
                   SysProvider.SIM:          ("philander.gpio_sim", "_GPIO_Sim"),
                 }
         if provider == SysProvider.AUTO:
-            provider = SysFactory._autoDetectProvider( deps, SysProvider.SIM )
-        ret = SysFactory._createInstance( provider, impls )
-        return ret
-
-    @staticmethod
-    def getADC( provider=SysProvider.AUTO ):
-        """Generates an ADC implementation according to the requested provider.
-        
-        :param SysProvider provider: The low-level lib to rely on, or AUTO\
-        for automatic detection.
-        :return: An ADC implementation object, or None in case of an error.
-        :rtype: ADC
-        """
-        deps = [(SysProvider.MICROPYTHON, "machine", "ADC"),
-                 (SysProvider.COMPOSITE,   "philander.stadc1283", "STADC1283"),
-                ]
-        impls = {
-                  SysProvider.MICROPYTHON:  ("philander.adc_micropython", "_ADC_Micropython"),
-                  SysProvider.COMPOSITE:    ("philander.stadc1283", "STADC1283"),
-                  SysProvider.SIM:          ("philander.adc_sim", "_ADC_Sim"),
-                }
-        if provider == SysProvider.AUTO:
-            provider = SysFactory._autoDetectProvider( deps, SysProvider.SIM )
-        ret = SysFactory._createInstance( provider, impls )
+            provider = SysFactory.autoDetectProvider( deps, SysProvider.SIM )
+        ret = SysFactory.createInstance( provider, impls )
         return ret

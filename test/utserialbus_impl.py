@@ -2,9 +2,9 @@
 """
 import time
 import unittest
-from philander.serialbus import SerialBusDevice, SerialBusType, SPIMode
+from philander.serialbus import SerialBusDevice, SerialBusType, SPIMode, SerialBus
 from philander.systypes import ErrorCode
-from philander.sysfactory import SysFactory, SysProvider
+from philander.sysfactory import SysProvider
 #from philander.simBMA456 import SimDevBMA456
 
 class TestSerialBus( unittest.TestCase ):
@@ -18,9 +18,9 @@ class TestSerialBus( unittest.TestCase ):
     def test_i2c(self):
         # Enforce specific implementation of serial bus
         # and open the device
-        bus = SysFactory.getSerialBus( self.ProviderUnderTest )
+        bus = SerialBus.getSerialBus( self.ProviderUnderTest )
         dev = SerialBusDevice()
-        #bus = SysFactory.getSerialBus( SysProvider.SIM )
+        #bus = SerialBus.getSerialBus( SysProvider.SIM )
         #dev.sim = SimDevBMA456()
         self.assertIsNotNone( dev )
 
@@ -74,7 +74,7 @@ class TestSerialBus( unittest.TestCase ):
     def test_spi(self):
         # Enforce specific implementation of serial bus
         # and open the device
-        bus = SysFactory.getSerialBus( self.ProviderUnderTest )
+        bus = SerialBus.getSerialBus( self.ProviderUnderTest )
         dev = SerialBusDevice()
         self.assertIsNotNone( dev )
 

@@ -13,13 +13,14 @@ This is the summary of relevant changes throughout different releases.
 ## [Unreleased]
 
 ### Added
-- Module ADC and implementation for Micropython plus SIM and test
+- ADC module and implementation for Micropython plus SIM and test
 - ADC driver for ST ADC1283 serial ADC chip and unit test
+- PWM module and implementation for Micropython, RPi.GPIO and Periphery plus test
 - SerialBus: SPI support for periphery and MicroPython environments
 
 ### Changed
 - SerialBus: renamed readWriteBuffer() into writeReadBuffer() and redefined contract
-
+- SysFactory: generators moved to their modules ADC, GPIO, PWM and SerialBus
 
 ## [0.4] - 2024-11-15
 

@@ -11,7 +11,7 @@ __all__ = ["ADC"]
 import logging
 
 from philander.module import Module
-from philander.sysfactory import SysProvider
+from philander.sysfactory import SysProvider, SysFactory
 from philander.systypes import ErrorCode
 
 
@@ -34,6 +34,28 @@ class ADC( Module ):
     # Constants, that may depend on the implementing class
     DIGITAL_MAX = 0xFFFF        # Maximum digital value
     
+    @staticmethod
+    def getADC( provider=SysProvider.AUTO ):
+        """Generates an ADC implementation according to the requested provider.
+        
+        :param SysProvider provider: The low-level lib to rely on, or AUTO\
+        for automatic detection.
+        :return: An ADC implementation object, or None in case of an error.
+        :rtype: ADC
+        """
+        deps = [(SysProvider.MICROPYTHON, "machine", "ADC"),
+                 (SysProvider.COMPOSITE,   "philander.stadc1283", "STADC1283"),
+                ]
+        impls = {
+                  SysProvider.MICROPYTHON:  ("philander.adc_micropython", "_ADC_Micropython"),
+                  SysProvider.COMPOSITE:    ("philander.stadc1283", "STADC1283"),
+                  SysProvider.SIM:          ("philander.adc_sim", "_ADC_Sim"),
+                }
+        if provider == SysProvider.AUTO:
+            provider = SysFactory.autoDetectProvider( deps, SysProvider.SIM )
+        ret = SysFactory.createInstance( provider, impls )
+        return ret
+
     def __init__(self):
         """Initialize the instance with defaults.
         
