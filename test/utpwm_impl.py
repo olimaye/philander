@@ -14,12 +14,12 @@ class TestPWM_Impl( unittest.TestCase ):
     TIME_TO_EXPERIMENT = 20 # Time in seconds to experiment and adjust
     
     
-    #ProviderUnderTest = SysProvider.MICROPYTHON
-    #outPin          = 4
+    ProviderUnderTest = SysProvider.MICROPYTHON
+    #ProviderUnderTest = SysProvider.PERIPHERY
     #ProviderUnderTest = SysProvider.RPIGPIO
-    #outPin          = 12
-    ProviderUnderTest = SysProvider.PERIPHERY
-    outPin          = '12'
+    pwmPin          = 12
+    pwmChip         = 0
+    pwmChannel      = 0
     pwmFrequency    = 100000
     pwmDuty         = 35
     
@@ -28,13 +28,15 @@ class TestPWM_Impl( unittest.TestCase ):
         device = PWM.getPWM( self.ProviderUnderTest )
         self.assertIsNotNone( device )
         params = {\
-            "pwm.pinDesignator":   self.outPin,
+            "pwm.pinDesignator":   self.pwmPin,
+            "pwm.chip":            self.pwmChip,
+            "pwm.channel":         self.pwmChannel,
             "pwm.frequency"    :   self.pwmFrequency,
             "pwm.duty"         :   self.pwmDuty,
             }
         device.Params_init( params )
         self.assertEqual( params["pwm.pinNumbering"], GPIO.PINNUMBERING_BCM )
-        self.assertEqual( params["pwm.pinDesignator"], self.outPin )
+        self.assertEqual( params["pwm.pinDesignator"], self.pwmPin )
         self.assertEqual( params["pwm.frequency"], self.pwmFrequency )
         self.assertEqual( params["pwm.duty"], self.pwmDuty )
         err = device.open(params)
@@ -51,7 +53,9 @@ class TestPWM_Impl( unittest.TestCase ):
         device = PWM.getPWM( self.ProviderUnderTest )
         self.assertIsNotNone( device )
         params = {\
-            "pwm.pinDesignator":   self.outPin,
+            "pwm.pinDesignator":   self.pwmPin,
+            "pwm.chip":            self.pwmChip,
+            "pwm.channel":         self.pwmChannel,
             "pwm.frequency"    :   self.pwmFrequency,
             "pwm.duty"         :   self.pwmDuty,
             }
@@ -74,7 +78,9 @@ class TestPWM_Impl( unittest.TestCase ):
         device = PWM.getPWM( self.ProviderUnderTest )
         self.assertIsNotNone( device )
         params = {\
-            "pwm.pinDesignator":   self.outPin,
+            "pwm.pinDesignator":   self.pwmPin,
+            "pwm.chip":            self.pwmChip,
+            "pwm.channel":         self.pwmChannel,
             "pwm.frequency"    :   self.pwmFrequency,
             "pwm.duty"         :   self.pwmDuty,
             }
@@ -102,7 +108,9 @@ class TestPWM_Impl( unittest.TestCase ):
         device = PWM.getPWM( self.ProviderUnderTest )
         self.assertIsNotNone( device )
         params = {\
-            "pwm.pinDesignator":   self.outPin,
+            "pwm.pinDesignator":   self.pwmPin,
+            "pwm.chip":            self.pwmChip,
+            "pwm.channel":         self.pwmChannel,
             "pwm.frequency"    :   self.pwmFrequency,
             "pwm.duty"         :   self.pwmDuty,
             }
@@ -188,7 +196,9 @@ class TestPWM_Impl( unittest.TestCase ):
         device = PWM.getPWM( self.ProviderUnderTest )
         self.assertIsNotNone( device )
         params = {\
-            "pwm.pinDesignator":   self.outPin,
+            "pwm.pinDesignator":   self.pwmPin,
+            "pwm.chip":            self.pwmChip,
+            "pwm.channel":         self.pwmChannel,
             "pwm.frequency"    :   self.pwmFrequency,
             "pwm.duty"         :   self.pwmDuty,
             }

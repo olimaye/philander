@@ -56,8 +56,8 @@ class _PWM_RPi( PWM ):
             ret = super().open( paramDict )
             if ret.isOk():
                 RPiGPIO.setmode( self._dictNumScheme[self.numScheme] )
-                RPiGPIO.setup( self.pin, RPiGPIO.OUT )
-                self._pwm = RPiGPIO.PWM( self.pin, self.frequency )
+                RPiGPIO.setup( self.pinDesignator, RPiGPIO.OUT )
+                self._pwm = RPiGPIO.PWM( self.pinDesignator, self.frequency )
             if ret.isOk() and (self._pwm is None):
                 ret = ErrorCode.errLowLevelFail
             self.isOpen = ret.isOk()
@@ -77,7 +77,7 @@ class _PWM_RPi( PWM ):
         """
         ret = super().close()
         if ret.isOk():
-            RPiGPIO.cleanup(self.pin)
+            RPiGPIO.cleanup(self.pinDesignator)
         return ret
 
 

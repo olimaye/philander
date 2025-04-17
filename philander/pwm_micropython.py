@@ -66,10 +66,12 @@ class _PWM_Micropython( PWM ):
                     ret = ErrorCode.errInvalidParameter
         else:
             ret = super().open( paramDict )
+            if ret.isOk() and (self.pinDesignator is None):
+                ret = ErrorCode.errFewData
             if ret.isOk():
                 try:
                     dval = self._perc2duty16( self.duty )
-                    self._pwm = Driver( self.pin, freq=self.frequency, duty_u16 = dval )
+                    self._pwm = Driver( self.pinDesignator, freq=self.frequency, duty_u16 = dval )
                     self.state = PWM.ON
                 except TypeError:   # keyword argument not supported
                     ret = ErrorCode.errInvalidParameter

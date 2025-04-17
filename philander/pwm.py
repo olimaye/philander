@@ -70,7 +70,7 @@ class PWM( Module ):
         self.frequency = PWM.DEFAULT_FREQUENCY
         self.isOpen = False
         self.numScheme = GPIO.PINNUMBERING_BCM
-        self.pin = None
+        self.pinDesignator = None
         self.provider = SysProvider.NONE
         self.state = PWM.OFF
 
@@ -92,6 +92,8 @@ class PWM( Module ):
         ==================    ==============================================    ===============================
         pwm.pinNumbering      GPIO.PINNUMBERING_[BCM | BOARD]                   GPIO.PINNUMBERING_BCM
         pwm.pinDesignator     pin name or number (e.g. 2 or "2")                None
+        pwm.chip              alt. to pin designator: PWM chip id as int.       Impl. specific; maybe None
+        pwm.channel           alt. to pin designator: PWM channel number        Impl. specific; maybe None
         pwm.frequency         pulse frequency in Hz; integer                    :attr:`DEFAULT_FREQUENCY`
         pwm.duty              duty cycle in percent [%]; integer                :attr:`DEFAULT_DUTY`
         ==================    ==============================================    ===============================
@@ -130,32 +132,30 @@ class PWM( Module ):
         # Retrieve defaults
         self.Params_init(paramDict)
         # Scan parameters
-        self.pin = paramDict.get("pwm.pinDesignator", None)
-        if self.pin is None:
-            ret = ErrorCode.errFewData
-        else:
-            if not isinstance( self.pin, int ):
+        self.pinDesignator = paramDict.get("pwm.pinDesignator", None)
+        if self.pinDesignator is not None:
+            if not isinstance( self.pinDesignator, int ):
                 try:
-                    num = int(self.pin)
-                    self.pin = num
+                    num = int(self.pinDesignator)
+                    self.pinDesignator = num
                 except ValueError:
                     pass
-            self.state = PWM.OFF
-            self.numScheme = paramDict.get("pwm.pinNumbering")
-            val = paramDict.get("pwm.frequency")
-            if isinstance(val, int) and (0 < val):
-                self.frequency = val
+        self.state = PWM.OFF
+        self.numScheme = paramDict.get("pwm.pinNumbering")
+        val = paramDict.get("pwm.frequency")
+        if isinstance(val, int) and (0 < val):
+            self.frequency = val
+        else:
+            ret = ErrorCode.errInvalidParameter
+        if ret.isOk():
+            val = paramDict.get("pwm.duty")
+            if isinstance(val, int) and (0 <= val) and (val <= 100):
+                self.duty = val
             else:
                 ret = ErrorCode.errInvalidParameter
-            if ret.isOk():
-                val = paramDict.get("pwm.duty")
-                if isinstance(val, int) and (0 <= val) and (val <= 100):
-                    self.duty = val
-                else:
-                    ret = ErrorCode.errInvalidParameter
         if ret.isOk():
             self.isOpen = True
-        logging.debug("PWM base> open <%s> returns %s.", self.pin, ret)
+        logging.debug("PWM base> open <%s> returns %s.", self.pinDesignator, ret)
         return ret
 
     def close(self):
@@ -176,7 +176,7 @@ class PWM( Module ):
             self._pwm = None
         else:
             ret = ErrorCode.errResourceConflict
-        logging.debug("PWM base> close <%s> returns %s.", self.pin, ret)
+        logging.debug("PWM base> close <%s> returns %s.", self.pinDesignator, ret)
         return ret
 
     def setRunLevel(self, level):
