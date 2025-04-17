@@ -18,11 +18,15 @@ class _PWM_Periphery( PWM ):
     """Implementation of the PWM interface for the Periphery lib.
     """
 
+    DEFAULT_CHIP	= 0
+    DEFAULT_CHANNEL	= 0
+    
     def __init__(self):
         """Initialize the instance with defaults.
         """
         super().__init__()
-        self.chippath = None
+        self.chip = self.DEFAULT_CHIP
+        self.channel = self.DEFAULT_CHANNEL
         self.provider = SysProvider.PERIPHERY
 
 
@@ -43,7 +47,8 @@ class _PWM_Periphery( PWM ):
         ==================    ==============================================    =========================
         Key                   Range                                             Default
         ==================    ==============================================    =========================
-        pwm.chippath          GPIO chip character device path as a string.      "/dev/gpiochip0"
+        pwm.chip              PWM chip identifier as an int.      				:attr:`DEFAULT_CHIP`
+        pwm.channel           PWM channel number as an int. 					:attr:`DEFAULT_CHANNEL`
         ==================    ==============================================    =========================
         
         :param dict(str, object) paramDict: Configuration parameters as obtained from :meth:`Params_init`, possibly.
@@ -52,7 +57,8 @@ class _PWM_Periphery( PWM ):
         """
         super().Params_init( paramDict )
         defaults = {
-            "pwm.chippath":     "/dev/gpiochip0",
+            "pwm.chip":     _PWM_Periphery.DEFAULT_CHIP,
+            "pwm.channel":  _PWM_Periphery.DEFAULT_CHANNEL,
         }
         for key, value in defaults.items():
             if not key in paramDict:
@@ -79,9 +85,11 @@ class _PWM_Periphery( PWM ):
         else:
             ret = super().open( paramDict )
             if ret.isOk():
-                self.chippath = paramDict.get("gpio.chippath")
+                self.chip = paramDict.get("pwm.chip")
+                self.channel = paramDict.get("pwm.channel")
                 try:
-                    self._pwm = Driver( self.chippath, self.pin )
+                    self._pwm = Driver( self.chip, self.channel )
+                    self._pwm.duty_cycle = 0
                     self._pwm.frequency = self.frequency
                     self._pwm.duty_cycle = self.duty / 100
                 except DriverError:
@@ -109,9 +117,14 @@ class _PWM_Periphery( PWM ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
+        ret = ErrorCode.errOk
         if self.isOpen:
+            self.stop()
             self._pwm.close()
-        ret = super().close()
+            self._pwm = None
+            self.isOpen = False
+        else:
+            ret = ErrorCode.errResourceConflict
         return ret
 
 
@@ -130,10 +143,13 @@ class _PWM_Periphery( PWM ):
         err = super().setFrequency( frequency )
         if err.isOk():
             try:
+                # Setting frequency corrupts the duty setting
+                self._pwm.duty_cycle = 0
                 self._pwm.frequency = self.frequency
+                self._pwm.duty_cycle = self.duty / 100
             except DriverError:
                 err = ErrorCode.errLowLevelFail
-            except TypeError:
+            except (TypeError, ValueError):
                 err = ErrorCode.errInvalidParameter
         return err
                 

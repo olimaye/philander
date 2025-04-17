@@ -14,8 +14,12 @@ class TestPWM_Impl( unittest.TestCase ):
     TIME_TO_EXPERIMENT = 20 # Time in seconds to experiment and adjust
     
     
-    ProviderUnderTest = SysProvider.MICROPYTHON
-    outPin          = 4
+    #ProviderUnderTest = SysProvider.MICROPYTHON
+    #outPin          = 4
+    #ProviderUnderTest = SysProvider.RPIGPIO
+    #outPin          = 12
+    ProviderUnderTest = SysProvider.PERIPHERY
+    outPin          = '12'
     pwmFrequency    = 100000
     pwmDuty         = 35
     
@@ -145,8 +149,8 @@ class TestPWM_Impl( unittest.TestCase ):
         err = device.setFrequency( self.pwmFrequency // 2 )
         self.assertEqual( err, ErrorCode.errOk, "setFreq: " + str(err) )
         sleep(self.TIME_TO_CHECK)
-        print("setDuty(30)")
-        err = device.setDuty( 30 )
+        print("setDuty(40)")
+        err = device.setDuty( 40 )
         self.assertEqual( err, ErrorCode.errOk, "setDuty: " + str(err) )
         sleep(self.TIME_TO_CHECK)
         print("*** stop ***")

@@ -77,7 +77,7 @@ class _PWM_RPi( PWM ):
         """
         ret = super().close()
         if ret.isOk():
-            RPiGPIO.cleanup(self.designator)
+            RPiGPIO.cleanup(self.pin)
         return ret
 
 
