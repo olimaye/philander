@@ -89,7 +89,6 @@ class _PWM_Periphery( PWM ):
                 self.channel = paramDict.get("pwm.channel")
                 try:
                     self._pwm = Driver( self.chip, self.channel )
-                    self._pwm.duty_cycle = 0
                     self._pwm.frequency = self.frequency
                     self._pwm.duty_cycle = self.duty / 100
                 except DriverError:
