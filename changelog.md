@@ -12,6 +12,10 @@ This is the summary of relevant changes throughout different releases.
 
 ## [Unreleased]
 
+Nothing, yet.
+
+## [0.5] - 2025-06-05
+
 ### Added
 - ADC module and implementation for Micropython plus SIM and test
 - ADC driver for ST ADC1283 serial ADC chip and unit test
