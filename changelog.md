@@ -12,7 +12,8 @@ This is the summary of relevant changes throughout different releases.
 
 ## [Unreleased]
 
-Nothing, yet.
+### Fixed
+- ST ADC1283 driver's `provider` attribute is now set to `SysProvider.COMPOSITE`
 
 ## [0.5] - 2025-06-05
 

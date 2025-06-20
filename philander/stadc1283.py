@@ -29,7 +29,7 @@ class STADC1283( ADC, SerialBusDevice ):
         """
         ADC.__init__(self)
         SerialBusDevice.__init__(self)
-        self.provider = SysProvider.MICROPYTHON
+        self.provider = SysProvider.COMPOSITE
 
     #
     # Module API
