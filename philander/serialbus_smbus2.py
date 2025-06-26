@@ -3,14 +3,13 @@
 An application should never use this module directly. Instead, the
 system factory will provide suitable instances.
 """
-from serialbus import SerialBusType
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["_SerialBus_SMBus2" ]
 
 from smbus2 import SMBus, i2c_msg
 
-from philander.serialbus import SerialBus
+from philander.serialbus import SerialBus, SerialBusType
 from philander.sysfactory import SysProvider
 from philander.systypes import ErrorCode
 
