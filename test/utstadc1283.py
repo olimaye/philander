@@ -4,6 +4,7 @@ from time import sleep
 import unittest
 
 from philander.stadc1283 import STADC1283 as Driver
+from philander.sysfactory import SysProvider
 from philander.systypes import ErrorCode
 
 class TestSTADC1283( unittest.TestCase ):
@@ -17,6 +18,7 @@ class TestSTADC1283( unittest.TestCase ):
     def test_open(self):
         device = Driver()
         self.assertIsNotNone( device )
+        self.assertEqual( device.provider, SysProvider.COMPOSITE, "Wrong provider!")
         params = {\
             "SerialBus.designator":   self.PortDesignator,
             "SerialBusDevice.CS.gpio.pinDesignator": self.CS_Pin,
