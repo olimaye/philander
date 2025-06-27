@@ -11,10 +11,14 @@ This is the summary of relevant changes throughout different releases.
 <!---### Security--->
 
 ## [Unreleased]
+Nothing, yet.
+
+## [0.5.1] - 2025-06-27
 
 ### Fixed
 - ST ADC1283 driver's `provider` attribute is now set to `SysProvider.COMPOSITE`
-- SerialBus implementation for SMBUS2 fixed ModuleNotFoundError: No module named 'serialbus'
+- SerialBus implementation for SMBUS2 fixed `ModuleNotFoundError: No module named 'serialbus'`
+- SysFactory.autDetectProvider now works with non-top-level module names.
 
 ## [0.5] - 2025-06-05
 

@@ -79,7 +79,8 @@ class SysFactory():
         ret = fallback
         for entry in dependencies:
             try:
-                module = __import__( entry[1] )     # module name
+                #                    name,  globals, locals, fromlist
+                module = __import__( entry[1], None, None, [entry[2],] )
                 if hasattr(module, entry[2]):       # class name
                     ret = entry[0]                  # Mnemonics
                     break
