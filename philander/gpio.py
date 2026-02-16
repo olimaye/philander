@@ -62,7 +62,7 @@ class GPIO( Module, Interruptable ):
         :return: A GPIO implementation object, or None in case of an error.
         :rtype: GPIO
         """
-        deps = [(SysProvider.RPIGPIO, "RPi.GPIO", "GPIO"),
+        deps = [(SysProvider.RPIGPIO, "RPi.GPIO", "setup"),
                 (SysProvider.GPIOZERO, "gpiozero", "DigitalOutputDevice"),
                 (SysProvider.PERIPHERY, "periphery", "GPIO"),
                 (SysProvider.MICROPYTHON, "machine", "Pin"),

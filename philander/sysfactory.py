@@ -120,15 +120,19 @@ class SysFactory():
             implementation or None in case of an error.
         :rtype: object
         """
+        ret = None
         if provider in implementations:
-            moduleName, className = implementations.get( provider )
-            module = __import__(moduleName, None, None, [className])
-            cls = getattr( module, className )
-            ret = cls()
+            try:
+                moduleName, className = implementations.get( provider )
+                module = __import__(moduleName, None, None, [className])
+                cls = getattr( module, className )
+                ret = cls()
+            except (ImportError, AttributeError):
+                ret = None
         else:
-            #raise NotImplementedError('Driver module ' + str(provider) + ' is not supported.')
+            #raise NotImplementedError('Implementation ' + str(provider) + ' is not supported.')
             # warnings.warn(
-            #     "Cannot find GPIO factory lib. Using SIM. Consider installing RPi.GPIO, gpiozero or periphery!"
+            #     "Cannot find implementation class. Consider installing some supported lib!"
             # )
             ret = None
         return ret
@@ -143,7 +147,7 @@ class SysFactory():
         :return: A GPIO implementation object, or None in case of an error.
         :rtype: GPIO
         """
-        deps = [(SysProvider.RPIGPIO, "RPi.GPIO", "GPIO"),
+        deps = [(SysProvider.RPIGPIO, "RPi.GPIO", "setup"),
                 (SysProvider.GPIOZERO, "gpiozero", "DigitalOutputDevice"),
                 (SysProvider.PERIPHERY, "periphery", "GPIO"),
                 (SysProvider.MICROPYTHON, "machine", "Pin"),
