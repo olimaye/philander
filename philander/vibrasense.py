@@ -11,7 +11,6 @@ from pymitter import EventEmitter
 from philander.gpio import GPIO
 from philander.interruptable import Interruptable
 from philander.sensor import Sensor
-from philander.sysfactory import SysFactory
 from philander.systypes import ErrorCode
 
 
@@ -107,13 +106,13 @@ class VibraSense( EventEmitter, Sensor, Interruptable):
             gpioEnaParams = None
         # Setup the enable pin
         if ret.isOk() and gpioEnaParams:
-            self.gpioEnable = SysFactory.getGPIO()
+            self.gpioEnable = GPIO.getGPIO()
             ret = self.gpioEnable.open(gpioEnaParams)
             if ret.isOk():
                 ret = self.gpioEnable.set( GPIO.LEVEL_HIGH )
         # Setup the signal pin
         if ret.isOk():
-            self.gpioSignal = SysFactory.getGPIO()
+            self.gpioSignal = GPIO.getGPIO()
             ret = self.gpioSignal.open(gpioIntParams)
         return ret
     

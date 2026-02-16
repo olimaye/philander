@@ -156,7 +156,7 @@ class SerialBusDevice( Module ):
                         paramDict["SerialBusDevice.CS.gpio.level"] = GPIO.LEVEL_HIGH
                         prefix = "SerialBusDevice.CS."
                         gpioParams = dict( [(k.replace(prefix, ""),v) for k,v in paramDict.items() if k.startswith(prefix)] )
-                        self.pinCS = SysFactory.getGPIO()
+                        self.pinCS = GPIO.getGPIO()
                         # open GPIO pin
                         result = self.pinCS.open(gpioParams)
 

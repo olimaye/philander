@@ -15,7 +15,6 @@ from philander.gpio import GPIO
 from philander.imath import ctz, iprevpowtwo, vlbs
 from philander.interruptable import Event, Interruptable, EventContextControl
 from philander.serialbus import SerialBusDevice
-from philander.sysfactory import SysFactory
 from philander.systypes import ErrorCode, Info, RunLevel
 from philander.watchdog import Watchdog
 
@@ -270,7 +269,7 @@ class MAX77960( MAX77960_Reg, SerialBusDevice, Charger, Configurable, Interrupta
             if ("Charger.int.gpio.pinDesignator" in paramDict):
                 paramDict["Charger.int.gpio.direction"] = GPIO.DIRECTION_IN
                 gpioParams = dict( [(k.replace("Charger.int.", ""),v) for k,v in paramDict.items() if k.startswith("Charger.int.")] )
-                self.pinInt = SysFactory.getGPIO()
+                self.pinInt = GPIO.getGPIO()
                 ret = self.pinInt.open( gpioParams )
                 self.enableInterrupt()
         return ret

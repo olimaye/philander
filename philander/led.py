@@ -8,7 +8,7 @@ import time, logging
 
 from .gpio import GPIO
 from .module import Module
-from .sysfactory import SysFactory, SysProvider
+from .sysfactory import SysProvider
 from .systypes import ErrorCode
 
 
@@ -80,7 +80,7 @@ class LED( Module ):
             paramDict["LED.gpio.direction"] = defaults["LED.gpio.direction"]
             # Extract GPIO parameters
             gpioParams = dict( [(k.replace("LED.", ""),v) for k,v in paramDict.items() if k.startswith("LED.")] )
-            self.gpio = SysFactory.getGPIO()
+            self.gpio = GPIO.getGPIO()
             ret = self.gpio.open(gpioParams)
             if( ret != ErrorCode.errOk ):
                 self.gpio = None

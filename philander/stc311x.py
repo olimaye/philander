@@ -14,7 +14,6 @@ from philander.interruptable import Interruptable, Event
 from philander.primitives import Current, Voltage, Percentage, Temperature
 from philander.serialbus import SerialBusDevice
 from philander.stc311x_reg import STC311x_Reg
-from philander.sysfactory import SysFactory
 from philander.systypes import ErrorCode, RunLevel, Info
 
 
@@ -156,7 +155,7 @@ class STC311x(GasGauge, SerialBusDevice, Interruptable):
             # Setup GPIO pin for interrupts
             prefix = "Gasgauge.int."
             gpioParams = dict( [(k.replace(prefix, ""),v) for k,v in paramDict.items() if k.startswith(prefix)] )
-            self.pinInt = SysFactory.getGPIO()
+            self.pinInt = GPIO.getGPIO()
             # open GPIO pin
             err = self.pinInt.open(gpioParams)
             self.enableInterrupt()

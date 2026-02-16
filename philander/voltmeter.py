@@ -8,7 +8,6 @@ __all__ = ["Voltmeter"]
 from .gasgauge import GasGauge
 from .gpio import GPIO
 from .module import Module
-from .sysfactory import SysFactory
 from .systypes import ErrorCode
 
 
@@ -95,7 +94,7 @@ class Voltmeter( Module, GasGauge ):
                 self._rangeMin = defDict["Voltmeter.range.min"]
             paramDict["Voltmeter.gpio.direction"] = GPIO.DIRECTION_IN
             gpioParams = dict( [(k.replace("Voltmeter.gpio", "gpio"),v) for k,v in paramDict.items() if k.startswith("Voltmeter.gpio")] )
-            self._pin = SysFactory.getGPIO()
+            self._pin = GPIO.getGPIO()
             result = self._pin.open(gpioParams)
         return result
     

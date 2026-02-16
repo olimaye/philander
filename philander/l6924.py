@@ -10,7 +10,6 @@ __all__ = ["L6924"]
 from philander.charger import Charger, Status, DCStatus, PowerSrc, ChargerError, TemperatureRating
 from philander.battery import Status as BatStatus
 from philander.gpio import GPIO
-from philander.sysfactory import SysFactory
 from philander.systypes import ErrorCode
 
 class L6924(Charger):
@@ -69,8 +68,8 @@ class L6924(Charger):
         err = ErrorCode.errOk
         self.Params_init(paramDict)
         # init St1 and St2
-        self._pinSt1 = SysFactory.getGPIO()
-        self._pinSt2 = SysFactory.getGPIO()
+        self._pinSt1 = GPIO.getGPIO()
+        self._pinSt2 = GPIO.getGPIO()
         st1_params = {} # collector requires pull-up to be readable
         st2_params = {}
         for key, value in paramDict.items():
