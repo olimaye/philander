@@ -151,24 +151,30 @@ class GPIO( Module, Interruptable ):
         :return: none
         :rtype: None
         """
+        # Settings for in and out direction
         if not ("gpio.pinNumbering" in paramDict):
             paramDict["gpio.pinNumbering"] = GPIO.PINNUMBERING_BCM
         if not ("gpio.direction" in paramDict):
             paramDict["gpio.direction"] = GPIO.DIRECTION_OUT
         if not ("gpio.inverted" in paramDict):
             paramDict["gpio.inverted"] = False
-        if not ("gpio.level" in paramDict):
-            paramDict["gpio.level"] = GPIO.LEVEL_LOW
-        if not ("gpio.pull" in paramDict):
-            paramDict["gpio.pull"] = GPIO.PULL_DEFAULT
-        if not ("gpio.trigger" in paramDict):
-            paramDict["gpio.trigger"] = GPIO.TRIGGER_EDGE_RISING
-        if not ("gpio.bounce" in paramDict):
-            paramDict["gpio.bounce"] = GPIO.BOUNCE_DEFAULT
-        if not ("gpio.feedback" in paramDict):
-            paramDict["gpio.feedback"] = None
-        if not ("gpio.handler" in paramDict):
-            paramDict["gpio.handler"] = None
+
+        if paramDict["gpio.direction"] == GPIO.DIRECTION_OUT:
+            # out direction, only
+            if not ("gpio.level" in paramDict):
+                paramDict["gpio.level"] = GPIO.LEVEL_LOW
+        else:
+            # in direction, only
+            if not ("gpio.pull" in paramDict):
+                paramDict["gpio.pull"] = GPIO.PULL_DEFAULT
+            if not ("gpio.trigger" in paramDict):
+                paramDict["gpio.trigger"] = GPIO.TRIGGER_EDGE_RISING
+            if not ("gpio.bounce" in paramDict):
+                paramDict["gpio.bounce"] = GPIO.BOUNCE_DEFAULT
+            if not ("gpio.feedback" in paramDict):
+                paramDict["gpio.feedback"] = None
+            if not ("gpio.handler" in paramDict):
+                paramDict["gpio.handler"] = None
         return None
 
 

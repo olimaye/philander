@@ -13,12 +13,24 @@ This is the summary of relevant changes throughout different releases.
 ## [Unreleased]
 Nothing, yet.
 
+## [0.5.2] - 2026-02-28
+
+### Added
+- module `mux` to multiplex 2-4, 3-8 etc.
+- module `shiftreg` to support one or more shift register controlled by SPI
+
+### Changed
+- Removed `SysFactory.getGPIO()` as this functionality moved to the `GPIO` class
+
+### Fixed
+- GPIO factoring now working for `RPi.GPIO`
+
 ## [0.5.1] - 2025-07-03
 
 ### Fixed
 - ST ADC1283 driver's `provider` attribute is now set to `SysProvider.COMPOSITE`
 - SerialBus implementation for SMBUS2 fixed `ModuleNotFoundError: No module named 'serialbus'`
-- SysFactory.autDetectProvider now works with non-top-level module names.
+- `SysFactory.autDetectProvider` now works with non-top-level module names.
 
 ## [0.5] - 2025-06-05
 
