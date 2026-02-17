@@ -21,6 +21,7 @@ Nothing, yet.
 
 ### Changed
 - Removed `SysFactory.getGPIO()` as this functionality moved to the `GPIO` class
+- GPIO default parameters are set / not set depending on the selected `gpio.direction`
 
 ### Fixed
 - GPIO factoring now working for `RPi.GPIO`
