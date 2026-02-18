@@ -197,12 +197,12 @@ class Mux( Module ):
         if( ret == ErrorCode.errOk ):
             self.maxValue = (1 << len(self.bit)) - 1
         
-        logging.debug('Mux.open() returns: %s.', self.label, ret)
+        logging.debug('Mux.open() returns: %s.', ret)
         return ret
     
     def close(self):
         ret = ErrorCode.errOk
-        self.off()
+        self.disable()
         for  pin in self.bit:
             err = pin.close()
             if( (ret==ErrorCode.errOk) and (err!=ErrorCode.errOk)):

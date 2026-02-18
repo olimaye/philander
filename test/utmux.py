@@ -32,7 +32,7 @@ class TestMux( unittest.TestCase ):
         self.assertFalse( muxParams["mux.bit1.gpio.inverted"] )
         self.assertEqual( muxParams["mux.bit2.gpio.level"], GPIO.LEVEL_LOW )
         
-    @unittest.skip("Disabled for easier diagnostics.")
+    #@unittest.skip("Disabled for easier diagnostics.")
     def test_select(self):
         mux = Mux()
         self.assertIsNotNone( mux )
@@ -55,6 +55,8 @@ class TestMux( unittest.TestCase ):
         self.assertEqual( err, ErrorCode.errOk )
         sleep(1)
         
+        err = mux.enable()
+        self.assertEqual( err, ErrorCode.errOk )
         for idx in range(8):
             err = mux.select( idx )
             self.assertEqual( err, ErrorCode.errOk )
