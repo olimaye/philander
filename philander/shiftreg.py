@@ -217,11 +217,11 @@ class ShiftReg( Module ):
     # Module specific API
     #
     
-    def write(self, data, numBits=1):
+    def write(self, data, numBits=1, autoLatch=True):
         """Feed data into the first stage of the shift register.
         
         The lowest significant number of bits as given by the `numBits`
-        parameter are written to DIN sequentially, starting with the
+        parameter is written to DIN sequentially, starting with the
         highest-significant bit, first. If, for example,
         `data = 141 = 0x8d = 10001101b` and `numBits=4`, the sequence
         `1-1-0-1´ is written in that order.
@@ -234,9 +234,14 @@ class ShiftReg( Module ):
         other mechanisms and, hence, put restrictions on what `numBits`
         can be. 
         
+        If `autoLatch` is `True` and depending on the underlying
+        hardware, the resulting content of the shift register is
+        latched into the buffer.
+        
         :param int data: The data to send to the shift register.
         :param int numBits: Non-negative number of least-significant \
         bits in 'data' to shift-in. Usually 1, 4 or multiple of 8. 
+        :param bool autoLatch: Whether to automatically latch the result into the buffer.
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
@@ -260,6 +265,9 @@ class ShiftReg( Module ):
                 if not ret.isOk():
                     break
                 mask >>= 1
+            if( ret.isOk() and autoLatch ):
+                # Intentionally ignore the return as operation might not be supprted
+                self.latch()
         logging.debug('ShiftReg write(data=%02x, numBits=%d), return: %s.',
                       data, numBits, ret)
         return ret

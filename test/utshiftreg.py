@@ -34,11 +34,15 @@ gParams = {\
     "shiftreg.rclk.gpio.pinDesignator": 8,      # RCLK -> Latch -> CS0 in bay #1
     #"shiftreg.rclr.gpio.pinDesignator": xx,     # not present
     #"shiftreg.enable.gpio.pinDesignator": 14,   # /OE not present
+     "shiftreg.SerialBus.designator":   "/dev/spidev0.1",       # "/dev/spidev0.1", SPI0
+     "shiftreg.SerialBusDevice.CS.gpio.pinDesignator": 7,    # CE1 in bay#2
 }
+
+hallo = [ 0xea, 0xee, 0x70, 0x70, 0x7e]
 
 class TestShiftReg( unittest.TestCase ):
     
-    #@unittest.skip("Disabled for easier diagnostics.")
+    @unittest.skip("Disabled for easier diagnostics.")
     def test_params(self):
         sreg = ShiftReg()
         self.assertIsNotNone( sreg )
@@ -61,15 +65,28 @@ class TestShiftReg( unittest.TestCase ):
         self.assertEqual( err, ErrorCode.errOk )
         
         dTime = 1
-        for cnt in range(16):
-            err = sreg.write( cnt & 0x01)
+        #for cnt in range(16):
+        #    err = sreg.write( cnt & 0x01)
+        #    self.assertEqual( err, ErrorCode.errOk )
+        #    sleep(dTime)
+
+        for data in hallo:
+            err = sreg.write( data, 8 )
+            sreg.latch()
+            self.assertEqual( err, ErrorCode.errOk )
+            sleep(dTime)
+        for data in hallo:
+            sreg.clearData()	# ignore return
+            sreg.latch()
+            err = sreg.write( data, 8 )
+            sreg.latch()
             self.assertEqual( err, ErrorCode.errOk )
             sleep(dTime)
         
         err = sreg.close()
         self.assertEqual( err, ErrorCode.errOk )
         
-    @unittest.skip("Disabled for easier diagnostics.")
+    #@unittest.skip("Disabled for easier diagnostics.")
     def test_spi(self):
         sreg = ShiftRegSPI()
         self.assertIsNotNone( sreg )
@@ -78,7 +95,7 @@ class TestShiftReg( unittest.TestCase ):
         self.assertEqual( err, ErrorCode.errOk )
         
         dTime = 1
-        for data in [ 0x80, 0x00, 0x55, 0x55, 0xaa, 0xaa, 0, 0]:
+        for data in hallo:
             err = sreg.write( data )
             self.assertEqual( err, ErrorCode.errOk )
             sleep(dTime)
