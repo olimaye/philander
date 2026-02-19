@@ -46,7 +46,6 @@ import logging
 
 from .gpio import GPIO
 from .module import Module
-from .sysfactory import SysProvider
 from .systypes import ErrorCode
 
 
@@ -55,7 +54,7 @@ class Mux( Module ):
     """
     
     MAXNUM_BITS = 4
-    PARAM_PREFIX = "mux."
+    MODULE_PARAM_PREFIX = "mux."
     
     def __init__(self):
         """Initialize the instance with defaults.
@@ -119,13 +118,13 @@ class Mux( Module ):
         GPIO.Params_init( gpioDefaults )
         # Mux global defaults
         for key, value in gpioDefaults.items():
-            tempKey = Mux.PARAM_PREFIX + key
+            tempKey = Mux.MODULE_PARAM_PREFIX + key
             if not( tempKey in paramDict):
                 paramDict[tempKey] = value
         # Specific bit configurations
-        prefixDefault = Mux.PARAM_PREFIX
+        prefixDefault = Mux.MODULE_PARAM_PREFIX
         for idx in range(Mux.MAXNUM_BITS):
-            prefix = Mux.PARAM_PREFIX + "bit" + str(idx) + "."
+            prefix = Mux.MODULE_PARAM_PREFIX + "bit" + str(idx) + "."
             tempKey = prefix + "gpio.pinDesignator"
             if( tempKey in paramDict ):
                 paramDict[prefix+"gpio.direction"] = GPIO.DIRECTION_OUT
@@ -136,7 +135,7 @@ class Mux( Module ):
             else:
                 break
         # ENA line configuration
-        prefix = Mux.PARAM_PREFIX + "enable."
+        prefix = Mux.MODULE_PARAM_PREFIX + "enable."
         tempKey = prefix + "gpio.pinDesignator"
         if( tempKey in paramDict ):
             paramDict[prefix+"gpio.direction"] = GPIO.DIRECTION_OUT
@@ -161,7 +160,7 @@ class Mux( Module ):
         else:
             Mux.Params_init( paramDict )
             for idx in range(Mux.MAXNUM_BITS):
-                prefix = Mux.PARAM_PREFIX + "bit" + str(idx) + "."
+                prefix = Mux.MODULE_PARAM_PREFIX + "bit" + str(idx) + "."
                 tempKey = prefix + "gpio.pinDesignator"
                 if( tempKey in paramDict ):
                     # Extract GPIO parameters
@@ -181,7 +180,7 @@ class Mux( Module ):
         if( (ret == ErrorCode.errOk) and not self.bit ):
             ret = ErrorCode.errFewData
         if( ret == ErrorCode.errOk ):
-            prefix = Mux.PARAM_PREFIX + "enable."
+            prefix = Mux.MODULE_PARAM_PREFIX + "enable."
             tempKey = prefix + "gpio.pinDesignator"
             if( tempKey in paramDict ):
                 # Extract GPIO parameters
