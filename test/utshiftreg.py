@@ -12,17 +12,28 @@ from philander.systypes import ErrorCode
 # Globals
 
 # 2x SN74HCS594 on SolarCharly with Raspberry Pi 
+# gParams = {\
+#     "shiftreg.din.gpio.pinDesignator":  10,     # SPI0:MOSI, SPI_MOSI
+#     "shiftreg.dclk.gpio.pinDesignator": 11,     # SPI0:SCLK, SPI_CLK
+#     #"shiftreg.dclr.gpio.pinDesignator": xx,     # not present
+#     #"shiftreg.dclr.gpio.inverted":      True,
+#     #"shiftreg.rclk.gpio.pinDesignator": xx,     # different semantics -> ENA
+#     #"shiftreg.rclr.gpio.pinDesignator": xx,     # not present
+#     "shiftreg.enable.gpio.pinDesignator": 14,   # RN_MAIN
+#
+#     "shiftreg.SerialBus.designator":   0,       # "/dev/spidev0.1", SPI0
+#     "shiftreg.SerialBusDevice.CS.gpio.pinDesignator": 8,    # CE0, RN_CS
+# }
+
+# 2x SN74HC595 on Mikroe 7Seg Click Board 1201 in bay #1 with Raspberry Pi 
 gParams = {\
     "shiftreg.din.gpio.pinDesignator":  10,     # SPI0:MOSI, SPI_MOSI
     "shiftreg.dclk.gpio.pinDesignator": 11,     # SPI0:SCLK, SPI_CLK
-    #"shiftreg.dclr.gpio.pinDesignator": xx,     # not present
-    #"shiftreg.dclr.gpio.inverted":      True,
-    #"shiftreg.rclk.gpio.pinDesignator": xx,     # different semantics -> ENA
+    "shiftreg.dclr.gpio.pinDesignator": 5,      # /SRCLR -> RST in bay #1
+    "shiftreg.dclr.gpio.inverted":      True,   # 
+    "shiftreg.rclk.gpio.pinDesignator": 8,      # RCLK -> Latch -> CS0 in bay #1
     #"shiftreg.rclr.gpio.pinDesignator": xx,     # not present
-    "shiftreg.enable.gpio.pinDesignator": 14,   # RN_MAIN
-    
-    "shiftreg.SerialBus.designator":   0,       # "/dev/spidev0.1", SPI0
-    "shiftreg.SerialBusDevice.CS.gpio.pinDesignator": 8,    # CE0, RN_CS
+    #"shiftreg.enable.gpio.pinDesignator": 14,   # /OE not present
 }
 
 class TestShiftReg( unittest.TestCase ):
