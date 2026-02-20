@@ -101,7 +101,7 @@ class ShiftRegSPI( ShiftReg ):
     # Module specific API
     #
     
-    def write(self, data, numBits=8):
+    def write(self, data, numBits=8, autoLatch=True):
         """Feed data into the shift register.
         
         As the underlying mechanism is SPI, only full bytes can be
@@ -112,9 +112,14 @@ class ShiftRegSPI( ShiftReg ):
         If, for example, `data = 0xa4b3c2d1` and `numBits=24`, the
         sequence shifted into the register is `b3-c2-d1`. 
         
+        If `autoLatch` is `True` and depending on the underlying
+        hardware, the resulting content of the shift register is
+        latched into the buffer.
+        
         :param int data: The data to send to the shift register.
         :param int numBits: Non-negative number of least-significant \
         bits in 'data' to shift-in. One of `{8 | 16 | 24 | 32}`. 
+        :param bool autoLatch: Whether to automatically latch the result into the buffer.
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
@@ -133,6 +138,8 @@ class ShiftRegSPI( ShiftReg ):
                 numBits -= 8
                 buf.append( (data >> numBits) & 0xFF )
             ret = self.serbusdev.writeBuffer(buf)
+            if( ret.isOk() and autoLatch ):
+                self.latch()
                 
         logging.debug('ShiftReg write(data=%02x, numBits=%d), return: %s.',
                       data, numBits, ret)

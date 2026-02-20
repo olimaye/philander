@@ -379,3 +379,32 @@ class ShiftReg( Module ):
         logging.debug('ShiftReg latch, return: %s.', ret)
         return ret
     
+    def clear(self):
+        """Clear the register and buffer content.
+        
+        If supported by the underlying hardware, use DCLR and
+        RCLR to reset. Otherwise, the implementation may
+        write a number of zeroes to the register to
+        approximate a similar result.
+        
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        ret = ErrorCode.errOk
+        flagWrite = False
+        # clear register data (flip-flops)
+        ret = self.clearData()
+        if ret.isOk():
+            ret = self.clearLatch()
+            if( ret == ErrorCode.errNotSupported ):
+                ret = self.latch()
+                if( ret == ErrorCode.errNotSupported ):
+                    flagWrite = True
+                
+        elif( ret == ErrorCode.errNotSupported ):
+            flagWrite = True
+    
+        if flagWrite:
+            ret = self.write( 0, 32 )	# autoLatch clears the buffer
+        return ret
+    
