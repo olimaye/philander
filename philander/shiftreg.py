@@ -390,9 +390,7 @@ class ShiftReg( Module ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        ret = ErrorCode.errOk
         flagWrite = False
-        # clear register data (flip-flops)
         ret = self.clearData()
         if ret.isOk():
             ret = self.clearLatch()
@@ -400,7 +398,6 @@ class ShiftReg( Module ):
                 ret = self.latch()
                 if( ret == ErrorCode.errNotSupported ):
                     flagWrite = True
-                
         elif( ret == ErrorCode.errNotSupported ):
             flagWrite = True
     
