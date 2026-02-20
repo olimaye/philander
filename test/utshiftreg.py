@@ -35,9 +35,9 @@ shiftParams = {\
     "shiftreg.rclk.gpio.pinDesignator": 8,      # RCLK -> Latch -> CS0 8(bay #1), 7(bay#2)
     #"shiftreg.rclr.gpio.pinDesignator": xx,     # not present
     #"shiftreg.enable.gpio.pinDesignator": 14,   # /OE not present
-     "shiftreg.SerialBus.designator":   "/dev/spidev0.1",    # "/dev/spidev0.1", SPI0
+     "shiftreg.SerialBus.designator":   "/dev/spidev0.0",    # "/dev/spidev0.1", SPI0
      "shiftreg.SerialBus.SPI.mode":   SPIMode.CPOL0_CPHA0,   # CLK idles low, read first edge
-     #"shiftreg.SerialBusDevice.CS.gpio.pinDesignator": 7,    # CE1
+    #"shiftreg.SerialBusDevice.CS.gpio.pinDesignator": 7,    # CE1
 }
 
 # The Mikro-e 7Seg click board adjusts brightness through the PWM pin
@@ -113,6 +113,7 @@ class TestShiftReg( unittest.TestCase ):
         params = shiftParams.copy()
         err = sreg.open(params)
         self.assertEqual( err, ErrorCode.errOk )
+
 
         # If necessary, assure brightness        
         if "pwmParams" in globals():
