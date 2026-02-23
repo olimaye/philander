@@ -135,6 +135,7 @@ class GPIO( Module, Interruptable ):
         ==================    ==============================================    =========================
         Key                   Range                                             Default
         ==================    ==============================================    =========================
+        gpio.provider         :class:`SysProvider` to select implementation     :attr:`SysProvider.AUTO`.
         gpio.pinNumbering     GPIO.PINNUMBERING_[BCM | BOARD]                   GPIO.PINNUMBERING_BCM
         gpio.pinDesignator    pin name or number (e.g. 17 or "GPIO17")          None
         gpio.direction        GPIO.DIRECTION_[IN | OUT]                         GPIO.DIRECTION_OUT
@@ -151,30 +152,33 @@ class GPIO( Module, Interruptable ):
         :return: none
         :rtype: None
         """
-        # Settings for in and out direction
-        if not ("gpio.pinNumbering" in paramDict):
-            paramDict["gpio.pinNumbering"] = GPIO.PINNUMBERING_BCM
-        if not ("gpio.direction" in paramDict):
-            paramDict["gpio.direction"] = GPIO.DIRECTION_OUT
-        if not ("gpio.inverted" in paramDict):
-            paramDict["gpio.inverted"] = False
-
-        if paramDict["gpio.direction"] == GPIO.DIRECTION_OUT:
-            # out direction, only
-            if not ("gpio.level" in paramDict):
-                paramDict["gpio.level"] = GPIO.LEVEL_LOW
+        # Common defaults
+        defaults = {
+            "gpio.provider": SysProvider.AUTO,
+            "gpio.pinNumbering": GPIO.PINNUMBERING_BCM,
+            "gpio.direction": GPIO.DIRECTION_OUT,
+            "gpio.inverted": False,
+        }
+        # Direction-dependent defaults
+        key = "gpio.direction"
+        direction = paramDict.get( key, defaults[key] ) 
+        if direction == GPIO.DIRECTION_OUT:
+            dirdef = {
+                "gpio.level": GPIO.LEVEL_LOW,
+            }
         else:
-            # in direction, only
-            if not ("gpio.pull" in paramDict):
-                paramDict["gpio.pull"] = GPIO.PULL_DEFAULT
-            if not ("gpio.trigger" in paramDict):
-                paramDict["gpio.trigger"] = GPIO.TRIGGER_EDGE_RISING
-            if not ("gpio.bounce" in paramDict):
-                paramDict["gpio.bounce"] = GPIO.BOUNCE_DEFAULT
-            if not ("gpio.feedback" in paramDict):
-                paramDict["gpio.feedback"] = None
-            if not ("gpio.handler" in paramDict):
-                paramDict["gpio.handler"] = None
+            dirdef = {
+                "gpio.pull": GPIO.PULL_DEFAULT,
+                "gpio.trigger": GPIO.TRIGGER_EDGE_RISING,
+                "gpio.bounce": GPIO.BOUNCE_DEFAULT,
+                "gpio.feedback": None,
+                "gpio.handler": None,
+            }
+            
+        defaults.update(dirdef)
+        for key, value in defaults.items():
+            if not key in paramDict:
+                paramDict[key] = value
         return None
 
 
@@ -217,7 +221,7 @@ class GPIO( Module, Interruptable ):
                 self.trigger = paramDict.get("gpio.trigger", defaults["gpio.trigger"])
                 self.bounce = paramDict.get("gpio.bounce", defaults["gpio.bounce"])
             self.isOpen = True
-        logging.debug("GPIO base> open <%s> returns %s.", self.designator, ret)
+        logging.debug("GPIO.open() #%s returns %s.", self.designator, ret)
         return ret
 
     def close(self):
@@ -238,7 +242,7 @@ class GPIO( Module, Interruptable ):
             self.isOpen = False
         else:
             ret = ErrorCode.errResourceConflict
-        logging.debug("GPIO base> close <%s> returns %s.", self.designator, ret)
+        logging.debug("GPIO.close() #%s returns %s.", self.designator, ret)
         return ret
 
     def setRunLevel(self, level):
@@ -273,7 +277,7 @@ class GPIO( Module, Interruptable ):
             ret = ErrorCode.errOk
         else:
             ret = ErrorCode.errNotImplemented
-        logging.debug("GPIO base> enable int for <%s> returns %s.", self.designator, ret)
+        logging.debug("GPIO.enableInterrupt() #%s returns %s.", self.designator, ret)
         return ret
 
     def disableInterrupt(self):
@@ -293,7 +297,7 @@ class GPIO( Module, Interruptable ):
             ret = ErrorCode.errOk
         else:
             ret = ErrorCode.errNotImplemented
-        logging.debug("GPIO base> disable int for <%s> returns %s.", self.designator, ret)
+        logging.debug("GPIO.disableInterrupt() #%s returns %s.", self.designator, ret)
         return ret
 
     def get(self):

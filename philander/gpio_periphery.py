@@ -5,7 +5,7 @@ __version__ = "0.1"
 __all__ = ["_GPIO_Periphery"]
 
 import logging
-from periphery import GPIO as PerGPIO
+from periphery import GPIO as PerGPIO, GPIOError as PerGPIOError
 from threading import Thread
 
 from philander.gpio import GPIO
@@ -41,12 +41,13 @@ class _GPIO_Periphery( GPIO ):
         self._worker = None
         self._workerDone = False
         self.chippath = None
+        self.pin = None
         self.provider = SysProvider.PERIPHERY
 
 
     def _callback(self, handin):
         if self._softDebounce and (self._bounce > 0):
-            evt = self._pin.read_event()
+            evt = self.pin.read_event()
             now = evt.timestamp / 1000000
             if (now - self._lastEventTime) > self._bounce: 
                 self._lastEventTime = now
@@ -60,13 +61,13 @@ class _GPIO_Periphery( GPIO ):
     # supported by the underlying implementation, such as for the
     # periphery package.
     def _workerLoop(self):
-        logging.debug("gpio <%d> starts working loop.", self.designator)
+        logging.debug("_GPIO_Periphery #%d starts working loop.", self.designator)
         self._workerDone = False
         while not self._workerDone:
-            value = self._pin.poll(GPIO._POLL_TIMEOUT)
+            value = self.pin.poll(GPIO._POLL_TIMEOUT)
             if value:
-                self._callback(self._pin)
-        logging.debug("gpio <%d> terminates working loop.", self.designator)
+                self._callback(self.pin)
+        logging.debug("_GPIO_Periphery #%d terminates working loop.", self.designator)
 
     # Stop the worker thread, if appropriate.
     def _stopWorker(self):
@@ -128,8 +129,13 @@ class _GPIO_Periphery( GPIO ):
             if self.numScheme == GPIO.PINNUMBERING_BCM:
                 if self.direction == GPIO.DIRECTION_OUT:
                     level = paramDict.get("gpio.level", defaults["gpio.level"])
-                    self.pin = PerGPIO( self.chippath, self.designator,
-                                        self._dictLevel2Dir[level] )
+                    try:
+                        self.pin = PerGPIO( self.chippath, self.designator,
+                                            self._dictLevel2Dir[level] )
+                    except PerGPIOError as e:
+                        logging.debug("_GPIO_Periphery.open() failed. chip: %s, designator: %s, error: %s.",
+                                      self.chippath, self.designator, e)
+                        ret = ErrorCode.errInitFailed
                 else:
                     pull = paramDict.get("gpio.pull", defaults["gpio.pull"])
                     feedback = paramDict.get("gpio.feedback", defaults["gpio.feedback"])
@@ -157,7 +163,8 @@ class _GPIO_Periphery( GPIO ):
         ret = super().close()
         if ret.isOk():
             self._stopWorker()
-            self.pin.close()
+            if self.pin:
+                self.pin.close()
             self.pin = None
         return ret
 

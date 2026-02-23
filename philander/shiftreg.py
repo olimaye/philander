@@ -54,6 +54,7 @@ import logging
 
 from .gpio import GPIO
 from .module import Module
+from .sysfactory import SysProvider
 from .systypes import ErrorCode
 
 
@@ -108,6 +109,7 @@ class ShiftReg( Module ):
         ==================================   ================================================================
         Key name                             Value type, meaning and default
         ==================================   ================================================================
+        shiftreg.gpio.provider               Global setting: GPIO provider
         shiftreg.gpio.pinNumbering           Global setting: numbering scheme
         shiftreg.gpio.inverted               Global setting: True if low-active
         shiftreg.gpio.level                  Global setting: initial logic level
@@ -177,7 +179,8 @@ class ShiftReg( Module ):
                 if( itemKey in paramDict ):
                     # Extract GPIO parameters
                     gpioParams = dict( [(k.replace(prefix, ""),v) for k,v in paramDict.items() if k.startswith(prefix)] )
-                    self.pin[idx] = GPIO.getGPIO()
+                    prv = gpioParams.get("gpio.provider", SysProvider.AUTO)
+                    self.pin[idx] = GPIO.getGPIO(prv)
                     ret = self.pin[idx].open(gpioParams)
                     if not ret.isOk():
                         logging.debug("ShiftReg couldn't open pin #%s (%s), error: %s.", \

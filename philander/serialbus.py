@@ -52,7 +52,6 @@ class SerialBusDevice( Module ):
     DEFAULT_ADDRESS     = 0x21
     
     def __init__(self):
-        self.provider = SysProvider.NONE
         self.serialBus   = None
         self.address = SerialBusDevice.DEFAULT_ADDRESS
         self.pinCS = None
@@ -67,6 +66,8 @@ class SerialBusDevice( Module ):
         =========================    ===================================================================
         SerialBusDevice.address      int; I2C address of the device; :attr:`DEFAULT_ADDRESS`
         SerialBusDevice.CS.gpio.*    SPI chip select pin configuration; See :meth:`.GPIO.Params_init`.
+        SerialBusDevice.bus          SerialBus instance to attach the new device to; None, to be created
+        SerialBus.*                  SerialBus configuration; see :meth:`SerialBus.Params_init`
         =========================    ===================================================================
         
         Also see :meth:`.module.Module.Params_init`.
@@ -132,7 +133,8 @@ class SerialBusDevice( Module ):
                 elif not( sb.isOpen().isOk() ):
                     result = sb.open(paramDict)
             else:
-                sb = SerialBus.getSerialBus()
+                prov = paramDict.get( "SerialBus.provider", SysProvider.AUTO )
+                sb = SerialBus.getSerialBus(prov)
                 if (sb is None):
                     result = ErrorCode.errExhausted
                 else:
@@ -512,6 +514,7 @@ class SerialBus( Module ):
         ======================    =================================================    ==============================================
         Key                       Range                                                Default
         ======================    =================================================    ==============================================
+        SerialBus.provider        :class:`SysProvider` to select implementation        :attr:`SysProvider.AUTO`.
         SerialBus.type            :class:`SerialBusType` to indicate the protocol.     :attr:`SerialBus.DEFAULT_TYPE`.
         SerialBus.designator      [string | number]: bus port, "/dev/i2c-3" or 1.      "/dev/i2c-1".
         SerialBus.speed           [int|float] maximum bus clock frequency in Hz.       :attr:`SerialBus.DEFAULT_SPEED`.
@@ -525,6 +528,7 @@ class SerialBus( Module ):
         :rtype: None
         """
         defaults = {
+            "SerialBus.provider":   SysProvider.AUTO,
             "SerialBus.type":       SerialBus.DEFAULT_TYPE,
             "SerialBus.designator": SerialBus.DEFAULT_DESGINATOR,
         }

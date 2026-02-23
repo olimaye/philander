@@ -41,7 +41,8 @@ class ShiftRegSPI( ShiftReg ):
         Key name                             Value type, meaning and default
         ==================================   =====================================================================
         shiftreg.*                           Shift register configuration; See :meth:`.ShiftReg.Params_init`.
-        shiftreg.SerialBusDevice.*           Serial bus configuration; See :meth:`.SerialBusDevice.Params_init`.
+        shiftreg.SerialBusDevice.*           Serial bus device config; See :meth:`.SerialBusDevice.Params_init`.
+        shiftreg.SerialBus.*                 Serial bus configuration; See :meth:`.SerialBus.Params_init`.
         ==========================================================================================================
         
         Also see: :meth:`.Module.Params_init`, :meth:`.ShiftReg.Params_init`, :meth:`.SerialBusDevice.Params_init`.
@@ -86,6 +87,9 @@ class ShiftRegSPI( ShiftReg ):
                 self.serbusdev = None
         if ret.isOk():
             ret = super().open( paramDict )
+            if not ret.isOk():
+                self.serbusdev.close()
+                self.serbusdev = None
         logging.debug('ShiftRegSPI.open() returns: %s.', ret)
         return ret
     
