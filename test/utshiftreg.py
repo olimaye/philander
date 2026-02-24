@@ -15,21 +15,16 @@ from philander.systypes import ErrorCode
 # Globals
 
 # 2x SN74HCS594 on SolarCharly with Raspberry Pi 
-# shiftParams = {\
-#     "shiftreg.din.gpio.pinDesignator":  10,     # SPI0:MOSI, SPI_MOSI
-#     "shiftreg.dclk.gpio.pinDesignator": 11,     # SPI0:SCLK, SPI_CLK
-#     #"shiftreg.dclr.gpio.pinDesignator": xx,     # not present
-#     #"shiftreg.dclr.gpio.inverted":      True,
-#     #"shiftreg.rclk.gpio.pinDesignator": xx,     # different semantics -> ENA
-#     #"shiftreg.rclr.gpio.pinDesignator": xx,     # not present
-#     "shiftreg.enable.gpio.pinDesignator": 14,   # RN_MAIN
-#
-#     "shiftreg.SerialBus.designator":   0,       # "/dev/spidev0.1", SPI0
-#     "shiftreg.SerialBusDevice.CS.gpio.pinDesignator": 8,    # CE0, RN_CS
-# }
+shiftParams = {\
+     "shiftreg.din.gpio.pinDesignator":  10,     # SPI0:MOSI, SPI_MOSI
+     "shiftreg.dclk.gpio.pinDesignator": 11,     # SPI0:SCLK, SPI_CLK
+     "shiftreg.rclk.gpio.pinDesignator": 14,     # RN_MAIN
+     "shiftreg.enable.gpio.pinDesignator": 8,   # RN_CS
+     "shiftreg.enable.gpio.inverted":      True,
+}
 
 # 2x SN74HC595 on Mikroe 7Seg Click Board 1201 with Raspberry Pi 
-shiftParams = {\
+"""shiftParams = {\
     #"shiftreg.gpio.provider":           SysProvider.RPIGPIO,  # MICROPYTHON, PERIPHERY, RPIGPIO, (SIM), GPIOZERO
     "shiftreg.din.gpio.pinDesignator":  10,     # SPI0:MOSI, SPI_MOSI
     "shiftreg.dclk.gpio.pinDesignator": 11,     # SPI0:SCLK, SPI_CLK
@@ -38,17 +33,17 @@ shiftParams = {\
     "shiftreg.rclk.gpio.pinDesignator": 8,      # RCLK -> Latch -> CS0 8(bay #1), 7(bay#2)
     #"shiftreg.rclr.gpio.pinDesignator": xx,     # not present
     #"shiftreg.enable.gpio.pinDesignator": 14,   # /OE not present
-}
+}"""
 
 # The Mikro-e 7Seg click board adjusts brightness through the PWM pin
-pwmParams = {
+"""pwmParams = {
     "gpio.pinDesignator": 18,	# PWM, 18(bay#1), 17(bay#2)
     "gpio.level": GPIO.LEVEL_HIGH,
     "pwm.pinDesignator": 18,    # PWM, 18(bay#1), 17(bay#2)
     "pwm.chip": 0,
     "pwm.channel": 0,
     "pwm.duty": 80,
-}
+}"""
 
 # A test string encoded for 7Seg board
 hallo = [ 0xea, 0xee, 0x70, 0x70, 0x7e]

@@ -15,19 +15,11 @@ from philander.systypes import ErrorCode
 # Globals
 
 # 2x SN74HCS594 on SolarCharly with Raspberry Pi 
-# shiftParams = {\
-#     "shiftreg.din.gpio.pinDesignator":  10,     # SPI0:MOSI, SPI_MOSI
-#     "shiftreg.dclk.gpio.pinDesignator": 11,     # SPI0:SCLK, SPI_CLK
-#     #"shiftreg.dclr.gpio.pinDesignator": xx,     # not present
-#     #"shiftreg.dclr.gpio.inverted":      True,
-#     #"shiftreg.rclk.gpio.pinDesignator": xx,     # different semantics -> ENA
-#     #"shiftreg.rclr.gpio.pinDesignator": xx,     # not present
-#     "shiftreg.enable.gpio.pinDesignator": 14,   # RN_MAIN
-#
-#     "shiftreg.SerialBus.designator":   0,       # "/dev/spidev0.1", SPI0
-#     "shiftreg.SerialBusDevice.CS.gpio.pinDesignator": 8,    # CE0, RN_CS
-# }
-
+shiftParams = {\
+     "shiftreg.rclk.gpio.pinDesignator": 14,     # RN_MAIN
+     "shiftreg.SerialBus.designator":   "/dev/spidev0.0",    # "/dev/spidev0.1", SPI0
+     "shiftreg.SerialBus.SPI.mode":   SPIMode.CPOL0_CPHA0,   # CLK idles high, read 2nd edge
+}
 # 2x SN74HC595 on Mikroe 7Seg Click Board 1201 with Raspberry Pi 
 shiftParams = {\
     #"shiftreg.SerialBus.provider":      SysProvider.PERIPHERY,  # MICROPYTHON, PERIPHERY, (SIM), (SMBUS2, no SPI)
