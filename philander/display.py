@@ -200,12 +200,12 @@ class Display(ABC, Module):
             intensity = Display.INTENSITY_HIGH
         elif level == RunLevel.idle:
             intensity = Display.INTENSITY_MEDIUM
-        elif level < RunLevel.sleep:
+        elif not level in [RunLevel.sleep, RunLevel.deepSleep, RunLevel.shutdown]:
             intensity = Display.INTENSITY_LOW
         else:
             intensity = Display.INTENSITY_OFF
 
-        if level < RunLevel.sleep:
+        if not level in [RunLevel.sleep, RunLevel.deepSleep, RunLevel.shutdown]:
             ret = self._drvSetRunLevel(level)
             if ret.isLight():
                 ret = self.setBrightness( intensity )
@@ -526,10 +526,10 @@ class TextDisplay(Display):
         """
         super().Params_init(paramDict)
         defaults = {
-            "display.screenpolicy": TextDisplay.SCREEN_POLICY_STOP,
-            "display.tabsize": TextDisplay.DEFAULT_TAB_SIZE,
+            "screenpolicy": TextDisplay.SCREEN_POLICY_STOP,
+            "tabsize": TextDisplay.DEFAULT_TAB_SIZE,
         }
-        cls._aggregateParams( paramDict, defaults, cls.MODULE_PARAM_PREFIX )
+        cls._aggregateParams( paramDict, defaults, cls.MODULE_PARAM_PREFIX + "." )
         return None
 
     def open(self, paramDict):
@@ -609,17 +609,16 @@ class TextDisplay(Display):
         del x, y
         return ErrorCode.errOk
 
+    @abstractmethod
     def _drvClearScreen( self ):
         """Clear all contents from screen.
         
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        ret = self.drawBox(self._widthPixel, self._heightPixel,
-                           self._backgroundColor)
-        return ret
+        return ErrorCode.errNotImplemented
         
-    def _drvScrolLV( self, numLines ):
+    def _drvScrollV( self, numLines ):
         """Scroll the contents by the given number of lines.
         
         A positive argument makes the content scroll up, so the view port
@@ -1352,6 +1351,17 @@ class GraphicDisplay(TextDisplay):
     # Wherever possible, method signatures are oriented on their
     # public counterparts.
     #
+
+    def _drvClearScreen( self ):
+        """Clear all contents from screen.
+        
+        :return: An error code indicating either success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        ret = self.drawBox(self._widthPixel, self._heightPixel,
+                           self._backgroundColor)
+        return ret
+        
 
     #
     # Non-public helper methods

@@ -39,7 +39,7 @@ class SSD1803A( TextDisplay ):
         
         Also see: :meth:`.Params_init`, :meth:`.ShiftReg.Params_init`
         """
-        super().__init__(self)
+        super().__init__()
         # Derived attributes
         self._widthChar = 20
         self._heightChar = 4
@@ -63,7 +63,9 @@ class SSD1803A( TextDisplay ):
         if self._serbusdev.serialBus.type == SerialBusType.SPI:
             # RS=0, R/W=0
             data = self._reverseBitOrder(data)
-            data16 = ((data & 0xF0) << 8) | ((data & 0x0F) << 4)
+            # As writeWordRegister() writes little-endian,
+            # bytes have to be swapped!
+            data16 = (data & 0xF0) | ((data & 0x0F) << 12)
             ret = self._serbusdev.writeWordRegister( 0xF8, data16 )
         elif self._serbusdev.serialBus.type == SerialBusType.I2C:
             # D/C#=0, Co=0
@@ -77,6 +79,9 @@ class SSD1803A( TextDisplay ):
         if self._serbusdev.serialBus.type == SerialBusType.SPI:
             # RS=0, R/W=1
             data, ret = self._serbusdev.readWordRegister( 0xFC )
+            low = (data & 0xFF00) >> 8
+            hi  = data & 0xFF
+    
         elif self._serbusdev.serialBus.type == SerialBusType.I2C:
             # D/C#=0, Co=0
             data, ret = self._serbusdev.readWordRegister( 0x00 )
@@ -148,7 +153,7 @@ class SSD1803A( TextDisplay ):
         :return: none
         :rtype: None
         """
-        prefix = cls.MODULE_PARAM_PREFIX + "." + SerialBus.MODULE_PARAM_PREFIX
+        prefix = cls.MODULE_PARAM_PREFIX + "."
         serDict = cls._extractParams( paramDict, prefix)
         SerialBus.Params_init(serDict)
         cls._aggregateParams( paramDict, serDict, cls.MODULE_PARAM_PREFIX + "." )
@@ -183,14 +188,10 @@ class SSD1803A( TextDisplay ):
             ret = ErrorCode.errResourceConflict
         if ret.isOk():
             prefixMod = self.MODULE_PARAM_PREFIX + "."
-            prefixSub1 = prefixMod + SerialBus.MODULE_PARAM_PREFIX + "."
-            prefixSub2 = prefixMod + SerialBusDevice.MODULE_PARAM_PREFIX + "."
             # Extract serial bus parameters
-            sparams1 = self._extractParams( paramDict, prefixSub1 )
-            sparams2 = self._extractParams( paramDict, prefixSub2 )
-            sparams1.update( sparams2 )
+            sparams = self._extractParams( paramDict, prefixMod )
             self._serbusdev = SerialBusDevice()
-            ret = self._serbusdev.open(sparams1)
+            ret = self._serbusdev.open(sparams)
             if ret.isOk():
                 self._writeCmd( 0x3A ) # DL=8 bit, RE=1; REV=0
                 self._writeCmd( 0x09 ) # Display has 4 lines
@@ -330,11 +331,9 @@ class SSD1803A( TextDisplay ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        ret = self.drawBox(self._widthPixel, self._heightPixel,
-                           self._backgroundColor)
-        return ret
+        return ErrorCode.errNotImplemented
         
-    def _drvScrolLV( self, numLines ):
+    def _drvScrollV( self, numLines ):
         """Scroll the contents by the given number of lines.
         
         A positive argument makes the content scroll up, so the view port
