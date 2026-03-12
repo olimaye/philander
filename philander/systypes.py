@@ -42,7 +42,9 @@ class ErrorCode(Enum):
     def isOk(self):
         return self == ErrorCode.errOk
 
-
+    def isLight(self):
+        return self in [ErrorCode.errOk, ErrorCode.errNotImplemented, ErrorCode.errNotSupported]
+        
 @idiotypic
 class RunLevel(Enum):
     """Operating mode that the CPU may run in.

@@ -50,6 +50,7 @@ class SerialBusDevice( Module ):
     been attached to a bus, already.
     """
     DEFAULT_ADDRESS     = 0x21
+    MODULE_PARAM_PREFIX = "SerialBusDevice"
     
     def __init__(self):
         self.serialBus   = None
@@ -463,6 +464,7 @@ class SerialBus( Module ):
     DEFAULT_SPI_BIT_ORDER= "MSB"
     DEFAULT_SPI_BITS_PER_WORD = 8
     
+    MODULE_PARAM_PREFIX = "SerialBus"
     
     @staticmethod
     def getSerialBus( provider=SysProvider.AUTO ):

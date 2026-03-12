@@ -143,6 +143,10 @@ class ShiftReg( Module ):
         assumes, the corresponding line is not present or implemented.
         
         Also see: :meth:`.Module.Params_init`, :meth:`.GPIO.Params_init`.
+        
+        :param dict(str, object) paramDict: Dictionary of configuration settings.
+        :return: none
+        :rtype: None
         """
         # Driver defaults
         gpioDefaults = {}

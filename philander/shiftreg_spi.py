@@ -46,6 +46,9 @@ class ShiftRegSPI( ShiftReg ):
         ==========================================================================================================
         
         Also see: :meth:`.Module.Params_init`, :meth:`.ShiftReg.Params_init`, :meth:`.SerialBusDevice.Params_init`.
+        :param dict(str, object) paramDict: Dictionary of configuration settings.
+        :return: none
+        :rtype: None
         """
         # Remove GPIO definitions for DIN and DCLK, if present
         paramDict.pop( "shiftreg.din.gpio.pinDesignator", None)
