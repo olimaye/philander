@@ -96,3 +96,23 @@ class _SerialBus_Sim( SerialBus ):
             err = ErrorCode.errFailure
         return err
 
+    def readBuffer( self, device, length ):
+        try:
+            data, err = device.sim.readBuffer( length )
+        except (AttributeError, TypeError):
+            data, err = 0, ErrorCode.errFailure
+        return data, err
+
+    def writeBuffer( self, device, buffer ):
+        try:
+            err = device.sim.writeBuffer( buffer )
+        except (AttributeError, TypeError):
+            err = ErrorCode.errFailure
+        return err
+
+    def writeReadBuffer( self, device, outBuffer, inLength ):
+        try:
+            data, err = device.sim.writeReadBuffer( outBuffer, inLength )
+        except (AttributeError, TypeError):
+            data, err = 0, ErrorCode.errFailure
+        return data, err

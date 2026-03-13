@@ -198,6 +198,51 @@ class SimDev():
             err = self.writeByteRegister(aReg+idx, data[idx])
         return err
 
+    def readBuffer( self, length ):
+        """Directly read the given number of bytes.
+
+        :param int length: The number of bytes to read.
+        :return: A buffer of the indicated length holding the response\
+        and an error code indicating success or the reason of failure.
+        :rtype: int[], ErrorCode
+        """
+        data = [0] * length
+        err = ErrorCode.errOk
+        for idx in range(length):
+            data[idx] = length - idx
+        return data, err
+
+    def writeBuffer( self, buffer ):
+        """Write out a block of data.
+        
+        The buffer is not interpreted any further but is written as such,
+        no matter of a register information being present, or not.
+
+        :param int[] buffer: The data to write.
+        :return: An error code indicating success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        del buffer
+        return ErrorCode.errOk
+    
+    def writeReadBuffer( self, outBuffer, inLength ):
+        """Writes and reads a number of bytes simultaneously, if possible.
+                
+        Also see: :meth:`SerialBus.writeReadBuffer`.
+        
+        :param int inLength: The number of bytes to read.
+        :param int[] outBuffer: The data to write.
+        :return: A buffer of the indicated length holding the response\
+        and an error code indicating success or the reason of failure.
+        :rtype: int[], ErrorCode
+        """
+        data = []
+        ret = self.writeBuffer(outBuffer)
+        if ret.isOk():
+            data, ret = self.readBuffer( inLength )
+        return data, ret
+
+
 class SimDevNull( SimDev ):
     """Slim-line serial device simulation. Reading retrieves always the same\
     constant value, while writing is simply ignored. 

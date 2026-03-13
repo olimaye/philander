@@ -497,7 +497,12 @@ class SerialBus( Module ):
     def __init__(self):
         self.designator = ""
         self.provider = SysProvider.NONE
-        self.type = SerialBusType.I2C
+        self.speed = SerialBus.DEFAULT_SPEED
+        self.type = SerialBus.DEFAULT_TYPE
+        self.spiBitOrder = SerialBus.DEFAULT_SPI_BIT_ORDER
+        self.spiBitsPerWord = SerialBus.DEFAULT_SPI_BITS_PER_WORD
+        self.spiMode = SerialBus.DEFAULT_SPI_MODE
+        self.spiBitOrder = SerialBus.DEFAULT_SPI_BIT_ORDER
         self._attachedDevices = list()
         self._status = SerialBus._STATUS_FREE
         
@@ -585,8 +590,13 @@ class SerialBus( Module ):
             # Retrieve defaults
             self.Params_init(paramDict)
             # Scan parameters
+            self.speed = paramDict["SerialBus.speed"]
             self.type = paramDict["SerialBus.type"]
             self.designator = paramDict["SerialBus.designator"]
+            if self.type == SerialBusType.SPI:
+                self.spiBitOrder = paramDict["SerialBus.SPI.bitorder"]
+                self.spiBitsPerWord = paramDict["SerialBus.SPI.bpw"]
+                self.spiMode = paramDict["SerialBus.SPI.mode"]
             
         if( ret.isOk() ):
             self._status = SerialBus._STATUS_OPEN
@@ -958,7 +968,7 @@ class SerialBus( Module ):
         Also see: :meth:`SerialBusDevice.writeBuffer`.
         
         :param SerialBusDevice device: The device to communicate with.
-        :param int[] buffer: The data to store.
+        :param int[] buffer: The data to write.
         :return: An error code indicating success or the reason of failure.
         :rtype: ErrorCode
         """

@@ -31,6 +31,8 @@ class SSD1803A( TextDisplay ):
 
     ADDRESSES_ALLOWED = [0x3C, 0x3D]
 
+    PART_ID     = 0x1A  # Internal part ID, can be used to check communication
+    
     REG_CMD     = 0     # Command register, RS=0, D/C#=0
     REG_DATA    = 1     # Data or RAM register, RS=1, D/C#=1
     
@@ -50,45 +52,74 @@ class SSD1803A( TextDisplay ):
     # internal helper
     #
 
-    def _reverseBitOrder(self, data8):
-        # ret = int('{:08b}'.format(data8 & 0xFF)[::-1], 2)
-        ret = 0
-        for _ in range(8):
-            ret = (ret << 1) | (data8 & 0x01)
-            data8 >>= 1
-        return ret
+    """Serial communication for the SSD1803A is detailed in the datasheet,
+    Rev. 2.0, chapter 7.10. SPI ("Serial Interface", 7.10.2) bit-order
+    is interpreted as LSB-first.
+    This driver encapsulates serial communication with only a handful
+    functions and tries to accommodate both, MSB- and LSB-first
+    configurations.
+    """
+    
+    @classmethod
+    def _reverseBitOrder(cls, buffer):
+        """Reverse bit order for each byte in the given buffer in-place.
+        """
+        for idx in range( len(buffer) ):
+            b = buffer[idx]
+            invb = 0
+            for _ in range(8):
+                invb = (invb << 1) | (b & 0x01)
+                b >>= 1
+            buffer[idx] = invb
+        return None
     
     def _writeCmd(self, data):
         ret = ErrorCode.errOk
         if self._serbusdev.serialBus.type == SerialBusType.SPI:
             # RS=0, R/W=0
-            data = self._reverseBitOrder(data)
-            # As writeWordRegister() writes little-endian,
-            # bytes have to be swapped!
-            data16 = (data & 0xF0) | ((data & 0x0F) << 12)
-            ret = self._serbusdev.writeWordRegister( 0xF8, data16 )
+            buffer = [0x1F, data & 0x0F, (data & 0xF0)>>4]
+            if self._serbusdev.serialBus.spiBitOrder == "MSB":
+                self._reverseBitOrder(buffer)
+            ret = self._serbusdev.writeBuffer( buffer )
         elif self._serbusdev.serialBus.type == SerialBusType.I2C:
             # D/C#=0, Co=0
             ret = self._serbusdev.writeByteRegister( 0x00, data )
         else:
+            logging.debug("SSD1803A._writeCmd: bus type %s unsupported.",
+                          self._serbusdev.serialBus.type)
             ret = ErrorCode.errNotImplemented
         return ret
 
     def _readInfo(self):
-        ret = ErrorCode.errOk
+        bf, ac, cid, ret = False, 0, 0, ErrorCode.errOk
         if self._serbusdev.serialBus.type == SerialBusType.SPI:
             # RS=0, R/W=1
-            data, ret = self._serbusdev.readWordRegister( 0xFC )
-            low = (data & 0xFF00) >> 8
-            hi  = data & 0xFF
-    
+            # Remember readWordRegister() reads little-endian first.
+            if self._serbusdev.serialBus.spiBitOrder == "MSB":
+                data, ret = self._serbusdev.readWordRegister( 0xFC )
+                data = [ data & 0xFF, (data & 0xFF00)>>4]
+                self._reverseBitOrder( data )
+                b1 = data[0]
+                b2 = data[1]
+            else:
+                data, ret = self._serbusdev.readWordRegister( 0x3F )
+                b1 = data & 0xFF
+                b2 = (data & 0xFF00) >> 8
+            bf = b1 & 0x80
+            ac = b1 & 0x7F
+            cid = b2 & 0x7F
         elif self._serbusdev.serialBus.type == SerialBusType.I2C:
             # D/C#=0, Co=0
             data, ret = self._serbusdev.readWordRegister( 0x00 )
+            bf = data & 0x80
+            ac = data & 0x7F
+            cid = (data & 0x7F00) >> 8
         else:
-            data, ret = 0, ErrorCode.errNotImplemented
-        #          busy flag    AC = address counter     ID       error
-        return (data & 0x8000), (data & 0x7F00) >> 8, data & 0x7F, ret
+            logging.debug("SSD1803A._readInfo: bus type %s unsupported.",
+                          self._serbusdev.serialBus.type)
+            ret = ErrorCode.errNotImplemented
+        # busy flag, AC = address counter, ID, error
+        return bf, ac, cid, ret
 
     def _writeRAM(self, data):
         ret = ErrorCode.errOk
@@ -107,6 +138,8 @@ class SSD1803A( TextDisplay ):
             # D/C#=1, Co=0
             ret = self._serbusdev.writeBufferRegister( 0x40, data )
         else:
+            logging.debug("SSD1803A._writeRAM: bus type %s unsupported.",
+                          self._serbusdev.serialBus.type)
             ret = ErrorCode.errNotImplemented
         return ret
 
@@ -129,6 +162,8 @@ class SSD1803A( TextDisplay ):
             # D/C#=1, Co
             data, ret = self._serbusdev.readBufferRegister( 0x40, num )
         else:
+            logging.debug("SSD1803A._readRAM: bus type %s unsupported.",
+                          self._serbusdev.serialBus.type)
             ret = ErrorCode.errNotImplemented
         return data, ret
             

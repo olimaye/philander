@@ -26,4 +26,5 @@ __all__ = ["generalTestSuite",
            "utl6924",
            "utpenum", "utpotentiometer", "utpymitter",
            "utserialbus", "utserialbus_impl",
+           "utshiftreg", "utshiftreg_spi", "utssd1803a",
            "utthermometer", ]
