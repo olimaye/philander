@@ -126,12 +126,17 @@ class SSD1803A( TextDisplay ):
         if not data:
             ret = ErrorCode.errFewData
         elif self._serbusdev.serialBus.type == SerialBusType.SPI:
-            # RS=1, R/W=0
-            ret = self._serbusdev.writeBuffer( [0xFA,] )
+            # Start byte, RS=1, R/W=0
+            if self._serbusdev.serialBus.spiBitOrder == "MSB":
+                ret = self._serbusdev.writeBuffer( [0xFA] )
+            else:
+                ret = self._serbusdev.writeBuffer( [0x5F] )
+
             for b in data:
-                binv = self._reverseBitOrder(b)
-                buffer = [ (binv & 0xF0), (binv & 0x0F) ]
-                ret = self._serbusdev.writeBuffer( buffer )
+                wbuf = [ (b & 0x0F), (b & 0xF0)>>4 ]
+                if self._serbusdev.serialBus.spiBitOrder == "MSB":
+                    self._reverseBitOrder( wbuf )
+                ret = self._serbusdev.writeBuffer( wbuf )
                 if not ret.isOk():
                     break
         elif self._serbusdev.serialBus.type == SerialBusType.I2C:
@@ -151,13 +156,19 @@ class SSD1803A( TextDisplay ):
         elif self._serbusdev.serialBus.type == SerialBusType.SPI:
             # RS=1, R/W=1
             data = [0] * num
-            ret = self._serbusdev.writeBuffer( [0xFA,] )
+            if self._serbusdev.serialBus.spiBitOrder == "MSB":
+                ret = self._serbusdev.writeBuffer( [0xFE,] )
+            else:
+                ret = self._serbusdev.writeBuffer( [0x7F,] )
             for idx in range(num):
                 b, ret = self._serbusdev.readBuffer( 1 )
                 if ret.isOk():
-                    data[idx] = b
+                    data[idx] = b[0]
                 else:
                     break
+            if ret.isOk() and (self._serbusdev.serialBus.spiBitOrder == "MSB"):
+                self._reverseBitOrder(data)
+                
         elif self._serbusdev.serialBus.type == SerialBusType.I2C:
             # D/C#=1, Co
             data, ret = self._serbusdev.readBufferRegister( 0x40, num )

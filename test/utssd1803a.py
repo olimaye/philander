@@ -66,12 +66,21 @@ class TestSSD1803A( unittest.TestCase ):
 
         err = dev._writeCmd( 0x01 )
         self.assertEqual( err, ErrorCode.errOk )
+        
         bf, ac, cid, err = dev._readInfo()
-        # self.assertFalse( bf )
-        # self.assertEqual( ac, 0x00 )
+        self.assertFalse( bf )
+        self.assertEqual( ac, 0x00 )
         # self.assertEqual( cid, SSD1803A.PART_ID )
         self.assertEqual( err, ErrorCode.errOk )
-        
+
+        err = dev._writeRAM( [1, 2, 3, 4] )
+        self.assertEqual( err, ErrorCode.errOk )
+
+        n = 4
+        data, err = dev._readRAM(n)
+        self.assertEqual( err, ErrorCode.errOk )
+        self.assertEqual( len(data), n )
+
         err = dev.close()
         self.assertEqual( err, ErrorCode.errOk )
         
