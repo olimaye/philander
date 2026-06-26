@@ -10,7 +10,7 @@ __all__ = ["Display", ]
 from abc import ABC, abstractmethod
 
 from .module import Module
-from pwm import PWM
+from .pwm import PWM
 from .systypes import ErrorCode, RunLevel
 
  

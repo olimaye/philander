@@ -11,16 +11,6 @@ from .display_text import TextDisplay, ColorSpace, Font
 from .serialbus import SerialBusDevice, SerialBusType, SerialBus, SPIMode
 from .systypes import ErrorCode, RunLevel
 
-@dataclass
-class _Font(Font):
-    """A device-specific extension of the base Font data structure.
-    
-    For fast and memory-efficient handling, it's necessary to add a few
-    more attributes, such as the ROM table, double-height- or 6-dot-flag.
-    Note that this information may be redundant to the base attributes.
-    """
-    rom   : int = 8       # Horizontal width of a character in pixel
-    bDoubleHeight   : bool = False  # True, if shown in double-height
 
 class SSD1803A( TextDisplay ):
     """Driver class for a text LCD driven by SSD1803A.
@@ -348,13 +338,13 @@ class SSD1803A( TextDisplay ):
         """
         ret = ErrorCode.errOk
         err = self._drvClearScreen()
-        ret =  err if ret == ErrorCode.isOk() else ret
+        ret =  err if ret.isOk() else ret
         err = self._drvSetRunLevel( RunLevel.shutdown )
-        ret =  err if ret == ErrorCode.isOk() else ret
+        ret =  err if ret.isOk() else ret
         if self._serbusdev:
             err = self._serbusdev.close()
             self._serbusdev = None
-        ret =  err if ret == ErrorCode.isOk() else ret
+        ret =  err if ret.isOk() else ret
         logging.debug("SSD1803A._drvClose> Return: %s.", ret)
         return ret
     
@@ -366,12 +356,12 @@ class SSD1803A( TextDisplay ):
         :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
-        if level <= RunLevel.idle:
+        if level in [RunLevel.active, RunLevel.idle]:
             ret = self._instrFunctionSet(RE=1)
             self._writeCmd( 0x02 ) # Power down PD=0
             ret = self._instrFunctionSet(RE=0)
             self._writeCmd( 0x0F ) # Display on, Cursor on, Blink on
-        elif level <= RunLevel.nap:
+        elif level in [RunLevel.relax, RunLevel.snooze, RunLevel.nap]:
             ret = self._instrFunctionSet(RE=1)
             self._writeCmd( 0x02 ) # Power down PD=0
             ret = self._instrFunctionSet(RE=0)
@@ -570,13 +560,17 @@ class SSD1803A( TextDisplay ):
         """
         ret = None
         err = ErrorCode.errOk
-        try:
-            idx = SSD1803A.BUILTIN_FONT_NAMES.index( name )
-            ret = SSD1803A.BUILTIN_FONTS[idx]
+        if not name:
+            ret = SSD1803A.BUILTIN_FONTS[0]
             err = ErrorCode.errOk
-        except ValueError:
-            ret = None
-            err = ErrorCode.errInvalidParameter
+        else:
+            try:
+                idx = SSD1803A.BUILTIN_FONT_NAMES.index( name )
+                ret = SSD1803A.BUILTIN_FONTS[idx]
+                err = ErrorCode.errOk
+            except ValueError:
+                ret = None
+                err = ErrorCode.errInvalidParameter
         return ret, err
         
     def _drvSetFont( self, font ):
@@ -591,7 +585,7 @@ class SSD1803A( TextDisplay ):
         """
         self._instrFunctionSet( RE=1 )
         self._writeCmd( 0x72 ) # ROM selection
-        self._writeRAM( font.idxAdr )
+        self._writeRAM( [font.idxAdr] )
         ret = self._instrExtendedFunctionSet()
         return ret
     
