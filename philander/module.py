@@ -21,7 +21,7 @@ class Module:
         This is a utility function to enrich the `baseDict` by those
         entries of the `fillerDict` whose key - after prepending the given
         `prefix` - is not already present in the `baseDict`.
-        Disregarding the prefix feautre, this function still differs
+        Disregarding the prefix feature, this function still differs
         from a call like `baseDict.update(fillerDict)` in that, it does
         not overwrite entries in the `baseDict`.
         Let the the `prefix` be "p.", then if `baseDict` contains:
@@ -61,8 +61,11 @@ class Module:
         
         This utility function looks through `baseDict` and retrieves all
         key-value pairs where the key starts with the given `prefix`.
-        The result is given as a separate, independent dictionary. It
-        may be empty.
+        The result is given as a separate, independent dictionary. In
+        that new dictionary, the prefix is stripped-off from the keys.
+        So, those keys do not show the prefix, anymore.
+        
+        The resulting dictionary may be empty.
 
         :param dict(str, object) baseDict: The base dictionary to be searched through.
         :param str prefix: The prefix to look for in the keys.

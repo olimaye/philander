@@ -24,7 +24,10 @@ __all__ = ["generalTestSuite",
            "uthtu21d",
            "utimath", "utinterruptable",
            "utl6924",
-           "utpenum", "utpotentiometer", "utpymitter",
+           "utmax77960", "utmcp40", "utmodule", "utmux",
+           "utpenum", "utpotentiometer", "utpwm", "utpymitter",
            "utserialbus", "utserialbus_impl",
-           "utshiftreg", "utshiftreg_spi", "utssd1803a",
-           "utthermometer", ]
+           "utshiftreg", "utshiftreg_spi", "utssd1803a", "utstadc1283",
+           "utstc3115", "utstc3117"
+           "utthermometer",
+           "utvibrasense", ]
