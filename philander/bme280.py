@@ -9,6 +9,8 @@ __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["BME280"]
 
+import logging
+
 from .configurable import ConfigItem, Configuration
 from .dictionary import Dictionary
 from .penum import dataclass
@@ -157,9 +159,9 @@ class BME280(Sensor, SerialBusDevice):
         # For Q8.8 binary format, where 0x1D5A (=29#90 = 29 + 90/256)
         # stands for 29.35°C:
         if self._fineTemperature < 0:
-            ret = (self._fineTemperature - 10) / 20
+            ret = (self._fineTemperature - 10) // 20
         else:
-            ret = (self._fineTemperature + 10) / 20
+            ret = (self._fineTemperature + 10) // 20
         return ret
     
     def _compensatePressure( self, adc_P ):
@@ -190,7 +192,7 @@ class BME280(Sensor, SerialBusDevice):
             ret = 0     # avoid exception caused by division by zero
         else:
             p = 1048576 - adc_P
-            p = (((p << 31) - var2) * 3125) / var1
+            p = (((p << 31) - var2) * 3125) // var1
             var1 = (self.dig_P9 * (p >> 13) * (p>>13)) >> 25
             var2 = (self.dig_P8 * p) >> 19
             p = ((p + var1 + var2) >> 8) + (self.dig_P7 << 4)
@@ -383,32 +385,36 @@ class BME280(Sensor, SerialBusDevice):
         ret = ErrorCode.errOk
         self.Params_init(paramDict)
         localParams = self._extractParams( paramDict, self.MODULE_PARAM_PREFIX + ".")
+        logging.debug("BME280.open> Params: %s.", localParams)
         # Open serial connection
         if ret.isOk():
             ret = SerialBusDevice.open(self, localParams)
+            logging.debug("BME280.open> SerialBusDevice.open: %s.", ret)
         # Configure correct SPI wiring, before writing anything
         if ret.isOk() and (self.serialBus.type == SerialBusType.SPI):
             self.shadowSPI3w = (localParams.get( "SerialBus.SPI.wires", 4) == 3)
             if self.shadowSPI3w:
                 ret = self.writeByteRegister( BME280.REG_CONFIG,
                                               BME280.CNT_SPI_3W )
+            logging.debug("BME280.open> write SPI_3W: %s.", ret)
         if ret.isOk():
             ret = self.selfTest( SelfTest.CONNECTION )
+            logging.debug("BME280.open> selfTest: %s.", ret)
         # Read shadow register
         if ret.isOk():
             self.shadowCtrlMeas, ret = self.readByteRegister(BME280.REG_CTRL_MEAS)
+            logging.debug("BME280.open> read CTRL_MEAS: %s.", ret)
         # Read calibration data
         if ret.isOk():
             ret = self._readCalibration()
+            logging.debug("BME280.open> readCalibration: %s.", ret)
         # Configure
         if ret.isOk():
             cfg = Configuration( item=ConfigItem.multisetting,
                                  setting=paramDict )
             ret = self.configure(cfg)
+            logging.debug("BME280.open> configure: %s.", ret)
       
-        # Possibly configure data rate and -range.
-        if ret.isOk():        
-            ret = Sensor.open(self, localParams)
         return ret
 
 
@@ -421,15 +427,17 @@ class BME280(Sensor, SerialBusDevice):
 
 
     def setRunLevel(self, level):
-        data = (self.shadowCtrlMeas & 0xFC) # Wipe-out mode bits
-        if level == RunLevel.active:
-            data |= BME280.CNT_MODE_NORMAL
-        elif level in [RunLevel.idle, RunLevel.relax,
-                       RunLevel.snooze, RunLevel.nap]:
-            data |= BME280.CNT_MODE_FORCED
-        else:
-            data |= BME280.CNT_MODE_SLEEP
-        ret = self.writeByteRegister( BME280.REG_CTRL_MEAS, data )
+        ret = self.isAttached()
+        if ret.isOk():
+            data = (self.shadowCtrlMeas & 0xFC) # Wipe-out mode bits
+            if level == RunLevel.active:
+                data |= BME280.CNT_MODE_NORMAL
+            elif level in [RunLevel.idle, RunLevel.relax,
+                           RunLevel.snooze, RunLevel.nap]:
+                data |= BME280.CNT_MODE_FORCED
+            else:
+                data |= BME280.CNT_MODE_SLEEP
+            ret = self.writeByteRegister( BME280.REG_CTRL_MEAS, data )
         if ret.isOk():
             self.shadowCtrlMeas = data
         return ret
@@ -488,6 +496,7 @@ class BME280(Sensor, SerialBusDevice):
         """
         if (not cfg) or (cfg.item != ConfigItem.multisetting) or \
             (not cfg.setting) or (not isinstance(cfg.setting, dict)):
+            logging.debug("BME280.configure> cfg.item=%s, cfg.setting=%s.", cfg.item, cfg.setting)
             return ErrorCode.errInvalidParameter
         
         osrDict  = Dictionary( {0:0, 1:1, 2:2, 3:4, 4:8, 5:16} )
@@ -500,18 +509,20 @@ class BME280(Sensor, SerialBusDevice):
                                       BME280.CNT_OSRS_P_SKIP |
                                       BME280.CNT_OSRS_T_SKIP |
                                       BME280.CNT_MODE_SLEEP )
+        logging.debug("BME280.configure> write CTRL_MEAS to sleep: %s.", ret)
         mustWriteCtrlMeas = False
         
         # Anything for the CTRL_HUM register?
-        value = cfg.get(prefix+"hum.sampling", None)
+        value = cfg.setting.get(prefix+"hum.sampling", None)
         if ret.isOk() and (value is not None):
-            data = osrDict.findKey(value)
+            data, _ = osrDict.findKey(value)
             ret = self.writeByteRegister( BME280.REG_CTRL_HUM, data )
             mustWriteCtrlMeas = True
+            logging.debug("BME280.configure> write CTRL_HUM: %s, value=%s, data=%s", ret, value, data)
         # Anything for CONFIG ?
         dataMode = None
-        valueStby = cfg.get(prefix+"measurement.standby", None)
-        valueFlt = cfg.get(prefix+"measurement.filter", None)
+        valueStby = cfg.setting.get(prefix+"measurement.standby", None)
+        valueFlt = cfg.setting.get(prefix+"measurement.filter", None)
         if ret.isOk() and ((valueStby is not None) or (valueFlt is not None)):
             data, ret = self.readByteRegister( BME280.REG_CONFIG )
             if ret.isOk():
@@ -519,16 +530,17 @@ class BME280(Sensor, SerialBusDevice):
                 if valueFlt is not None:
                     data = (data & 0xE3) | ((valueFlt & 0x07) << 2)
                 if valueStby is not None:
-                    key = stbyDict.findKey(valueStby)
+                    key, _ = stbyDict.findKey(valueStby)
                     if key < 0:
                         dataMode = BME280.CNT_MODE_FORCED
                     else:
                         data = (data & 0x1F) | (key << 5)
                         dataMode = BME280.CNT_MODE_NORMAL  
                 ret = self.writeByteRegister( BME280.REG_CONFIG, data )
+            logging.debug("BME280.configure> read/write CONFIG: %s.", ret)
         # Now, treat CTRL_MEAS right
-        valueT = cfg.get(prefix+"temp.sampling", None)
-        valueP = cfg.get(prefix+"press.sampling", None)
+        valueT = cfg.setting.get(prefix+"temp.sampling", None)
+        valueP = cfg.setting.get(prefix+"press.sampling", None)
         if dataMode is not None:
             dataMode = dataMode if (self.shadowCtrlMeas & 0xFC) != dataMode else None
         if ret.isOk() and ((valueT is not None) or \
@@ -537,14 +549,17 @@ class BME280(Sensor, SerialBusDevice):
                            (dataMode is not None)):
             data = self.shadowCtrlMeas
             if valueT is not None:
-                data = (data & 0x1F) | (osrDict.findKey(valueT) << 5)  
+                bits, _ = osrDict.findKey(valueT)
+                data = (data & 0x1F) | (bits << 5)  
             if valueP is not None:
-                data = (data & 0xE3) | (osrDict.findKey(valueP) << 2)
+                bits, _ = osrDict.findKey(valueP)
+                data = (data & 0xE3) | (bits << 2)
             if dataMode is not None:
                 data = (data & 0xFC) | dataMode
             ret = self.writeByteRegister( BME280.REG_CTRL_MEAS, data )
             if ret.isOk():
                 self.shadowCtrlMeas = data
+            logging.debug("BME280.configure> write CTRL_MEAS: %s.", ret)
         return ret
 
 

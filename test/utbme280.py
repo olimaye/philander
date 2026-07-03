@@ -1,6 +1,7 @@
 """
 """
 import argparse
+import logging
 import sys
 import unittest
 
@@ -12,7 +13,7 @@ from philander.systypes import ErrorCode
 
 config = {
     "weather.SerialBus.type"      : SerialBusType.I2C,
-    "weather.SerialBus.designator": 0, #"/dev/i2c-1",
+    "weather.SerialBus.designator": "/dev/i2c-1", #"/dev/i2c-1", 0
     "weather.Sensor.temp.sampling": 1,
     "weather.Sensor.press.sampling": 1,
     "weather.Sensor.hum.sampling" : 1,
@@ -22,7 +23,7 @@ config = {
 
 class TestBME280( unittest.TestCase ):
             
-    #@unittest.skip("Disabled for easier diagnostics.")
+    @unittest.skip("Disabled for easier diagnostics.")
     def test_paramsinit(self):
         global config
         cfg = config.copy()
@@ -34,7 +35,7 @@ class TestBME280( unittest.TestCase ):
         self.assertIn( "weather.SerialBusDevice.address", cfg )
         self.assertIn( cfg["weather.SerialBusDevice.address"], (0x76, 0x77) )
 
-    #@unittest.skip("Disabled for easier diagnostics.")
+    @unittest.skip("Disabled for easier diagnostics.")
     def test_open(self):
         global config
         cfg = config.copy()
@@ -74,6 +75,28 @@ class TestBME280( unittest.TestCase ):
         err = sensor.close()
         self.assertTrue( err.isOk() )
     
+    #@unittest.skip("Disabled for easier diagnostics.")
+    def test_readCalibration(self):
+        global config
+        cfg = config.copy()
+        SDUT.Params_init( cfg )
+        sensor = SDUT()
+        self.assertIsNotNone( sensor )
+        err = sensor.open(cfg)
+        self.assertTrue( err.isOk(), f"Open failed: {err}." )
+        buf, ret = sensor.readBufferRegister( BME280.REG_CALIB_T1, 24 )
+        
+
+    @unittest.skip("Disabled for easier diagnostics.")
+    def test_compensation(self):
+        global config
+        cfg = config.copy()
+        SDUT.Params_init( cfg )
+        sensor = SDUT()
+        self.assertIsNotNone( sensor )
+        err = sensor.open(cfg)
+        self.assertTrue( err.isOk(), f"Open failed: {err}." )
+
     @unittest.skip("Disabled for easier diagnostics.")
     def test_working(self):
         global config
@@ -100,6 +123,10 @@ class TestBME280( unittest.TestCase ):
 
         
 if __name__ == '__main__':
+    logger = logging.getLogger()
+    logger.setLevel( logging.DEBUG )
+    logger.addHandler( logging.StreamHandler() )
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--bus", help="designator of the serial bus", default=None)
     parser.add_argument("--adr", help="i2c address of the device", type=int, default=None)
