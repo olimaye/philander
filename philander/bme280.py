@@ -255,7 +255,7 @@ class BME280(Sensor, SerialBusDevice):
             self.dig_T2 = (raw & 0x7FFF) - (raw & 0x8000) # sign-extend
             raw = (buf[5] << 8) | buf[4]
             self.dig_T3 = (raw & 0x7FFF) - (raw & 0x8000) # sign-extend
-            self.dig_P1 = (buf[7] << 8) | buf[7]
+            self.dig_P1 = (buf[7] << 8) | buf[6]
             raw = (buf[9] << 8) | buf[8]
             self.dig_P2 = (raw & 0x7FFF) - (raw & 0x8000) # sign-extend
             raw = (buf[11] << 8) | buf[10]
