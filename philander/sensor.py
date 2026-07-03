@@ -319,6 +319,16 @@ class Sensor(Module, Configurable):
     more-specific categories of sensors.
     """
     
+    FILTER_NONE  = 0
+    FILTER_WEAK  = 1
+    FILTER_LOW   = 2
+    FILTER_MILD  = 3
+    FILTER_MODERATE  = 4
+    FILTER_INTENSE  = 5
+    FILTER_HIGH  = 6
+    FILTER_STRONG  = 7
+    
+    
     #
     # Initializes the sensor.
     #
@@ -448,7 +458,7 @@ class Sensor(Module, Configurable):
         will depend on the sensor implementation.
         Also see: :class:`Configuration`.
         
-        :param .sensor.Configuration configData: Specific configuration information.
+        :param .configurable.Configuration configData: Specific configuration information.
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
