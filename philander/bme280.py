@@ -5,17 +5,17 @@ More information on the functionality of the chip can be found at
 the Bosch-Sensortec site:
 https://www.bosch-sensortec.com/en/products/environmental-sensors/humidity-sensors-bme280
 """
-from dictionary import Dictionary
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["BME280"]
 
-from configurable import ConfigItem, Configuration
-from penum import dataclass
-from primitives import PrecisePercentage, PreciseTemperature, PrecisePressure
-from sensor import SelfTest, Sensor
-from serialbus import SerialBusDevice, SerialBus, SerialBusType
-from systypes import ErrorCode, Info, RunLevel
+from .configurable import ConfigItem, Configuration
+from .dictionary import Dictionary
+from .penum import dataclass
+from .primitives import PrecisePercentage, PreciseTemperature, PrecisePressure
+from .sensor import SelfTest, Sensor
+from .serialbus import SerialBusDevice, SerialBus, SerialBusType
+from .systypes import ErrorCode, Info, RunLevel
 
 @dataclass
 class Data():
@@ -295,7 +295,6 @@ class BME280(Sensor, SerialBusDevice):
     
     def __init__( self ):
         # Create instance attributes
-        self.bus = None
         self.shadowCtrlMeas = 0     # copy of REG_CTRL_MEAS
         self.shadowSPI3w    = False # copy of REG_CONFIG:SPI3W
         # Compensation parameters
@@ -330,19 +329,19 @@ class BME280(Sensor, SerialBusDevice):
         """Initializes parameters to their default values.
         The following settings are supported:
         
-        =============================    ==========================================================================================================
-        Key name                         Value type, meaning and default
-        =============================    ==========================================================================================================
-        SerialBusDevice.address          ``int`` I2C serial device address, one of :attr:`ADDRESSES_ALLOWED`; default is :attr:`ADDRESSES_ALLOWED` ``[0]``.
-        SerialBus.SPI.wires              [3 | 4] Three-wire SPI (joint SDIO pin) or standard four-wire SPI (separate MOSI and MISO pins)
-        SerialBus.*                      optional: serial bus configuration; See :meth:`serialbus.SerialBus.Params_init`.
-        SerialBusDevice.*                serial bus configuration; See :meth:`serialbus.SerialBusDevice.Params_init`.
-        Sensor.temp.sampling             temperature sampling: [0, 1, 2, 4, 8, 16]; 0=None, 1=single shot, 2 and above = oversampling
-        Sensor.press.sampling            pressure sampling: [0, 1, 2, 4, 8, 16]
-        Sensor.hum.sampling              humidity sampling: [0, 1, 2, 4, 8, 16]
-        Sensor.measurement.standby       milliseconds of inactivity in a measurement cycle: [0, 1, 10, 20, 63, 125, 250, 500, 1000]; 0=cycling off
-        Sensor.measurement.filter        low pass filter coefficient to apply: Sensor.FILTER_[NONE | WEAK | MILD | INTENSE | STRONG]
-        ===========================================================================================================================================
+        =====================================    ==================================================================================================================
+        Key name                                 Value type, meaning and default
+        =====================================    ==================================================================================================================
+        weather.SerialBusDevice.address          ``int`` I2C serial device address, one of :attr:`ADDRESSES_ALLOWED`; default is :attr:`ADDRESSES_ALLOWED` ``[0]``.
+        weather.SerialBus.SPI.wires              [3 | 4] Three-wire SPI (joint SDIO pin) or standard four-wire SPI (separate MOSI and MISO pins)
+        weather.SerialBus.*                      optional: serial bus configuration; See :meth:`serialbus.SerialBus.Params_init`.
+        weather.SerialBusDevice.*                serial bus configuration; See :meth:`serialbus.SerialBusDevice.Params_init`.
+        weather.Sensor.temp.sampling             temperature sampling: [0, 1, 2, 4, 8, 16]; 0=None, 1=single shot, 2 and above = oversampling
+        weather.Sensor.press.sampling            pressure sampling: [0, 1, 2, 4, 8, 16]
+        weather.Sensor.hum.sampling              humidity sampling: [0, 1, 2, 4, 8, 16]
+        weather.Sensor.measurement.standby       milliseconds of inactivity in a measurement cycle: [0, 1, 10, 20, 63, 125, 250, 500, 1000]; 0=cycling off
+        weather.Sensor.measurement.filter        low pass filter coefficient to apply: Sensor.FILTER_[NONE | WEAK | MILD | INTENSE | STRONG]
+        ===========================================================================================================================================================
         
         For the ``SerialBusDevice.address`` value, also 0 or 1
         can be specified alternatively to the absolute addresses to reflect
@@ -388,9 +387,9 @@ class BME280(Sensor, SerialBusDevice):
         if ret.isOk():
             ret = SerialBusDevice.open(self, localParams)
         # Configure correct SPI wiring, before writing anything
-        if self.bus.type == SerialBusType.SPI:
+        if ret.isOk() and (self.serialBus.type == SerialBusType.SPI):
             self.shadowSPI3w = (localParams.get( "SerialBus.SPI.wires", 4) == 3)
-            if ret.isOk() and self.shadowSPI3w:
+            if self.shadowSPI3w:
                 ret = self.writeByteRegister( BME280.REG_CONFIG,
                                               BME280.CNT_SPI_3W )
         if ret.isOk():
@@ -404,7 +403,7 @@ class BME280(Sensor, SerialBusDevice):
         # Configure
         if ret.isOk():
             cfg = Configuration( item=ConfigItem.multisetting,
-                                 setting=localParams )
+                                 setting=paramDict )
             ret = self.configure(cfg)
       
         # Possibly configure data rate and -range.
@@ -412,12 +411,14 @@ class BME280(Sensor, SerialBusDevice):
             ret = Sensor.open(self, localParams)
         return ret
 
+
     def close(self):
         ret = self.setRunLevel( RunLevel.shutdown )
         err = super().close()
         if ret.isOk():
             ret = err
         return ret
+
 
     def setRunLevel(self, level):
         data = (self.shadowCtrlMeas & 0xFC) # Wipe-out mode bits
@@ -451,30 +452,35 @@ class BME280(Sensor, SerialBusDevice):
         ret =self.writeByteRegister( BME280.REG_RESET, BME280.CNT_DO_SOFT_RESET )
         self.shadowCtrlMeas = 0
         # Configure correct SPI wiring, before writing anything
-        if self.bus.type == SerialBusType.SPI:
+        if self.serialBus.type == SerialBusType.SPI:
             if ret.isOk() and self.shadowSPI3w:
                 ret = self.writeByteRegister( BME280.REG_CONFIG,
                                               BME280.CNT_SPI_3W )
         return ret
 
+
     def configure(self, cfg):
-        """Configures the sensor device as described by the given
-        configuration data.
+        """Configures the sensor device as described by the given configuration data.
         
-        Only multisettings with dictionary are supported.
-        The following settings are supported:
+        Note the ``cfg`` data is a multi-compound data class. Its ``item``
+        attribute must be set to ``multisetting``. The configuration
+        data is passed as a string-to-value dictionary in the
+        ``cfg.setting`` attribute. This is pretty much like the initial
+        parameters are passed to :meth:`open`.
         
-        =============================    ==========================================================================================================
-        Key name                         Value type, meaning and default
-        =============================    ==========================================================================================================
-        Sensor.temp.sampling             temperature sampling: [0, 1, 2, 4, 8, 16]; 0=None, 1=single shot, 2 and above = oversampling
-        Sensor.press.sampling            pressure sampling: [0, 1, 2, 4, 8, 16]
-        Sensor.hum.sampling              humidity sampling: [0, 1, 2, 4, 8, 16]
-        Sensor.measurement.standby       milliseconds of inactivity in a measurement cycle: [0, 1, 10, 20, 63, 125, 250, 500, 1000]; 0=cycling off
-        Sensor.measurement.filter        low pass filter coefficient to apply: Sensor.FILTER_[NONE | WEAK | MILD | INTENSE | STRONG]
-        ===========================================================================================================================================
+        The following settings (keys) are supported:
         
-        Also see: :meth:`Params_init`.        
+        =====================================    ==========================================================================================================
+        Key name                                 Value type, meaning and default
+        =====================================    ==========================================================================================================
+        weather.Sensor.temp.sampling             temperature sampling: [0, 1, 2, 4, 8, 16]; 0=None, 1=single shot, 2 and above = oversampling
+        weather.Sensor.press.sampling            pressure sampling: [0, 1, 2, 4, 8, 16]
+        weather.Sensor.hum.sampling              humidity sampling: [0, 1, 2, 4, 8, 16]
+        weather.Sensor.measurement.standby       milliseconds of inactivity in a measurement cycle: [0, 1, 10, 20, 63, 125, 250, 500, 1000]; 0=cycling off
+        weather.Sensor.measurement.filter        low pass filter coefficient to apply: Sensor.FILTER_[NONE | WEAK | MILD | INTENSE | STRONG]
+        ===================================================================================================================================================
+        
+        Also see: :meth:`Params_init`, :class:`.configurable.Configuration`.        
         
         :param Configuration cfg: Configuration data. 
         :return: An error code indicating either success or the reason of failure.
@@ -487,7 +493,8 @@ class BME280(Sensor, SerialBusDevice):
         osrDict  = Dictionary( {0:0, 1:1, 2:2, 3:4, 4:8, 5:16} )
         stbyDict = Dictionary( {-1:0, 0:1, 1:63, 2:125, 3:250, 4:500, 5:1000,
                                6:10, 7:20} )
-
+        prefix = self.MODULE_PARAM_PREFIX + "." + "Sensor" + "."
+        
         # Put in sleep mode to safely write the config register
         ret = self.writeByteRegister( BME280.REG_CTRL_MEAS,
                                       BME280.CNT_OSRS_P_SKIP |
@@ -496,15 +503,15 @@ class BME280(Sensor, SerialBusDevice):
         mustWriteCtrlMeas = False
         
         # Anything for the CTRL_HUM register?
-        value = cfg.get("Sensor.hum.sampling", None)
+        value = cfg.get(prefix+"hum.sampling", None)
         if ret.isOk() and (value is not None):
             data = osrDict.findKey(value)
             ret = self.writeByteRegister( BME280.REG_CTRL_HUM, data )
             mustWriteCtrlMeas = True
         # Anything for CONFIG ?
         dataMode = None
-        valueStby = cfg.get("Sensor.measurement.standby", None)
-        valueFlt = cfg.get("Sensor.measurement.filter", None)
+        valueStby = cfg.get(prefix+"measurement.standby", None)
+        valueFlt = cfg.get(prefix+"measurement.filter", None)
         if ret.isOk() and ((valueStby is not None) or (valueFlt is not None)):
             data, ret = self.readByteRegister( BME280.REG_CONFIG )
             if ret.isOk():
@@ -520,8 +527,8 @@ class BME280(Sensor, SerialBusDevice):
                         dataMode = BME280.CNT_MODE_NORMAL  
                 ret = self.writeByteRegister( BME280.REG_CONFIG, data )
         # Now, treat CTRL_MEAS right
-        valueT = cfg.get("Sensor.temp.sampling", None)
-        valueP = cfg.get("Sensor.press.sampling", None)
+        valueT = cfg.get(prefix+"temp.sampling", None)
+        valueP = cfg.get(prefix+"press.sampling", None)
         if dataMode is not None:
             dataMode = dataMode if (self.shadowCtrlMeas & 0xFC) != dataMode else None
         if ret.isOk() and ((valueT is not None) or \
@@ -539,23 +546,6 @@ class BME280(Sensor, SerialBusDevice):
             if ret.isOk():
                 self.shadowCtrlMeas = data
         return ret
-
-    def calibrate(self, calib):
-        """Calibrates the sensor device according to the given calibration data.
-        
-        Calibration may, for example, provide static offsets to adjust the
-        measurement's zero point or some sort of corrective coefficients
-        to account for the sensor's temperature drift.
-        The exact type of calibration along with additional data that is
-        possibly necessary, is passed in via the ``calib`` parameter.
-        Also see: :class:`Calibration`.
-        
-        :param Calibration calib: The calibration data for that sensor.
-        :return: An error code indicating either success or the reason of failure.
-        :rtype: ErrorCode
-        """
-        del calib
-        return ErrorCode.errNotSupported
 
 
     def getInfo(self):

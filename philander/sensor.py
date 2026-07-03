@@ -333,11 +333,9 @@ class Sensor(Module, Configurable):
     # Initializes the sensor.
     #
     def __init__( self ):
-        defaults = dict()
-        self.Params_init( defaults )
         # Create instance attributes
-        self.dataRange = defaults["Sensor.dataRange"]
-        self.dataRate  = defaults["Sensor.dataRate"]
+        self.dataRange = 1
+        self.dataRate  = 1
  
     @classmethod
     def Params_init( cls, paramDict ):
@@ -362,9 +360,7 @@ class Sensor(Module, Configurable):
             "Sensor.dataRate": 1,
         }
         # Fill paramDict with defaults
-        for key, value in defaults.items():
-            if not key in paramDict:
-                paramDict[key] = value
+        cls._aggregateParams( paramDict, defaults )
         return None
 
 
