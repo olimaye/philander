@@ -463,6 +463,7 @@ class SerialBus( Module ):
     DEFAULT_SPI_MODE    = SPIMode.CPOL1_CPHA1
     DEFAULT_SPI_BIT_ORDER= "MSB"
     DEFAULT_SPI_BITS_PER_WORD = 8
+    DEFAULT_SPI_WIRES   = 4
     
     MODULE_PARAM_PREFIX = "SerialBus"
     
@@ -528,6 +529,7 @@ class SerialBus( Module ):
         SerialBus.SPI.mode        :class:`SPIMode` mode; only for SPI.                 :attr:`SerialBus.DEFAULT_SPI_MODE`.
         SerialBus.SPI.bitorder    ["msb"|"lsb"] bit transmission order.                :attr:`SerialBus.DEFAULT_SPI_BIT_ORDER`.
         SerialBus.SPI.bpw         int; bits per word                                   :attr:`SerialBus.DEFAULT_SPI_BITS_PER_WORD`.
+        SerialBus.SPI.wires       int; [3 | 4] joint SDIO or sep. MISO/MOSI lines      :attr:`SerialBus.DEFAULT_SPI_WIRES`.
         ======================    =================================================    ==============================================
         
         :param dict(str, object) paramDict: Configuration parameters as obtained from :meth:`Params_init`, possibly.
@@ -538,35 +540,27 @@ class SerialBus( Module ):
             "SerialBus.provider":   SysProvider.AUTO,
             "SerialBus.type":       SerialBus.DEFAULT_TYPE,
             "SerialBus.designator": SerialBus.DEFAULT_DESGINATOR,
-        }
-        for key, value in defaults.items():
-            if not key in paramDict:
-                paramDict[key] = value
-                
+        }                
         if paramDict.get( "SerialBus.type", None ) == SerialBusType.I2C:
             I2Cdefaults = {
                 "SerialBus.speed":          SerialBus.DEFAULT_I2C_SPEED,
             }
-            for key, value in I2Cdefaults.items():
-                if not key in paramDict:
-                    paramDict[key] = value
+            defaults.update( I2Cdefaults )
         elif paramDict.get( "SerialBus.type", None ) == SerialBusType.SPI:
             SPIdefaults = {
                 "SerialBus.speed":          SerialBus.DEFAULT_SPI_SPEED,
                 "SerialBus.SPI.mode":       SerialBus.DEFAULT_SPI_MODE,
                 "SerialBus.SPI.bitorder":   SerialBus.DEFAULT_SPI_BIT_ORDER,
                 "SerialBus.SPI.bpw":        SerialBus.DEFAULT_SPI_BITS_PER_WORD,
+                "SerialBus.SPI.wires":      SerialBus.DEFAULT_SPI_WIRES,
             }
-            for key, value in SPIdefaults.items():
-                if not key in paramDict:
-                    paramDict[key] = value
+            defaults.update( SPIdefaults )
         else:
             GENdefaults = {
                 "SerialBus.speed":          SerialBus.DEFAULT_SPEED,
             }
-            for key, value in GENdefaults.items():
-                if not key in paramDict:
-                    paramDict[key] = value
+            defaults.update( GENdefaults )
+        Module._aggregateParams( paramDict, defaults )
         return None
 
     def open(self, paramDict):
