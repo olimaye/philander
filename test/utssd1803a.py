@@ -70,7 +70,7 @@ class TestSSD1803A( unittest.TestCase ):
         bf, ac, cid, err = dev._readInfo()
         self.assertFalse( bf )
         self.assertEqual( ac, 0x00 )
-        # self.assertEqual( cid, SSD1803A.PART_ID )
+        #self.assertEqual( cid, SSD1803A.PART_ID )
         self.assertEqual( err, ErrorCode.errOk )
 
         err = dev._writeRAM( [1, 2, 3, 4] )
