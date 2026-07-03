@@ -17,9 +17,9 @@ class ConfigItem(Enum):
     This helps interpreting configuration data, correctly. The meaning
     is as follows:
     
-    ===============    ==============================================================
+    ===============    =========================================================================
     Item               Meaning
-    ===============    ==============================================================
+    ===============    =========================================================================
     rate               Data rate as a frequency in Hz.
     range              Data measurement range, depending on the physical dimension.
     resolution         Resolution of a measurement result in bits.
@@ -27,7 +27,8 @@ class ConfigItem(Enum):
     eventArm           Arming the event machine, enabling interrupt(s).
     eventCondition     Thresholds and counts to define event conditions.
     implicit           Configured property is implicitly given by the enclosing type.
-    ===============    ==============================================================
+    multisetting       Multiple settings given as a dictionary, similar to initial parameters
+    ===============    =========================================================================
     """
     rate                 = auto()
     range                = auto()
@@ -36,6 +37,7 @@ class ConfigItem(Enum):
     eventArm             = auto()
     eventCondition       = auto()
     implicit             = auto()
+    multisetting         = auto()
 
 @dataclass
 class Configuration:
@@ -65,11 +67,12 @@ class Configuration:
     ConfigItem.eventArm          value
     ConfigItem.eventCondition    to be defined in subclass
     ConfigItem.implicit          to be defined in subclass
+    ConfigItem.multisetting      setting
     =========================    ===========================
     """
     value:  int = 1
     fifo:   CfgFifo = None
-    
+    setting: dict = None
     
 class Configurable:
     """Generic interface for configurable objects.
@@ -92,6 +95,7 @@ class Configurable:
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
+        del configData
         return ErrorCode.errNotImplemented
 
     
