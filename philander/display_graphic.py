@@ -811,7 +811,7 @@ class GraphicDisplay(TextDisplay):
         """Draw an image at the current position of the virtual drawing cursor.
         
         The size and data of the image are encapsulated in the
-        ``image```parameter.
+        ``image`` parameter.
         Depending on the current ink set, logic operation between the
         image data/color and the background may be applied. 
         

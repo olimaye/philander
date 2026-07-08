@@ -490,7 +490,7 @@ class BME280(Sensor, SerialBusDevice):
         
         Also see: :meth:`Params_init`, :class:`.configurable.Configuration`.        
         
-        :param Configuration cfg: Configuration data. 
+        :param .configurable.Configuration cfg: Configuration data. 
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
