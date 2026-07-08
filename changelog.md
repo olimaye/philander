@@ -10,21 +10,35 @@ This is the summary of relevant changes throughout different releases.
 <!---### Fixed--->
 <!---### Security--->
 
-## [Unreleased]
-Nothing, yet.
-
-## [0.5.2] - 2026-02-28
+## [0.5.2] - 2026-07-08
 
 ### Added
+- module `bme280` to drive the BME280 temperature, pressure, humidity sensor
+- `Configurable` now may have a `multisetting` item along with a data dictionary
+- modules `display`, `display_text` and `display_graphic`
+- module `manometer` to define data type for pressure measurements
+- methods `module._aggregateParams()` and `._extractParams()` to help with parameter dictionary handling
 - module `mux` to multiplex 2-4, 3-8 etc.
-- module `shiftreg` to support one or more shift register controlled by SPI
+- classes `PrecisePercentage`, `Pressure` and `PrecisePressure` in module `primitives`
+- in class `Sensor`: `FILTER_*` mnemonics to represent different filter levels
+- `_SerialBus_Sim.readBuffer()`, `.writeBuffer()` and `writeReadBuffer()`
+- module `shiftreg` and `shiftreg_spi` to support one or more shift register controlled by SPI
+- `SimDev.readBuffer()`, `.writeBuffer()` and `writeReadBuffer()` implementations.
+- module `ssd1803a` display driver for 4x20 characters displays (ongoing development)
+- `ErrorCode.isLight()` to judge for non-critical errors
+- unit tests for `bme280`, `module`, `mux`, `shiftreg`, `shiftreg_spi` and `ssd1803a`.
+- unit tests for `GPIO` factoring.
 
 ### Changed
-- Removed `SysFactory.getGPIO()` as this functionality moved to the `GPIO` class
 - GPIO default parameters are set / not set depending on the selected `gpio.direction`
+
+### Removed
+- `SysFactory.getGPIO()` as this functionality moved to the `GPIO` class
 
 ### Fixed
 - GPIO factoring now working for `RPi.GPIO`
+- `SerialBus` now has a configurable Provider, improved defaults
+- `SysFactory.createInstance()` error handling
 
 ## [0.5.1] - 2025-07-03
 
@@ -32,6 +46,9 @@ Nothing, yet.
 - ST ADC1283 driver's `provider` attribute is now set to `SysProvider.COMPOSITE`
 - SerialBus implementation for SMBUS2 fixed `ModuleNotFoundError: No module named 'serialbus'`
 - `SysFactory.autDetectProvider` now works with non-top-level module names.
+- `_GPIO_Periphery` robust error handling and logging
+- `GPIO.Params_init()` streamlined dictionary handling. Generally improved error handling and logging.
+
 
 ## [0.5] - 2025-06-05
 
