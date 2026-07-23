@@ -190,13 +190,13 @@ class VD6283TX(Sensor, SerialBusDevice):
             logging.debug("VD6283TX._syncShadows> read REG_CHANNEL6_ENABLE: data=x%02x, err=%s.", data, ret)
         if ret.isOk():
             for ch in self._channel:
-                if ch.index == 6:
+                if ch.index == VD6283TX.CHANNEL_IDX_6_CLEAR:
                     ch.isEnabled = ch.maskAlsEnable & data
             data, ret = self.readByteRegister(VD6283TX.REG_ALS_CHANNEL_ENABLE)
             logging.debug("VD6283TX._syncShadows> read REG_ALS_CHANNEL_ENABLE: data=x%02x, err=%s.", data, ret)
         if ret.isOk():
             for ch in self._channel:
-                if ch.index != 6:
+                if ch.index != VD6283TX.CHANNEL_IDX_6_CLEAR:
                     ch.isEnabled = ch.maskAlsEnable & data
             data, ret = self.readByteRegister(VD6283TX.REG_AC_MODE_CTRL)
             logging.debug("VD6283TX._syncShadows> read REG_AC_MODE_CTRL: data=x%02x, err=%s.", data, ret)
@@ -246,7 +246,7 @@ class VD6283TX(Sensor, SerialBusDevice):
         # Shadow / copies of register contents
         self._shadowAlsCtrl = 0     # copy of REG_ALS_CTRL
         self._shadowAcModeCtrl = 0  # copy of REG_AC_MODE_CTRL
-        self._channel = [ None,     # Fake for index=0
+        self._channel = [
             VD6283TX.Channel( index=1, sensitivity=14.6,
                               maskAlsEnable=VD6283TX.ALS_CH_EN_1,
                               maskAcModeCtrl=VD6283TX.AC_CH_SEL_1 ),
@@ -328,8 +328,8 @@ class VD6283TX(Sensor, SerialBusDevice):
             "light.sda.highcap":                True, 
             "light.sda.drv":                    2,
             "light.Sensor.exposure":            80,
-            "light.Sensor.interval":            700,
-            "light.Sensor.mode":                VD6283TX.ALS_MODE_SINGLE,
+            "light.Sensor.interval":            300,
+            "light.Sensor.mode":                VD6283TX.ALS_MODE_CONT,
             "light.Sensor.red.enable":          True,
             "light.Sensor.red.gain":            1,
             "light.Sensor.green.enable":        True,
@@ -344,7 +344,7 @@ class VD6283TX(Sensor, SerialBusDevice):
             "light.Sensor.clear.gain":          1,
             "light.Sensor.flicker.bias.enable": True,
             "light.Sensor.flicker.bias.value":  3,
-            "light.Sensor.flicker.channel":     2,
+            "light.Sensor.flicker.channel":     VD6283TX.CHANNEL_IDX_6_CLEAR,
             "light.Sensor.flicker.enable":      True,
             "light.Sensor.flicker.outport":     2
         }
@@ -373,10 +373,11 @@ class VD6283TX(Sensor, SerialBusDevice):
             logging.debug("VD6283TX.open> SerialBusDevice.open: %s.", ret)
         # Open GPIO(1) pin
         if ret.isOk():
-            self.pinInt = GPIO.getGPIO()
             gpioParams = self._extractParams( localParams, "int.")
-            ret = self.pinInt.open( gpioParams )
-            logging.debug("VD6283TX.open> GPIO.open: %s.", ret)
+            if "gpio.pinDesignator" in gpioParams:
+                self.pinInt = GPIO.getGPIO()
+                ret = self.pinInt.open( gpioParams )
+                logging.debug("VD6283TX.open> GPIO.open: %s.", ret)
         # Execute simple self-test
         if ret.isOk():
             ret = self.selfTest( SelfTest.CONNECTION )
@@ -404,8 +405,10 @@ class VD6283TX(Sensor, SerialBusDevice):
         logging.debug("VD6283TX.close> super.close: %s.", err)
         if ret.isOk():
             ret = err
-        err = self.pinInt.close()
-        logging.debug("VD6283TX.close> gpio.close: %s.", err)
+        if self.pinInt:
+            err = self.pinInt.close()
+            self.pinInt = None
+            logging.debug("VD6283TX.close> gpio.close: %s.", err)
         if ret.isOk():
             ret = err
         return ret
@@ -542,11 +545,11 @@ class VD6283TX(Sensor, SerialBusDevice):
         # light.Sensor.exposure  -->  REG_ALS_EXPOSURE
         value = cs.get(prefix + "exposure", None)
         if ret.isOk() and (value is not None) and isinstance(value, (int, float)):
-            value = value if (value >= 1) and (value <= 1638) else 80
+            value = value if (value >= 1) and (value <= 1638) else 80	# ms!
             data = int(value * 10 + 8) // 16 - 1
             data = ((data & 0xFF00) >> 8) | ((data & 0xFF) << 8) # swap endianess
             ret = self.writeWordRegister( VD6283TX.REG_ALS_EXPOSURE, data )
-            logging.debug("VD6283TX.configure> write REG_ALS_EXPOSURE: %s, value=%s, data=%s", ret, value, data)
+            logging.debug("VD6283TX.configure> write REG_ALS_EXPOSURE: %s, value=%s, data=x%04x", ret, value, data)
         # light.Sensor.interval  -->  REG_ALS_PERIOD
         value = cs.get(prefix + "interval", None)
         if ret.isOk() and (value is not None) and isinstance(value, (int, float)):
@@ -561,13 +564,15 @@ class VD6283TX(Sensor, SerialBusDevice):
             data = value | (self._shadowAlsCtrl & VD6283TX.ALS_EN) 
             ret = self.writeByteRegister( VD6283TX.REG_ALS_CTRL, data )
             logging.debug("VD6283TX.configure> write REG_ALS_CTRL: %s, value=%s, data=x%02x", ret, value, data)
+            if ret.isOk():
+                self._shadowAlsCtrl = data
         
         # light.Sensor.x.enable  -->  REG_ALS_CHANNEL_ENABLE
         data = None
         if ret.isOk():
             for ch in self._channel:
-                if ch.index != 6:
-                    value = cs.get(prefix + ch.name + ".enable", None)
+                if ch.index != VD6283TX.CHANNEL_IDX_6_CLEAR:
+                    value = cs.get(prefix + VD6283TX.CHANNEL_NAME[ch.index] + ".enable", None)
                     if value is not None:
                         ch.isEnabled = bool(value)
                         if data is None:
@@ -582,7 +587,7 @@ class VD6283TX(Sensor, SerialBusDevice):
         value = cs.get(prefix + "clear.enable", None)
         if ret.isOk() and (value is not None):
             for ch in self._channel:
-                if ch.index == 6:
+                if ch.index == VD6283TX.CHANNEL_IDX_6_CLEAR:
                     ch.isEnabled = bool(value)
                     data = ch.maskAlsEnable if value else 0
                     ret = self.writeByteRegister( VD6283TX.REG_CHANNEL6_ENABLE, data )
@@ -591,7 +596,7 @@ class VD6283TX(Sensor, SerialBusDevice):
         # light.Sensor.x.gain  -->  REG_ALS_GAIN_CHX
         for ch in self._channel:
             if ret.isOk():
-                value = cs.get(prefix + ch.name + ".gain", None)
+                value = cs.get(prefix + VD6283TX.CHANNEL_NAME[ch.index] + ".gain", None)
                 reg = VD6283TX.REG_ALS_GAIN_CHX + ch.index - 1
                 ret = self._setGain( value, reg )
         
@@ -610,7 +615,7 @@ class VD6283TX(Sensor, SerialBusDevice):
             value = cs.get(prefix + "flicker.bias.enable", None)
             data = clrFeature( value, data, VD6283TX.PEDESTAL_DIS, VD6283TX.PEDESTAL_DIS )
             value = cs.get(prefix + "flicker.channel", None)
-            if (value is not None) and isinstance( value, int) and (value>=1) and (value<=6):
+            if (value is not None) and isinstance( value, int) and (value>=0) and (value<=6):
                 data &= ~0x0E
                 for ch in self._channel:
                     if ch.index == value:
@@ -629,6 +634,8 @@ class VD6283TX(Sensor, SerialBusDevice):
             if data != self._shadowAcModeCtrl:
                 ret = self.writeByteRegister( VD6283TX.REG_AC_MODE_CTRL, data )
                 logging.debug("VD6283TX.configure> write REG_AC_MODE_CTRL: %s, data=x%02x", ret, data)
+                if ret.isOk():
+                    self._shadowAcModeCtrl = data
             else:
                 logging.debug("VD6283TX.configure> no change for REG_AC_MODE_CTRL, data=x%02x.", data)
 
@@ -662,18 +669,32 @@ class VD6283TX(Sensor, SerialBusDevice):
         data = dict()
         ret = ErrorCode.errOk
         
+        intctl, ret = self.readByteRegister( VD6283TX.REG_INTERRUPT_CTRL )
+        flickerDisabled = not (self._shadowAcModeCtrl & VD6283TX.AC_FREQEXT_EN)
         for ch in self._channel:
             # Read out raw data
-            if ch.isEnabled and not ch.hasFlicker:
+            if ch.isEnabled and (flickerDisabled or not ch.hasFlicker):
                 reg = VD6283TX.REG_ALS_CHX_DATA + (ch.index - 1)*4
                 value, ret = self.readWordRegister( reg )
+                logging.debug("VD6283TX.getLatestData> read REG #x%02X: data=x%04x, err=%s.", reg, value, ret)
+                value = ((value & 0xFF) << 8) | (value >> 8)
+                logging.debug("VD6283TX.getLatestData> swapped value=x%04x.", value)
                 if ret.isOk():
                     value, ret = self._transferToIntensity( value, ch )
+                    logging.debug("VD6283TX.getLatestData> transferred value=%d, err=%s.", value, ret)
                 if ret.isOk():
                     name = VD6283TX.CHANNEL_NAME[ch.index]
                     data[name] = value
+                    logging.debug("VD6283TX.getLatestData> data[%s]: %d.", name, value)
+            else:
+                logging.debug("VD6283TX.getLatestData> Channel #%d skipped. ch.enabled=%r flkDisabled=%r ch.hasFlk=%r.",
+                              ch.index, ch.isEnabled, flickerDisabled, ch.hasFlicker)
         if not data:
             ret = ErrorCode.errFewData
+        if not(intctl & VD6283TX.INTR_ST):
+            self.writeByteRegister( VD6283TX.REG_INTERRUPT_CTRL, VD6283TX.CLR_INTR )
+            self.writeByteRegister( VD6283TX.REG_INTERRUPT_CTRL, 0x00 )
+            
         return data, ret
     
 
@@ -684,9 +705,10 @@ class VD6283TX(Sensor, SerialBusDevice):
         loopCount = 0
         maxLoops = 10
         
+        # Wait for an interrupt, indicated by '0'
         while ret.isOk() and not done and loopCount < maxLoops:
             intr, ret = self.getStatus( None )
-            done = intr & VD6283TX.INTR_ST
+            done = not (intr & VD6283TX.INTR_ST)
             loopCount += 1
             
         if ret.isOk():
@@ -695,9 +717,4 @@ class VD6283TX(Sensor, SerialBusDevice):
             else:
                 ret = ErrorCode.errUnavailable
 
-        if ret.isOk():
-            ret = self.writeByteRegister( VD6283TX.REG_INTERRUPT_CTRL, VD6283TX.CLR_INTR )
-            ret = self.writeByteRegister( VD6283TX.REG_INTERRUPT_CTRL, 0 )
-            logging.debug("VD6283TX.getNextData> write REG_INTERRUPT_CTRL: %s.", ret)
-            
         return data, ret

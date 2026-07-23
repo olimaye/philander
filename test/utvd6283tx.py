@@ -3,17 +3,23 @@
 import argparse
 import logging
 import sys
+from time import sleep
 import unittest
 
 from philander.vd6283tx import VD6283TX as SDUT # Sensor driver under test
 from philander.sensor import SelfTest, Sensor
 from philander.serialbus import SerialBusType
-from philander.systypes import ErrorCode
+from philander.systypes import ErrorCode, RunLevel
 
 config = {
     "light.SerialBus.designator": "/dev/i2c-1", #"/dev/i2c-1", 0
     #"light.int.gpio.pinDesignator": 6,
-    "light.int.cfg":    SDUT.GPIO1_CFG_PUSH_PULL,
+    "light.int.cfg":    	SDUT.GPIO1_CFG_PUSH_PULL,
+    #"light.Sensor.mode":	SDUT.ALS_MODE_SINGLE,
+    "light.Sensor.exposure": 90,
+    "light.Sensor.interval": 20,
+    "light.Sensor.flicker.channel": SDUT.CHANNEL_NONE,
+    "light.Sensor.flicker.enable": False,
 }
 
 class TestVD6283TX( unittest.TestCase ):
@@ -56,7 +62,7 @@ class TestVD6283TX( unittest.TestCase ):
         err = sensor.close()
         self.assertFalse( err.isOk() )
 
-    @unittest.skip("Disabled for easier diagnostics.")
+    #@unittest.skip("Disabled for easier diagnostics.")
     def test_selftest(self):
         global config
         cfg = config.copy()
@@ -70,7 +76,7 @@ class TestVD6283TX( unittest.TestCase ):
         err = sensor.close()
         self.assertTrue( err.isOk() )
     
-    @unittest.skip("Disabled for easier diagnostics.")
+    #@unittest.skip("Disabled for easier diagnostics.")
     def test_working(self):
         global config
         cfg = config.copy()
@@ -79,17 +85,24 @@ class TestVD6283TX( unittest.TestCase ):
         self.assertIsNotNone( sensor )
         err = sensor.open(cfg)
         self.assertTrue( err.isOk(), f"Open failed: {err}." )
-        headLine = "No., "
-        for chIdx in range( 1, 7 ):
-            headLine += SDUT.CHANNEL_NAME[chIdx]+"["+chIdx+"], "
-        logging.info( headLine )
-        for _ in range(10):
+        
+#         headLine = "No., "
+#         for chIdx in range( 1, 7 ):
+#             headLine += SDUT.CHANNEL_NAME[chIdx]+"["+str(chIdx)+"], "
+#         logging.info( headLine )
+        
+        for cnt in range(10):
+            sleep( 0.1 )
             meas, err = sensor.getLatestData()
-            self.assertTrue( err.isOk() )
-            logging.info("%d  %d  %d  %d  %d  %d  %d",
-                         meas[1], meas[2], meas[3], meas[4], meas[5], meas[6] )
-            # self.assertNotEqual( meas.temperature, PreciseTemperature.invalid )
-            # self.assertGreater( meas.temperature, 0x0A00 )
+            self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
+#             logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
+#                          meas.get(SDUT.CHANNEL_NAME[1], -1),
+#                          meas.get(SDUT.CHANNEL_NAME[2], -1),
+#                          meas.get(SDUT.CHANNEL_NAME[3], -1),
+#                          meas.get(SDUT.CHANNEL_NAME[4], -1),
+#                          meas.get(SDUT.CHANNEL_NAME[5], -1),
+#                          meas.get(SDUT.CHANNEL_NAME[6], -1)
+#                          )
         err = sensor.close()
         self.assertTrue( err.isOk() )
 
