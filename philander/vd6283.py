@@ -1,14 +1,53 @@
-"""Driver implementation for the VD6283TX ambient light sensor by ST micro.
+"""Driver implementation for the VD6283 and similar ambient light sensors by ST micro.
 
 More information on the functionality of the chip can be found at
 the ST site:
-https://www.st.com/en/imaging-and-photonics-solutions/vd6283tx.html
+https://www.st.com/en/imaging-and-photonics-solutions/VD6283.html
+
+This sensor is a matrix of 5x5 photo diodes providing six different
+light channels as follows:
+- Red. 3 diodes, 550...700nm, peak 610nm
+- Green. 5 diodes, 420...650nm, peak 550nm
+- Blue. 3 diodes, 380...550nm, peak 460nm
+- IR. 4 diodes, 600...1000nm, peak 850 nm
+- Visible. 3 diodes, 370...700nm, peak 540nm
+- Clear. 5 diodes, 350...1050nm, peak 550-680nm
+- Dark. 2 blind diodes, only internal channel.
+
+Undocumented details on the mode of operation:
+- Endiannes for multi-byte registers, such as ALS_CHx_DATA or ALS_EXPOSURE,
+  is BIG endian! So the high-byte is at the lower address, gets read first.
+- Continous and handshake mode run in parallel, more or less.
+- The interrupt flag INTR_ST is low-active.
+- Clearing INTR_ST is achieved by cycling CRL_INTR through a 1-0 sequence.
+  So, INTERRUPT_CTRL needs to be written twice.
+- Clearing INTR_ST starts a new measurement.
+- Not verified: EXPOSURE+6ms after clearing INTR_ST the ALS_CHx_DATA have
+  fresh data ready to be read.
+- After EXPOSURE+IM_PERIOD the interrupt is raised (INTR_ST=0).
+- ALS_CHx_DATA registers are never locked. They may change with fresh data.
+- If interrupt is not cleared, another measurement starts automatically ("continously")
+- After another EXPOSURE+IM_PERIOD, the next measurement is available
+- but interrupt is still active.
+
+So, without using  the interrupt flag, it's purely the application's
+responsibility to stay in sync with the sensor's continous mode. There
+is no way to know, whether the same data was picked up before, or whether
+data is fresh.
+When using the interrupt flag, the flag indicates that data was updated
+since last clearance. However, if the application waits for too long,
+data was possibly updated a multiple times.
+
+There is no way of reading calibration factors.
+Exposure time and gain factor work mainly proportional on the data value,
+except when approaching saturation.
 """
 __author__ = "Oliver Maye"
 __version__ = "0.1"
-__all__ = ["VD6283TX"]
+__all__ = ["VD6283"]
 
 import logging
+from time import sleep
 
 from .configurable import ConfigItem, Configuration
 from .dictionary import Dictionary
@@ -18,18 +57,8 @@ from .sensor import SelfTest, Sensor
 from .serialbus import SerialBusDevice, SerialBus, SerialBusType
 from .systypes import ErrorCode, Info, RunLevel
 
-class VD6283TX(Sensor, SerialBusDevice):
-    """VD6283TX driver implementation.
-    
-    This sensor is a matrix of 5x5 photo diodes providing six different
-    light channels as follows:
-    - Red. 3 diodes, 550...700nm, peak 610nm
-    - Green. 5 diodes, 420...650nm, peak 550nm
-    - Blue. 3 diodes, 380...550nm, peak 460nm
-    - IR. 4 diodes, 600...1000nm, peak 850 nm
-    - Visible. 3 diodes, 370...700nm, peak 540nm
-    - Clear. 5 diodes, 350...1050nm, peak 550-680nm
-    - Dark. 2 blind diodes, only internal channel.
+class VD6283(Sensor, SerialBusDevice):
+    """VD6283 driver implementation.
     """
 
     MODULE_PARAM_PREFIX = "light"
@@ -156,57 +185,75 @@ class VD6283TX(Sensor, SerialBusDevice):
     CHANNEL_IDX_5_IR    = 5
     CHANNEL_IDX_6_CLEAR = 6
     
-    CHANNEL_NAME = ["0-unassigned",
-                    "red", "visible", "blue", "green", "ir", "clear"]
-    CHANNEL_IDX = {
-        CHANNEL_NAME[CHANNEL_IDX_1_RED]:        CHANNEL_IDX_1_RED,
-        CHANNEL_NAME[CHANNEL_IDX_2_VISIBLE]:    CHANNEL_IDX_2_VISIBLE,
-        CHANNEL_NAME[CHANNEL_IDX_3_BLUE]:       CHANNEL_IDX_3_BLUE,
-        CHANNEL_NAME[CHANNEL_IDX_4_GREEN]:      CHANNEL_IDX_4_GREEN,
-        CHANNEL_NAME[CHANNEL_IDX_5_IR]:         CHANNEL_IDX_5_IR,
-        CHANNEL_NAME[CHANNEL_IDX_6_CLEAR]:      CHANNEL_IDX_6_CLEAR,
-        }
-    
     @dataclass
-    class Channel():
-        """Data structure to represent internal details of a channel.
+    class ChannelCharacteristic():
+        """Data structure to represent fix channel data (characteristic).
+        """
+        name:			str
+        # Scaling factor for mapping into intensity [uW/cm^2]
+        # Holds for exposure=50ms and at 25 deg. C.
+        sensitivity:    float
+
+    @dataclass
+    class ChannelConfig():
+        """Data structure to represent variable channel data (configuration).
         """
         index:          int
-        sensitivity:    float # Scaling factor for mapping into intensity [uW/cm^2] 
         maskAlsEnable:  int
         maskAcModeCtrl: int
         isEnabled:      bool = False
         hasFlicker:     bool = False
+        gain:			float = 1.0
+
+    CHANNEL = {
+        CHANNEL_IDX_1_RED:		ChannelCharacteristic(name="red", sensitivity=14.6),
+        CHANNEL_IDX_2_VISIBLE:	ChannelCharacteristic(name="visible", sensitivity=49.7),
+        CHANNEL_IDX_3_BLUE:		ChannelCharacteristic(name="blue", sensitivity=14.6),
+        CHANNEL_IDX_4_GREEN:	ChannelCharacteristic(name="green", sensitivity=29.5),
+        CHANNEL_IDX_5_IR:		ChannelCharacteristic(name="ir", sensitivity=86.0),
+        CHANNEL_IDX_6_CLEAR:	ChannelCharacteristic(name="clear", sensitivity=62.3),
+        }
+    
+    
 
     #
     # Internal helpers
     #
     def _syncShadows(self):
-        data, ret = self.readByteRegister(VD6283TX.REG_ALS_CTRL)
-        logging.debug("VD6283TX._syncShadows> read REG_ALS_CTRL: data=x%02x, err=%s.", data, ret)
+        data, ret = self.readByteRegister(VD6283.REG_ALS_CTRL)
+        logging.debug("VD6283._syncShadows> read REG_ALS_CTRL: data=x%02x, err=%s.", data, ret)
         if ret.isOk():
             self._shadowAlsCtrl = data
-            data, ret = self.readByteRegister(VD6283TX.REG_CHANNEL6_ENABLE)
-            logging.debug("VD6283TX._syncShadows> read REG_CHANNEL6_ENABLE: data=x%02x, err=%s.", data, ret)
+            data, ret = self.readByteRegister(VD6283.REG_ALS_PERIOD)
+            logging.debug("VD6283._syncShadows> read REG_ALS_PERIOD: data=x%02x, err=%s.", data, ret)
+        if ret.isOk():
+            self._shadowAlsPeriod = (data * 41) // 2	# LSB = 20.5ms
+            data, ret = self.readByteRegister(VD6283.REG_ALS_EXPOSURE)
+            data = ((data & 0xFF00) >> 8) | ((data & 0xFF) << 8) # swap endianess
+            logging.debug("VD6283._syncShadows> read REG_ALS_EXPOSURE: data=x%02x, err=%s.", data, ret)
+        if ret.isOk():
+            # exposure time = (data + 1) * 16384 / (10.24 MHz)
+            # 	= (data + 1) * 2^14 * 100 / (2^10 * 10^6 * 1/s)
+            #	= (data + 1) * 2^4 / 10^4 * s = (data + 1) * 16 / 10 ms
+            self._shadowAlsExposure = ((data+1) * 16 + 5) // 10
+            ch6Ena, ret = self.readByteRegister(VD6283.REG_CHANNEL6_ENABLE)
+            logging.debug("VD6283._syncShadows> read REG_CHANNEL6_ENABLE: data=x%02x, err=%s.", ch6Ena, ret)
+        if ret.isOk():
+            chEna, ret = self.readByteRegister(VD6283.REG_ALS_CHANNEL_ENABLE)
+            logging.debug("VD6283._syncShadows> read REG_ALS_CHANNEL_ENABLE: data=x%02x, err=%s.", chEna, ret)
+        if ret.isOk():
+            acModeCtrl, ret = self.readByteRegister(VD6283.REG_AC_MODE_CTRL)
+            logging.debug("VD6283._syncShadows> read REG_AC_MODE_CTRL: data=x%02x, err=%s.", acModeCtrl, ret)
         if ret.isOk():
             for ch in self._channel:
-                if ch.index == VD6283TX.CHANNEL_IDX_6_CLEAR:
-                    ch.isEnabled = ch.maskAlsEnable & data
-            data, ret = self.readByteRegister(VD6283TX.REG_ALS_CHANNEL_ENABLE)
-            logging.debug("VD6283TX._syncShadows> read REG_ALS_CHANNEL_ENABLE: data=x%02x, err=%s.", data, ret)
-        if ret.isOk():
-            for ch in self._channel:
-                if ch.index != VD6283TX.CHANNEL_IDX_6_CLEAR:
-                    ch.isEnabled = ch.maskAlsEnable & data
-            data, ret = self.readByteRegister(VD6283TX.REG_AC_MODE_CTRL)
-            logging.debug("VD6283TX._syncShadows> read REG_AC_MODE_CTRL: data=x%02x, err=%s.", data, ret)
-        if ret.isOk():
-            self._shadowAcModeCtrl = data
-            for ch in self._channel:
-                ch.hasFlicker = ((data & 0x0E) == ch.maskAcModeCtrl)
+                if ch.index == VD6283.CHANNEL_IDX_6_CLEAR:
+                    ch.isEnabled = ch.maskAlsEnable & ch6Ena
+                else:        
+                    ch.isEnabled = ch.maskAlsEnable & chEna
+                ch.hasFlicker = ((acModeCtrl & 0x0E) == ch.maskAcModeCtrl)
         return ret
     
-    def _setGain(self, value, register):
+    def _setGain(self, channel, value):
         gainDict  = Dictionary( {15:0.71, 14:0.83, 13:1, 
                                  12:1.25, 11:1.67, 10:2.5, 9:3.33, 
                                  8:5, 7:7.1, 6:10, 5:16, 
@@ -216,9 +263,12 @@ class VD6283TX(Sensor, SerialBusDevice):
         if (value is not None) and isinstance(value, (int, float)):
             data, ret = gainDict.findKey( value )
             if ret.isOk():
+                register = VD6283.REG_ALS_GAIN_CHX + channel.index - 1
                 ret = self.writeByteRegister( register, data )
-        logging.debug("VD6283TX._setGain> write register x%02x: %s, value=%s, data=%s",
-                      register, ret, value, data)
+            if ret.isOk():
+                channel.gain, ret = gainDict.getValue(data)
+        logging.debug("VD6283._setGain> channel #%dx: value=%s, data=%s, ret=%s",
+                      channel.index, value, data, ret)
         return ret
     
     def _transferToIntensity( self, adcCounts, channel ):
@@ -231,11 +281,21 @@ class VD6283TX(Sensor, SerialBusDevice):
         :rtype: int, ErrorCode
         """
         err = ErrorCode.errOk
+        logging.debug("VD6283._transferToIntensity> adc: %s, channel #%d.", adcCounts, channel.index)
         if channel is None:
             ret = 0
             err = ErrorCode.errInvalidParameter
         else:
-            ret = adcCounts * channel.sensitivity
+            # Apply channel gain
+            ret = adcCounts / channel.gain
+            logging.debug("VD6283._transferToIntensity> apply gain=%s ret=%s", channel.gain, ret)
+            # Correct for sensitivity
+            ret = ret / VD6283.CHANNEL[channel.index].sensitivity
+            logging.debug("VD6283._transferToIntensity> apply sensitivity=%s ret=%s",
+                          VD6283.CHANNEL[channel.index].sensitivity, ret)
+            # Account for exposure time (sensitivity reference = 50ms)
+            ret = ret * 50 / self._shadowAlsExposure
+            logging.debug("VD6283._transferToIntensity> apply exposure=%s ret=%s", self._shadowAlsExposure, ret)
             err = ErrorCode.errOk
         return ret, err
 
@@ -245,26 +305,28 @@ class VD6283TX(Sensor, SerialBusDevice):
         self.pinInt = None
         # Shadow / copies of register contents
         self._shadowAlsCtrl = 0     # copy of REG_ALS_CTRL
+        self._shadowAlsPeriod = 0   # inter-measurement period in ms, derived from REG_ALS_PERIOD
+        self._shadowAlsExposure = 0 # exposure time in ms, derived from REG_ALS_EXPOSURE
         self._shadowAcModeCtrl = 0  # copy of REG_AC_MODE_CTRL
         self._channel = [
-            VD6283TX.Channel( index=1, sensitivity=14.6,
-                              maskAlsEnable=VD6283TX.ALS_CH_EN_1,
-                              maskAcModeCtrl=VD6283TX.AC_CH_SEL_1 ),
-            VD6283TX.Channel( index=2, sensitivity=49.7,
-                              maskAlsEnable=VD6283TX.ALS_CH_EN_2,
-                              maskAcModeCtrl=VD6283TX.AC_CH_SEL_2 ),
-            VD6283TX.Channel( index=3, sensitivity=14.6,
-                              maskAlsEnable=VD6283TX.ALS_CH_EN_3,
-                              maskAcModeCtrl=VD6283TX.AC_CH_SEL_3 ),
-            VD6283TX.Channel( index=4, sensitivity=29.5,
-                              maskAlsEnable=VD6283TX.ALS_CH_EN_4,
-                              maskAcModeCtrl=VD6283TX.AC_CH_SEL_4 ),
-            VD6283TX.Channel( index=5, sensitivity=86.0,
-                              maskAlsEnable=VD6283TX.ALS_CH_EN_5,
-                              maskAcModeCtrl=VD6283TX.AC_CH_SEL_5 ),
-            VD6283TX.Channel( index=6, sensitivity=62.3,
-                              maskAlsEnable=VD6283TX.CH6_EN,
-                              maskAcModeCtrl=VD6283TX.AC_CH_SEL_6 ),
+            VD6283.ChannelConfig( index=VD6283.CHANNEL_IDX_1_RED,
+                                      maskAlsEnable=VD6283.ALS_CH_EN_1,
+                                      maskAcModeCtrl=VD6283.AC_CH_SEL_1 ),
+            VD6283.ChannelConfig( index=VD6283.CHANNEL_IDX_2_VISIBLE,
+                                      maskAlsEnable=VD6283.ALS_CH_EN_2,
+                                      maskAcModeCtrl=VD6283.AC_CH_SEL_2 ),
+            VD6283.ChannelConfig( index=VD6283.CHANNEL_IDX_3_BLUE,
+                                      maskAlsEnable=VD6283.ALS_CH_EN_3,
+                                      maskAcModeCtrl=VD6283.AC_CH_SEL_3 ),
+            VD6283.ChannelConfig( index=VD6283.CHANNEL_IDX_4_GREEN,
+                                      maskAlsEnable=VD6283.ALS_CH_EN_4,
+                                      maskAcModeCtrl=VD6283.AC_CH_SEL_4 ),
+            VD6283.ChannelConfig( index=VD6283.CHANNEL_IDX_5_IR ,
+                                      maskAlsEnable=VD6283.ALS_CH_EN_5,
+                                      maskAcModeCtrl=VD6283.AC_CH_SEL_5 ),
+            VD6283.ChannelConfig( index=VD6283.CHANNEL_IDX_6_CLEAR,
+                                      maskAlsEnable=VD6283.CH6_EN,
+                                      maskAcModeCtrl=VD6283.AC_CH_SEL_6 ),
             ]
         Sensor.__init__(self)
         SerialBusDevice.__init__(self)
@@ -286,12 +348,12 @@ class VD6283TX(Sensor, SerialBusDevice):
         light.SerialBus.*                        optional: serial bus configuration; See :meth:`serialbus.SerialBus.Params_init`.
         light.SerialBusDevice.*                  serial bus configuration; See :meth:`serialbus.SerialBusDevice.Params_init`.
         light.int.gpio.*                         GPIO1 pin configuration; See :meth:`.GPIO.Params_init`.
-        light.int.cfg                            GPIO1 Interrupt pin configuration, VD6283TX.GPIO1_CFG_[OD | PUSH_PULL | ANALOGUE]
+        light.int.cfg                            GPIO1 Interrupt pin configuration, VD6283.GPIO1_CFG_[OD | PUSH_PULL | ANALOGUE]
         light.sda.highcap                        SDA line capacitive load > 95pF, bool [True | False]
         light.sda.drv                            SDA current drive strength, low to high, int [1, ..., 5]
         light.Sensor.exposure                    Exposure time in [2, ..., 1638] milliseconds
         light.Sensor.interval                    Inter-measurement period in [0, ..., 5237] milliseconds. Only valid for continuous mode!
-        light.Sensor.mode                        VD6283TX.ALS_MODE_[SINGLE | CONT], single-shot or continuous measurement+handshake mode. 
+        light.Sensor.mode                        VD6283.ALS_MODE_[SINGLE | CONT], single-shot or continuous measurement+handshake mode. 
         light.Sensor.red.enable                  Enable the Red channel measurements. bool [True | False]
         light.Sensor.red.gain                    Red channel gain factor [66.6, 50, 33, 25, 16, 10, 7.1, 5, 3.33, 2.5, 1.67, 1.25, 1, 0.83, 0.71]
         light.Sensor.green.enable                Enable the Green channel measurements. bool [True | False]
@@ -306,7 +368,7 @@ class VD6283TX(Sensor, SerialBusDevice):
         light.Sensor.clear.gain                  Clear channel gain factor [66.6, 50, 33, 25, 16, 10, 7.1, 5, 3.33, 2.5, 1.67, 1.25, 1, 0.83, 0.71]
         light.Sensor.flicker.bias.enable         Enable/Disable pedestal value feature, bool [True | False].
         light.Sensor.flicker.bias.value          Pedestal value for flicker output, int [0...7].
-        light.Sensor.flicker.channel             Flicker operation channel; VD6283TX.CHANNEL_[NONE | FIRST | IDX_[RED | GREEN | BLUE | IR | VISIBLE | CLEAR]]
+        light.Sensor.flicker.channel             Flicker operation channel; VD6283.CHANNEL_[NONE | FIRST | IDX_[RED | GREEN | BLUE | IR | VISIBLE | CLEAR]]
         light.Sensor.flicker.enable              Enable the frequency extraction feature. bool [True | False]
         light.Sensor.flicker.outport             GPIO output port for the flicker PDM signal; int [1 | 2]
         ===========================================================================================================================================================
@@ -324,12 +386,12 @@ class VD6283TX(Sensor, SerialBusDevice):
         defaults = {
             "light.SerialBusDevice.address": cls.ADDRESSES_ALLOWED[0],
             "light.int.gpio.direction":         GPIO.DIRECTION_IN,
-            "light.int.cfg":                    VD6283TX.GPIO1_CFG_OD,
+            "light.int.cfg":                    VD6283.GPIO1_CFG_OD,
             "light.sda.highcap":                True, 
             "light.sda.drv":                    2,
             "light.Sensor.exposure":            80,
             "light.Sensor.interval":            300,
-            "light.Sensor.mode":                VD6283TX.ALS_MODE_CONT,
+            "light.Sensor.mode":                VD6283.ALS_MODE_CONT,
             "light.Sensor.red.enable":          True,
             "light.Sensor.red.gain":            1,
             "light.Sensor.green.enable":        True,
@@ -344,7 +406,7 @@ class VD6283TX(Sensor, SerialBusDevice):
             "light.Sensor.clear.gain":          1,
             "light.Sensor.flicker.bias.enable": True,
             "light.Sensor.flicker.bias.value":  3,
-            "light.Sensor.flicker.channel":     VD6283TX.CHANNEL_IDX_6_CLEAR,
+            "light.Sensor.flicker.channel":     VD6283.CHANNEL_IDX_6_CLEAR,
             "light.Sensor.flicker.enable":      True,
             "light.Sensor.flicker.outport":     2
         }
@@ -366,22 +428,22 @@ class VD6283TX(Sensor, SerialBusDevice):
         ret = ErrorCode.errOk
         self.Params_init(paramDict)
         localParams = self._extractParams( paramDict, self.MODULE_PARAM_PREFIX + ".")
-        logging.debug("VD6283TX.open> Params: %s.", localParams)
+        logging.debug("VD6283.open> Params: %s.", localParams)
         # Open serial connection
         if ret.isOk():
             ret = SerialBusDevice.open(self, localParams)
-            logging.debug("VD6283TX.open> SerialBusDevice.open: %s.", ret)
+            logging.debug("VD6283.open> SerialBusDevice.open: %s.", ret)
         # Open GPIO(1) pin
         if ret.isOk():
             gpioParams = self._extractParams( localParams, "int.")
             if "gpio.pinDesignator" in gpioParams:
                 self.pinInt = GPIO.getGPIO()
                 ret = self.pinInt.open( gpioParams )
-                logging.debug("VD6283TX.open> GPIO.open: %s.", ret)
+                logging.debug("VD6283.open> GPIO.open: %s.", ret)
         # Execute simple self-test
         if ret.isOk():
             ret = self.selfTest( SelfTest.CONNECTION )
-            logging.debug("VD6283TX.open> selfTest: %s.", ret)
+            logging.debug("VD6283.open> selfTest: %s.", ret)
         # Read register shadows
         if ret.isOk():
             ret = self._syncShadows()
@@ -390,25 +452,25 @@ class VD6283TX(Sensor, SerialBusDevice):
             cfg = Configuration( item=ConfigItem.multisetting,
                                  setting=paramDict )
             ret = self.configure(cfg)
-            logging.debug("VD6283TX.open> configure: %s.", ret)
+            logging.debug("VD6283.open> configure: %s.", ret)
         # Activate
         if ret.isOk():
             ret = self.setRunLevel( RunLevel.active )
-            logging.debug("VD6283TX.open> run level active: %s.", ret)
+            logging.debug("VD6283.open> run level active: %s.", ret)
         
         return ret
 
     def close(self):
         ret = self.setRunLevel( RunLevel.shutdown )
-        logging.debug("VD6283TX.close> run level shutdown: %s.", ret)
+        logging.debug("VD6283.close> run level shutdown: %s.", ret)
         err = super().close()
-        logging.debug("VD6283TX.close> super.close: %s.", err)
+        logging.debug("VD6283.close> super.close: %s.", err)
         if ret.isOk():
             ret = err
         if self.pinInt:
             err = self.pinInt.close()
             self.pinInt = None
-            logging.debug("VD6283TX.close> gpio.close: %s.", err)
+            logging.debug("VD6283.close> gpio.close: %s.", err)
         if ret.isOk():
             ret = err
         return ret
@@ -421,24 +483,24 @@ class VD6283TX(Sensor, SerialBusDevice):
             dataFLK = self._shadowAcModeCtrl
             if level == RunLevel.active:
                 # Set enable bit
-                dataALS |= VD6283TX.ALS_EN     
-                dataFLK |= VD6283TX.AC_FREQEXT_EN
+                dataALS |= VD6283.ALS_EN     
+                dataFLK |= VD6283.AC_FREQEXT_EN
             else:
                 # Wipe-out enable bit
-                dataALS &= ~VD6283TX.ALS_EN
-                dataFLK &= ~VD6283TX.AC_FREQEXT_EN
-            ret = self.writeByteRegister( VD6283TX.REG_ALS_CTRL, dataALS )
-            logging.debug("VD6283TX.setRunLevel> write REG_ALS_CTRL(x%02x): %s.",
+                dataALS &= ~VD6283.ALS_EN
+                dataFLK &= ~VD6283.AC_FREQEXT_EN
+            ret = self.writeByteRegister( VD6283.REG_ALS_CTRL, dataALS )
+            logging.debug("VD6283.setRunLevel> write REG_ALS_CTRL(x%02x): %s.",
                           dataALS, ret)
             if ret.isOk():
                 self._shadowAlsCtrl = dataALS
-                ret = self.writeByteRegister( VD6283TX.REG_AC_MODE_CTRL, dataFLK )
-                logging.debug("VD6283TX.setRunLevel> write REG_AC_MODE_CTRL(x%02x): %s.",
+                ret = self.writeByteRegister( VD6283.REG_AC_MODE_CTRL, dataFLK )
+                logging.debug("VD6283.setRunLevel> write REG_AC_MODE_CTRL(x%02x): %s.",
                               dataFLK, ret)
                 if ret.isOk():
                     self._shadowAcModeCtrl = dataFLK
         else:
-            logging.debug("VD6283TX.setRunLevel> serial bus not attached: %s.", ret)
+            logging.debug("VD6283.setRunLevel> serial bus not attached: %s.", ret)
         return ret
 
     #
@@ -448,13 +510,13 @@ class VD6283TX(Sensor, SerialBusDevice):
     def selfTest(self, tests):
         ret = ErrorCode.errOk
         if tests & SelfTest.CONNECTION:
-            data, ret = self.readByteRegister( VD6283TX.REG_DEVICE_ID )
-            logging.debug("VD6283TX.selfTest> read REG_DEVICE_ID: x%02x, %s.",
+            data, ret = self.readByteRegister( VD6283.REG_DEVICE_ID )
+            logging.debug("VD6283.selfTest> read REG_DEVICE_ID: x%02x, %s.",
                           data, ret)
-            if ret.isOk() and (data != VD6283TX.DEVICE_ID):
+            if ret.isOk() and (data != VD6283.DEVICE_ID):
                 ret = ErrorCode.errFailure
         else:
-            logging.debug("VD6283TX.selfTest> invalid tests: x%04x.", tests)
+            logging.debug("VD6283.selfTest> invalid tests: x%04x.", tests)
         return ret
 
 
@@ -478,12 +540,12 @@ class VD6283TX(Sensor, SerialBusDevice):
         =====================================    ==========================================================================================================
         Key name                                 Value type, meaning and default
         =====================================    ==========================================================================================================
-        light.int.cfg                            GPIO1 Interrupt pin configuration, VD6283TX.GPIO1_CFG_[OD | PUSH_PULL | ANALOGUE]
+        light.int.cfg                            GPIO1 Interrupt pin configuration, VD6283.GPIO1_CFG_[OD | PUSH_PULL | ANALOGUE]
         light.sda.highcap                        SDA line capacitive load > 95pF, bool [True | False]
         light.sda.drv                            SDA current drive strength, low to high, int [1, ..., 5]
         light.Sensor.exposure                    Exposure time in [2, ..., 1638] milliseconds
         light.Sensor.interval                    Inter-measurement period in [0, ..., 5237] milliseconds. Only valid for continuous mode!
-        light.Sensor.mode                        VD6283TX.ALS_MODE_[SINGLE | CONT], single-shot or continuous measurement+handshake mode. 
+        light.Sensor.mode                        VD6283.ALS_MODE_[SINGLE | CONT], single-shot or continuous measurement+handshake mode. 
         light.Sensor.red.enable                  Enable the Red channel measurements. bool [True | False]
         light.Sensor.red.gain                    Red channel gain factor [66.6, 50, 33, 25, 16, 10, 7.1, 5, 3.33, 2.5, 1.67, 1.25, 1, 0.83, 0.71]
         light.Sensor.green.enable                Enable the Green channel measurements. bool [True | False]
@@ -498,7 +560,7 @@ class VD6283TX(Sensor, SerialBusDevice):
         light.Sensor.clear.gain                  Clear channel gain factor [66.6, 50, 33, 25, 16, 10, 7.1, 5, 3.33, 2.5, 1.67, 1.25, 1, 0.83, 0.71]
         light.Sensor.flicker.bias.enable         Enable/Disable pedestal value feature, bool [True | False].
         light.Sensor.flicker.bias.value          Pedestal value for flicker output, int [0...7].
-        light.Sensor.flicker.channel             Flicker operation channel; VD6283TX.CHANNEL_[NONE | IDX_1_RED ... IDX_6_CLEAR]
+        light.Sensor.flicker.channel             Flicker operation channel; VD6283.CHANNEL_[NONE | IDX_1_RED ... IDX_6_CLEAR]
         light.Sensor.flicker.enable              Enable the frequency extraction feature. bool [True | False]
         light.Sensor.flicker.outport             GPIO output port for the flicker PDM signal; int [1 | 2]
         ===================================================================================================================================================
@@ -511,7 +573,7 @@ class VD6283TX(Sensor, SerialBusDevice):
         """
         if (not cfg) or (cfg.item != ConfigItem.multisetting) or \
             (not cfg.setting) or (not isinstance(cfg.setting, dict)):
-            logging.debug("VD6283TX.configure> cfg.item=%s, cfg.setting=%s.", cfg.item, cfg.setting)
+            logging.debug("VD6283.configure> cfg.item=%s, cfg.setting=%s.", cfg.item, cfg.setting)
             return ErrorCode.errInvalidParameter
         
         ret = ErrorCode.errOk
@@ -521,25 +583,25 @@ class VD6283TX(Sensor, SerialBusDevice):
         # light.int.cfg  -->  REG_GPIO1_DRV_CFG
         value = cs.get(prefix + "int.cfg", None)
         if ret.isOk() and (value is not None) and isinstance(value, int):
-            data = value if (value >= 0) and (value <= 2) else VD6283TX.GPIO1_CFG_DEFAULT
-            ret = self.writeByteRegister( VD6283TX.REG_GPIO1_DRV_CFG, data )
-            logging.debug("VD6283TX.configure> write REG_GPIO1_DRV_CFG: %s, value=x%02x, data=x%02x", ret, value, data)
+            data = value if (value >= 0) and (value <= 2) else VD6283.GPIO1_CFG_DEFAULT
+            ret = self.writeByteRegister( VD6283.REG_GPIO1_DRV_CFG, data )
+            logging.debug("VD6283.configure> write REG_GPIO1_DRV_CFG: %s, value=x%02x, data=x%02x", ret, value, data)
        
         # light.sda:highcap, drv  -->  REG_SDA_DRV_CFG
         data = None
         value = cs.get(prefix + "sda.highcap", None)
         if ret.isOk() and (value is not None):
-            data, ret = self.readByteRegister( VD6283TX.REG_SDA_DRV_CFG )
-            data = (data | VD6283TX.SDA_LOAD) if value else (data & ~VD6283TX.SDA_LOAD)
+            data, ret = self.readByteRegister( VD6283.REG_SDA_DRV_CFG )
+            data = (data | VD6283.SDA_LOAD) if value else (data & ~VD6283.SDA_LOAD)
         value = cs.get(prefix + "sda.drv", None)
         if ret.isOk() and (value is not None) and isinstance(value, int):
             if not data:
-                data, ret = self.readByteRegister( VD6283TX.REG_SDA_DRV_CFG )
-            data = data & ~VD6283TX.SDA_DRV
-            data |= (value-1) if (value>0) and (value<=5) else VD6283TX.SDA_DRV_DEFAULT
+                data, ret = self.readByteRegister( VD6283.REG_SDA_DRV_CFG )
+            data = data & ~VD6283.SDA_DRV
+            data |= (value-1) if (value>0) and (value<=5) else VD6283.SDA_DRV_DEFAULT
         if ret.isOk() and data:
-            ret = self.writeByteRegister( VD6283TX.REG_SDA_DRV_CFG, data )
-            logging.debug("VD6283TX.configure> write REG_SDA_DRV_CFG: %s, data=x%02x", ret, data)
+            ret = self.writeByteRegister( VD6283.REG_SDA_DRV_CFG, data )
+            logging.debug("VD6283.configure> write REG_SDA_DRV_CFG: %s, data=x%02x", ret, data)
         
         prefix += "Sensor" + "."
         # light.Sensor.exposure  -->  REG_ALS_EXPOSURE
@@ -547,23 +609,29 @@ class VD6283TX(Sensor, SerialBusDevice):
         if ret.isOk() and (value is not None) and isinstance(value, (int, float)):
             value = value if (value >= 1) and (value <= 1638) else 80	# ms!
             data = int(value * 10 + 8) // 16 - 1
+            revdata = ((data + 1) * 16 + 5) // 10
             data = ((data & 0xFF00) >> 8) | ((data & 0xFF) << 8) # swap endianess
-            ret = self.writeWordRegister( VD6283TX.REG_ALS_EXPOSURE, data )
-            logging.debug("VD6283TX.configure> write REG_ALS_EXPOSURE: %s, value=%s, data=x%04x", ret, value, data)
+            ret = self.writeWordRegister( VD6283.REG_ALS_EXPOSURE, data )
+            logging.debug("VD6283.configure> write REG_ALS_EXPOSURE: %s, value=%s, data=x%04x, revdata=%d", ret, value, data, revdata)
+            if ret.isOk():
+                self._shadowAlsExposure = revdata
         # light.Sensor.interval  -->  REG_ALS_PERIOD
         value = cs.get(prefix + "interval", None)
         if ret.isOk() and (value is not None) and isinstance(value, (int, float)):
             value = value if (value >= 0) and (value <= 5237) else 0
             data = int(value * 2 + 20) // 41
-            ret = self.writeByteRegister( VD6283TX.REG_ALS_PERIOD, data )
-            logging.debug("VD6283TX.configure> write REG_ALS_PERIOD: %s, value=%s, data=%s", ret, value, data)
+            revdata = data * 41 // 2
+            ret = self.writeByteRegister( VD6283.REG_ALS_PERIOD, data )
+            logging.debug("VD6283.configure> write REG_ALS_PERIOD: %s, value=%s, data=%d, revdata=%d", ret, value, data, revdata)
+            if ret.isOk():
+                self._shadowAlsPeriod = revdata
         # light.Sensor.mode  -->  REG_ALS_CTRL
         value = cs.get(prefix + "mode", None)
         if ret.isOk() and (value is not None) and \
-            value in [VD6283TX.ALS_MODE_SINGLE, VD6283TX.ALS_MODE_CONT]:
-            data = value | (self._shadowAlsCtrl & VD6283TX.ALS_EN) 
-            ret = self.writeByteRegister( VD6283TX.REG_ALS_CTRL, data )
-            logging.debug("VD6283TX.configure> write REG_ALS_CTRL: %s, value=%s, data=x%02x", ret, value, data)
+            value in [VD6283.ALS_MODE_SINGLE, VD6283.ALS_MODE_CONT]:
+            data = value | (self._shadowAlsCtrl & VD6283.ALS_EN) 
+            ret = self.writeByteRegister( VD6283.REG_ALS_CTRL, data )
+            logging.debug("VD6283.configure> write REG_ALS_CTRL: %s, value=%s, data=x%02x", ret, value, data)
             if ret.isOk():
                 self._shadowAlsCtrl = data
         
@@ -571,41 +639,40 @@ class VD6283TX(Sensor, SerialBusDevice):
         data = None
         if ret.isOk():
             for ch in self._channel:
-                if ch.index != VD6283TX.CHANNEL_IDX_6_CLEAR:
-                    value = cs.get(prefix + VD6283TX.CHANNEL_NAME[ch.index] + ".enable", None)
+                if ch.index != VD6283.CHANNEL_IDX_6_CLEAR:
+                    value = cs.get(prefix + VD6283.CHANNEL[ch.index].name + ".enable", None)
                     if value is not None:
                         ch.isEnabled = bool(value)
                         if data is None:
-                            data = ch.maskAlsEnable if value else VD6283TX.ALS_CH_EN_NONE
+                            data = ch.maskAlsEnable if value else VD6283.ALS_CH_EN_NONE
                         elif value:
                             data |= ch.maskAlsEnable
             if data:
-                ret = self.writeByteRegister( VD6283TX.REG_ALS_CHANNEL_ENABLE, data )
-                logging.debug("VD6283TX.configure> write REG_ALS_CHANNEL_ENABLE: %s, data=x%02x", ret, data)
+                ret = self.writeByteRegister( VD6283.REG_ALS_CHANNEL_ENABLE, data )
+                logging.debug("VD6283.configure> write REG_ALS_CHANNEL_ENABLE: %s, data=x%02x", ret, data)
         
         # light.Sensor.clear.enable  -->  REG_CHANNEL6_ENABLE
         value = cs.get(prefix + "clear.enable", None)
         if ret.isOk() and (value is not None):
             for ch in self._channel:
-                if ch.index == VD6283TX.CHANNEL_IDX_6_CLEAR:
+                if ch.index == VD6283.CHANNEL_IDX_6_CLEAR:
                     ch.isEnabled = bool(value)
                     data = ch.maskAlsEnable if value else 0
-                    ret = self.writeByteRegister( VD6283TX.REG_CHANNEL6_ENABLE, data )
-                    logging.debug("VD6283TX.configure> write REG_CHANNEL6_ENABLE: %s, value=%s, data=x%02x", ret, value, data)
+                    ret = self.writeByteRegister( VD6283.REG_CHANNEL6_ENABLE, data )
+                    logging.debug("VD6283.configure> write REG_CHANNEL6_ENABLE: %s, value=%s, data=x%02x", ret, value, data)
         
         # light.Sensor.x.gain  -->  REG_ALS_GAIN_CHX
         for ch in self._channel:
             if ret.isOk():
-                value = cs.get(prefix + VD6283TX.CHANNEL_NAME[ch.index] + ".gain", None)
-                reg = VD6283TX.REG_ALS_GAIN_CHX + ch.index - 1
-                ret = self._setGain( value, reg )
+                value = cs.get(prefix + VD6283.CHANNEL[ch.index].name + ".gain", None)
+                ret = self._setGain( ch, value )
         
         # light.Sensor.flicker.bias.value  -->  REG_PEDESTAL_VALUE
         value = cs.get(prefix + "flicker.bias.value", None)
         if ret.isOk() and (value is not None) and isinstance(value, int):
             data = value & 0x07
-            ret = self.writeByteRegister( VD6283TX.REG_PEDESTAL_VALUE, data )
-            logging.debug("VD6283TX.configure> write REG_PEDESTAL_VALUE: %s, value=%s, data=x%02x", ret, value, data)
+            ret = self.writeByteRegister( VD6283.REG_PEDESTAL_VALUE, data )
+            logging.debug("VD6283.configure> write REG_PEDESTAL_VALUE: %s, value=%s, data=x%02x", ret, value, data)
 
         # light.Sensor.flicker:bias.enable, channel, enable, outport  -->  REG_AC_MODE_CTRL
         setFeature = lambda ind, dat, pos, msk: dat if ind is None else ((dat & ~msk) | pos) if ind else (dat & ~msk)
@@ -613,7 +680,7 @@ class VD6283TX(Sensor, SerialBusDevice):
         data = self._shadowAcModeCtrl
         if ret.isOk():
             value = cs.get(prefix + "flicker.bias.enable", None)
-            data = clrFeature( value, data, VD6283TX.PEDESTAL_DIS, VD6283TX.PEDESTAL_DIS )
+            data = clrFeature( value, data, VD6283.PEDESTAL_DIS, VD6283.PEDESTAL_DIS )
             value = cs.get(prefix + "flicker.channel", None)
             if (value is not None) and isinstance( value, int) and (value>=0) and (value<=6):
                 data &= ~0x0E
@@ -624,33 +691,33 @@ class VD6283TX(Sensor, SerialBusDevice):
                     else:
                         ch.hasFlicker = False
             value = cs.get(prefix + "flicker.enable", None)
-            data = setFeature( value, data, VD6283TX.AC_FREQEXT_EN, VD6283TX.AC_FREQEXT_EN )
+            data = setFeature( value, data, VD6283.AC_FREQEXT_EN, VD6283.AC_FREQEXT_EN )
             value = cs.get(prefix + "flicker.outport", None)
             if value is not None:
                 if value==1:
-                    data &= ~VD6283TX.AC_OUT_SEL
+                    data &= ~VD6283.AC_OUT_SEL
                 else: 
-                    data |= VD6283TX.AC_OUT_SEL
+                    data |= VD6283.AC_OUT_SEL
             if data != self._shadowAcModeCtrl:
-                ret = self.writeByteRegister( VD6283TX.REG_AC_MODE_CTRL, data )
-                logging.debug("VD6283TX.configure> write REG_AC_MODE_CTRL: %s, data=x%02x", ret, data)
+                ret = self.writeByteRegister( VD6283.REG_AC_MODE_CTRL, data )
+                logging.debug("VD6283.configure> write REG_AC_MODE_CTRL: %s, data=x%02x", ret, data)
                 if ret.isOk():
                     self._shadowAcModeCtrl = data
             else:
-                logging.debug("VD6283TX.configure> no change for REG_AC_MODE_CTRL, data=x%02x.", data)
+                logging.debug("VD6283.configure> no change for REG_AC_MODE_CTRL, data=x%02x.", data)
 
         return ret
 
 
     def getInfo(self):
         info = Info()
-        data, ret = self.readByteRegister( VD6283TX.REG_ID )
-        logging.debug("VD6283TX.getInfo> read REG_ID: data=x%02x, err=%s.", data, ret)
+        data, ret = self.readByteRegister( VD6283.REG_ID )
+        logging.debug("VD6283.getInfo> read REG_ID: data=x%02x, err=%s.", data, ret)
         if ret.isOk():
             info.validity |= Info.validChipID
             info.chipID = data
-        data, ret = self.readByteRegister( VD6283TX.REG_REVISION_ID )
-        logging.debug("VD6283TX.getInfo> read REG_REVISION_ID: data=x%02x, err=%s.", data, ret)
+        data, ret = self.readByteRegister( VD6283.REG_REVISION_ID )
+        logging.debug("VD6283.getInfo> read REG_REVISION_ID: data=x%02x, err=%s.", data, ret)
         if ret.isOk():
             info.validity |= Info.validRevMajor
             info.revMajor = data
@@ -660,8 +727,10 @@ class VD6283TX(Sensor, SerialBusDevice):
 
     def getStatus(self, statusID):
         del statusID
-        status, ret = self.readByteRegister( VD6283TX.REG_INTERRUPT_CTRL )
-        logging.debug("VD6283TX.getStatus> read REG_INTERRUPT_CTRL: data=x%02x, err=%s.", status, ret)
+        status, ret = self.readByteRegister( VD6283.REG_INTERRUPT_CTRL )
+        logging.debug("VD6283.getStatus> read REG_INTERRUPT_CTRL: data=x%02x, err=%s.", status, ret)
+        if ret.isOk():
+            status = not (status & VD6283.INTR_ST)
         return status, ret
 
 
@@ -669,31 +738,28 @@ class VD6283TX(Sensor, SerialBusDevice):
         data = dict()
         ret = ErrorCode.errOk
         
-        intctl, ret = self.readByteRegister( VD6283TX.REG_INTERRUPT_CTRL )
-        flickerDisabled = not (self._shadowAcModeCtrl & VD6283TX.AC_FREQEXT_EN)
+        flickerDisabled = not (self._shadowAcModeCtrl & VD6283.AC_FREQEXT_EN)
+        # Immediate read, no wait for nothing
         for ch in self._channel:
             # Read out raw data
             if ch.isEnabled and (flickerDisabled or not ch.hasFlicker):
-                reg = VD6283TX.REG_ALS_CHX_DATA + (ch.index - 1)*4
+                reg = VD6283.REG_ALS_CHX_DATA + (ch.index - 1)*4
                 value, ret = self.readWordRegister( reg )
-                logging.debug("VD6283TX.getLatestData> read REG #x%02X: data=x%04x, err=%s.", reg, value, ret)
-                value = ((value & 0xFF) << 8) | (value >> 8)
-                logging.debug("VD6283TX.getLatestData> swapped value=x%04x.", value)
+                logging.debug("VD6283.getLatestData> read REG #x%02X: data=x%04x, err=%s.", reg, value, ret)
                 if ret.isOk():
+                    value = ((value & 0xFF) << 8) | (value >> 8)
+                    logging.debug("VD6283.getLatestData> swapped value=x%04x.", value)
                     value, ret = self._transferToIntensity( value, ch )
-                    logging.debug("VD6283TX.getLatestData> transferred value=%d, err=%s.", value, ret)
+                    logging.debug("VD6283.getLatestData> transferred value=%d, err=%s.", value, ret)
                 if ret.isOk():
-                    name = VD6283TX.CHANNEL_NAME[ch.index]
+                    name = VD6283.CHANNEL[ch.index].name
                     data[name] = value
-                    logging.debug("VD6283TX.getLatestData> data[%s]: %d.", name, value)
+                    logging.debug("VD6283.getLatestData> data[%s]: %d.", name, value)
             else:
-                logging.debug("VD6283TX.getLatestData> Channel #%d skipped. ch.enabled=%r flkDisabled=%r ch.hasFlk=%r.",
+                logging.debug("VD6283.getLatestData> Channel #%d skipped. ch.enabled=%r flkDisabled=%r ch.hasFlk=%r.",
                               ch.index, ch.isEnabled, flickerDisabled, ch.hasFlicker)
         if not data:
             ret = ErrorCode.errFewData
-        if not(intctl & VD6283TX.INTR_ST):
-            self.writeByteRegister( VD6283TX.REG_INTERRUPT_CTRL, VD6283TX.CLR_INTR )
-            self.writeByteRegister( VD6283TX.REG_INTERRUPT_CTRL, 0x00 )
             
         return data, ret
     
@@ -701,20 +767,27 @@ class VD6283TX(Sensor, SerialBusDevice):
     def getNextData(self):
         data = None
         ret = ErrorCode.errOk
-        done = False
         loopCount = 0
-        maxLoops = 10
+        maxLoops = 3
         
         # Wait for an interrupt, indicated by '0'
-        while ret.isOk() and not done and loopCount < maxLoops:
+        wait_time = (self._shadowAlsExposure + self._shadowAlsPeriod)/2
+        wait_time /= 1000
+        
+        intr, ret = self.getStatus( None )
+        while (not intr) and ret.isOk() and (loopCount < maxLoops):
+            sleep( wait_time )   
             intr, ret = self.getStatus( None )
-            done = not (intr & VD6283TX.INTR_ST)
             loopCount += 1
             
+        # Retrieve data
         if ret.isOk():
-            if done:
+            if intr:
                 data, ret = self.getLatestData()
-            else:
+            elif ret.isOk():
                 ret = ErrorCode.errUnavailable
+        # Clear interrupt
+        self.writeByteRegister( VD6283.REG_INTERRUPT_CTRL, VD6283.CLR_INTR )
+        self.writeByteRegister( VD6283.REG_INTERRUPT_CTRL, 0x00 )
 
         return data, ret

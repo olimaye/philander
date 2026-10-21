@@ -6,7 +6,7 @@ import sys
 from time import sleep
 import unittest
 
-from philander.vd6283tx import VD6283TX as SDUT # Sensor driver under test
+from philander.vd6283 import VD6283 as SDUT # Sensor driver under test
 from philander.sensor import SelfTest, Sensor
 from philander.serialbus import SerialBusType
 from philander.systypes import ErrorCode, RunLevel
@@ -22,7 +22,7 @@ config = {
     "light.Sensor.flicker.enable": False,
 }
 
-class TestVD6283TX( unittest.TestCase ):
+class TestVD6283( unittest.TestCase ):
             
     #@unittest.skip("Disabled for easier diagnostics.")
     def test_paramsinit(self):
@@ -86,9 +86,9 @@ class TestVD6283TX( unittest.TestCase ):
         err = sensor.open(cfg)
         self.assertTrue( err.isOk(), f"Open failed: {err}." )
         
-#         headLine = "No., "
-#         for chIdx in range( 1, 7 ):
-#             headLine += SDUT.CHANNEL_NAME[chIdx]+"["+str(chIdx)+"], "
+        headLine = "No., "
+        for chIdx in range( 1, 7 ):
+            headLine += SDUT.CHANNEL[chIdx].name+"["+str(chIdx)+"], "
 #         logging.info( headLine )
         
         for cnt in range(10):
@@ -96,12 +96,23 @@ class TestVD6283TX( unittest.TestCase ):
             meas, err = sensor.getLatestData()
             self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
 #             logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
-#                          meas.get(SDUT.CHANNEL_NAME[1], -1),
-#                          meas.get(SDUT.CHANNEL_NAME[2], -1),
-#                          meas.get(SDUT.CHANNEL_NAME[3], -1),
-#                          meas.get(SDUT.CHANNEL_NAME[4], -1),
-#                          meas.get(SDUT.CHANNEL_NAME[5], -1),
-#                          meas.get(SDUT.CHANNEL_NAME[6], -1)
+#                          meas.get(SDUT.CHANNEL[1].name, -1),
+#                          meas.get(SDUT.CHANNEL[2].name, -1),
+#                          meas.get(SDUT.CHANNEL[3].name, -1),
+#                          meas.get(SDUT.CHANNEL[4].name, -1),
+#                          meas.get(SDUT.CHANNEL[5].name, -1),
+#                          meas.get(SDUT.CHANNEL[6].name, -1)
+#                          )
+        for cnt in range(10):
+            meas, err = sensor.getNextData()
+            self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
+#             logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
+#                          meas.get(SDUT.CHANNEL[1].name, -1),
+#                          meas.get(SDUT.CHANNEL[2].name, -1),
+#                          meas.get(SDUT.CHANNEL[3].name, -1),
+#                          meas.get(SDUT.CHANNEL[4].name, -1),
+#                          meas.get(SDUT.CHANNEL[5].name, -1),
+#                          meas.get(SDUT.CHANNEL[6].name, -1)
 #                          )
         err = sensor.close()
         self.assertTrue( err.isOk() )
