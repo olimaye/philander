@@ -52,6 +52,7 @@ from time import sleep
 from .configurable import ConfigItem, Configuration
 from .dictionary import Dictionary
 from .gpio import GPIO
+from .imath import bswap16
 from .penum import dataclass
 from .sensor import SelfTest, Sensor
 from .serialbus import SerialBusDevice, SerialBus, SerialBusType
@@ -114,6 +115,7 @@ class VD6283(Sensor, SerialBusDevice):
     # EXPOSURE_DEFAULT    = 0x0032    # Intervals of 1.6 ms 
     
     REG_ALS_GAIN_CHX    = 0x25
+    ALS_GAIN            = 0x0F
     # REG_ALS_GAIN_CH1    = 0x25
     # REG_ALS_GAIN_CH2    = 0x26
     # REG_ALS_GAIN_CH3    = 0x27
@@ -150,6 +152,7 @@ class VD6283(Sensor, SerialBusDevice):
 
     REG_AC_MODE_CTRL    = 0x31
     PEDESTAL_DIS    = 0x40
+    PDM_CLK_SEL     = 0x20
     AC_OUT_SEL      = 0x10
     AC_CH_SEL_NONE  = 0x00
     AC_CH_SEL_1     = 0x04
@@ -159,8 +162,10 @@ class VD6283(Sensor, SerialBusDevice):
     AC_CH_SEL_5     = 0x0C
     AC_CH_SEL_6     = 0x02
     AC_FREQEXT_EN   = 0x01
+    AC_CH_SEL       = 0x0E
 
     REG_PEDESTAL_VALUE  = 0x32
+    PDST_VAL        = 0x07
     PEDESTAL_DEFAULT= 0x05
     
     REG_SDA_DRV_CFG     = 0x3C
@@ -192,7 +197,10 @@ class VD6283(Sensor, SerialBusDevice):
         name:			str
         # Scaling factor for mapping into intensity [uW/cm^2]
         # Holds for exposure=50ms and at 25 deg. C.
-        sensitivity:    float
+        # Stored in 1/10 Counts / uW/cm^2
+        # so, e.g. 62.3 is stored as 623.
+        # Refer to chap. 8.2. for more details on the sensitivity.
+        sensitivity:    int     # in 1/10
 
     @dataclass
     class ChannelConfig():
@@ -203,22 +211,41 @@ class VD6283(Sensor, SerialBusDevice):
         maskAcModeCtrl: int
         isEnabled:      bool = False
         hasFlicker:     bool = False
-        gain:			float = 1.0
+        gain:			int = 24    # Gain factor stored in 1/24.
 
     CHANNEL = {
-        CHANNEL_IDX_1_RED:		ChannelCharacteristic(name="red", sensitivity=14.6),
-        CHANNEL_IDX_2_VISIBLE:	ChannelCharacteristic(name="visible", sensitivity=49.7),
-        CHANNEL_IDX_3_BLUE:		ChannelCharacteristic(name="blue", sensitivity=14.6),
-        CHANNEL_IDX_4_GREEN:	ChannelCharacteristic(name="green", sensitivity=29.5),
-        CHANNEL_IDX_5_IR:		ChannelCharacteristic(name="ir", sensitivity=86.0),
-        CHANNEL_IDX_6_CLEAR:	ChannelCharacteristic(name="clear", sensitivity=62.3),
+        CHANNEL_IDX_1_RED:		ChannelCharacteristic(name="red", sensitivity=146),
+        CHANNEL_IDX_2_VISIBLE:	ChannelCharacteristic(name="visible", sensitivity=497),
+        CHANNEL_IDX_3_BLUE:		ChannelCharacteristic(name="blue", sensitivity=146),
+        CHANNEL_IDX_4_GREEN:	ChannelCharacteristic(name="green", sensitivity=295),
+        CHANNEL_IDX_5_IR:		ChannelCharacteristic(name="ir", sensitivity=860),
+        CHANNEL_IDX_6_CLEAR:	ChannelCharacteristic(name="clear", sensitivity=623),
         }
     
+    # Map register REG_ALS_GAIN_CHX content to gain factors as stored internally in 1/24.
+    GAIN_DICT  = Dictionary( {
+                    15: 17,     # 0.71
+                    14: 20,     # 0.83
+                    13: 24,     # 1 
+                    12: 30,     # 1.25
+                    11: 40,     # 1.67
+                    10: 60,     # 2.5
+                    9:  80,     # 3.33
+                    8:  120,    # 5
+                    7:  170,    # 7.1
+                    6:  240,    # 10
+                    5:  400,    # 16
+                    4:  600,    # 25
+                    3:  800,    # 33
+                    2:  1200,   # 50
+                    1:  1600,   # 66.6
+        } )
     
 
     #
     # Internal helpers
     #
+    
     def _syncShadows(self):
         data, ret = self.readByteRegister(VD6283.REG_ALS_CTRL)
         logging.debug("VD6283._syncShadows> read REG_ALS_CTRL: data=x%02x, err=%s.", data, ret)
@@ -229,13 +256,14 @@ class VD6283(Sensor, SerialBusDevice):
         if ret.isOk():
             self._shadowAlsPeriod = (data * 41) // 2	# LSB = 20.5ms
             data, ret = self.readByteRegister(VD6283.REG_ALS_EXPOSURE)
-            data = ((data & 0xFF00) >> 8) | ((data & 0xFF) << 8) # swap endianess
+            data = bswap16( data )  # swap endianess
             logging.debug("VD6283._syncShadows> read REG_ALS_EXPOSURE: data=x%02x, err=%s.", data, ret)
         if ret.isOk():
             # exposure time = (data + 1) * 16384 / (10.24 MHz)
             # 	= (data + 1) * 2^14 * 100 / (2^10 * 10^6 * 1/s)
             #	= (data + 1) * 2^4 / 10^4 * s = (data + 1) * 16 / 10 ms
-            self._shadowAlsExposure = ((data+1) * 16 + 5) // 10
+            #   = (data + 1) * 8 / 5 ms. Stored in 1/5 of ms.
+            self._shadowAlsExposure = (data+1) * 8
             ch6Ena, ret = self.readByteRegister(VD6283.REG_CHANNEL6_ENABLE)
             logging.debug("VD6283._syncShadows> read REG_CHANNEL6_ENABLE: data=x%02x, err=%s.", ch6Ena, ret)
         if ret.isOk():
@@ -250,25 +278,32 @@ class VD6283(Sensor, SerialBusDevice):
                     ch.isEnabled = ch.maskAlsEnable & ch6Ena
                 else:        
                     ch.isEnabled = ch.maskAlsEnable & chEna
-                ch.hasFlicker = ((acModeCtrl & 0x0E) == ch.maskAcModeCtrl)
+                ch.hasFlicker = ((acModeCtrl & AC_CH_SEL) == ch.maskAcModeCtrl)
+                data, ret = self.readByteRegister(VD6283.REG_ALS_GAIN_CHX + ch.index - 1)
+                logging.debug("VD6283._syncShadows> read REG_ALS_GAIN_CH%d: data=x%02x, err=%s.", 
+                              (ch.index-1), data, ret)
+                if ret.isOk():
+                    ch.gain = VD6283.GAIN_DICT.getValue(data & ALS_GAIN)
         return ret
     
     def _setGain(self, channel, value):
-        gainDict  = Dictionary( {15:0.71, 14:0.83, 13:1, 
-                                 12:1.25, 11:1.67, 10:2.5, 9:3.33, 
-                                 8:5, 7:7.1, 6:10, 5:16, 
-                                 4:25, 3:33, 2:50, 1:66.6 } )
+        """Set channel gain.
+        Expect value in external format, as a plain factor, possibly float!
+        """
         ret = ErrorCode.errOk
         data = None
         if (value is not None) and isinstance(value, (int, float)):
-            data, ret = gainDict.findKey( value )
+            value = value * 24
+            if isinstance( value, float ):
+                value = round(value)
+            data, ret = VD6283.GAIN_DICT.findKey( value )
             if ret.isOk():
                 register = VD6283.REG_ALS_GAIN_CHX + channel.index - 1
                 ret = self.writeByteRegister( register, data )
             if ret.isOk():
-                channel.gain, ret = gainDict.getValue(data)
-        logging.debug("VD6283._setGain> channel #%dx: value=%s, data=%s, ret=%s",
-                      channel.index, value, data, ret)
+                channel.gain, ret = VD6283.GAIN_DICT.getValue(data)
+        logging.debug("VD6283._setGain> channel #%d: value=%s, data=%s, gain=%d, ret=%s",
+                      channel.index, value, data, channel.gain, ret)
         return ret
     
     def _transferToIntensity( self, adcCounts, channel ):
@@ -286,16 +321,14 @@ class VD6283(Sensor, SerialBusDevice):
             ret = 0
             err = ErrorCode.errInvalidParameter
         else:
-            # Apply channel gain
-            ret = adcCounts / channel.gain
-            logging.debug("VD6283._transferToIntensity> apply gain=%s ret=%s", channel.gain, ret)
-            # Correct for sensitivity
-            ret = ret / VD6283.CHANNEL[channel.index].sensitivity
-            logging.debug("VD6283._transferToIntensity> apply sensitivity=%s ret=%s",
-                          VD6283.CHANNEL[channel.index].sensitivity, ret)
-            # Account for exposure time (sensitivity reference = 50ms)
-            ret = ret * 50 / self._shadowAlsExposure
-            logging.debug("VD6283._transferToIntensity> apply exposure=%s ret=%s", self._shadowAlsExposure, ret)
+            # Apply channel gain, sensitivity and exposure time, where
+            # sensitivity reference is given for EXTIME=50ms.
+            # Gain correction:    * 24 / channel.gain
+            # sensitivity:        * 10 / VD6283.CHANNEL[channel.index].sensitivity
+            # exposure time:      * 248 / self._shadowAlsExposure; 248 = 49.6ms * 5 ~ 50ms*5
+            # So overall:        *24*10*248 / (...gain*...sensitivity*...exposure)
+            ret = adcCounts * 59520 // (channel.gain * VD6283.CHANNEL[channel.index].sensitivity * self._shadowAlsExposure)
+            logging.debug("VD6283._transferToIntensity> apply gain, sensitivity, exposure: ret=%s", ret)
             err = ErrorCode.errOk
         return ret, err
 
@@ -306,7 +339,7 @@ class VD6283(Sensor, SerialBusDevice):
         # Shadow / copies of register contents
         self._shadowAlsCtrl = 0     # copy of REG_ALS_CTRL
         self._shadowAlsPeriod = 0   # inter-measurement period in ms, derived from REG_ALS_PERIOD
-        self._shadowAlsExposure = 0 # exposure time in ms, derived from REG_ALS_EXPOSURE
+        self._shadowAlsExposure = 0 # exposure time in 1/5ms, derived from REG_ALS_EXPOSURE
         self._shadowAcModeCtrl = 0  # copy of REG_AC_MODE_CTRL
         self._channel = [
             VD6283.ChannelConfig( index=VD6283.CHANNEL_IDX_1_RED,
@@ -608,9 +641,9 @@ class VD6283(Sensor, SerialBusDevice):
         value = cs.get(prefix + "exposure", None)
         if ret.isOk() and (value is not None) and isinstance(value, (int, float)):
             value = value if (value >= 1) and (value <= 1638) else 80	# ms!
-            data = int(value * 10 + 8) // 16 - 1
-            revdata = ((data + 1) * 16 + 5) // 10
-            data = ((data & 0xFF00) >> 8) | ((data & 0xFF) << 8) # swap endianess
+            data = int(value * 10 + 8) // 16 - 1    # ms -> native register format
+            revdata = (data + 1) * 8                # -> internal storage format in 1/5 ms
+            data = bswap16( data )          # swap endianess
             ret = self.writeWordRegister( VD6283.REG_ALS_EXPOSURE, data )
             logging.debug("VD6283.configure> write REG_ALS_EXPOSURE: %s, value=%s, data=x%04x, revdata=%d", ret, value, data, revdata)
             if ret.isOk():
@@ -670,7 +703,7 @@ class VD6283(Sensor, SerialBusDevice):
         # light.Sensor.flicker.bias.value  -->  REG_PEDESTAL_VALUE
         value = cs.get(prefix + "flicker.bias.value", None)
         if ret.isOk() and (value is not None) and isinstance(value, int):
-            data = value & 0x07
+            data = value & PDST_VAL
             ret = self.writeByteRegister( VD6283.REG_PEDESTAL_VALUE, data )
             logging.debug("VD6283.configure> write REG_PEDESTAL_VALUE: %s, value=%s, data=x%02x", ret, value, data)
 
@@ -683,7 +716,7 @@ class VD6283(Sensor, SerialBusDevice):
             data = clrFeature( value, data, VD6283.PEDESTAL_DIS, VD6283.PEDESTAL_DIS )
             value = cs.get(prefix + "flicker.channel", None)
             if (value is not None) and isinstance( value, int) and (value>=0) and (value<=6):
-                data &= ~0x0E
+                data &= ~AC_CH_SEL
                 for ch in self._channel:
                     if ch.index == value:
                         ch.hasFlicker = True
@@ -734,7 +767,7 @@ class VD6283(Sensor, SerialBusDevice):
         return status, ret
 
 
-    def getLatestData(self):
+    def getRawData(self):
         data = dict()
         ret = ErrorCode.errOk
         
@@ -745,22 +778,43 @@ class VD6283(Sensor, SerialBusDevice):
             if ch.isEnabled and (flickerDisabled or not ch.hasFlicker):
                 reg = VD6283.REG_ALS_CHX_DATA + (ch.index - 1)*4
                 value, ret = self.readWordRegister( reg )
-                logging.debug("VD6283.getLatestData> read REG #x%02X: data=x%04x, err=%s.", reg, value, ret)
+                logging.debug("VD6283.getRawData> read REG #x%02X: data=x%04x, err=%s.", reg, value, ret)
                 if ret.isOk():
-                    value = ((value & 0xFF) << 8) | (value >> 8)
-                    logging.debug("VD6283.getLatestData> swapped value=x%04x.", value)
-                    value, ret = self._transferToIntensity( value, ch )
-                    logging.debug("VD6283.getLatestData> transferred value=%d, err=%s.", value, ret)
-                if ret.isOk():
+                    value = bswap16( value )  # swap endianess
+                    logging.debug("VD6283.getRawData> swapped value=x%04x.", value)
                     name = VD6283.CHANNEL[ch.index].name
                     data[name] = value
-                    logging.debug("VD6283.getLatestData> data[%s]: %d.", name, value)
+                    logging.debug("VD6283.getRawData> data[%s]: %d.", name, value)
             else:
-                logging.debug("VD6283.getLatestData> Channel #%d skipped. ch.enabled=%r flkDisabled=%r ch.hasFlk=%r.",
+                logging.debug("VD6283.getRawData> Channel #%d skipped. ch.enabled=%r flkDisabled=%r ch.hasFlk=%r.",
                               ch.index, ch.isEnabled, flickerDisabled, ch.hasFlicker)
         if not data:
             ret = ErrorCode.errFewData
-            
+        return data, ret
+ 
+    def raw2Abs(self, raw):
+        data = dict()
+        ret = ErrorCode.errOk
+
+        for ch in self._channel:
+            chName = VD6283.CHANNEL[ch.index].name
+            rawValue = raw.get( chName, None )
+            if rawValue is not None:
+                absValue, ret = self._transferToIntensity( rawValue, ch )
+                if ret.isOk():
+                    data[chName] = absValue
+                    logging.debug("VD6283.raw2Abs> transferred %d -> %d, err=%s.",
+                                  rawValue, absValue, ret)
+                    
+        if not data:
+            ret = ErrorCode.errFewData
+        return data, ret
+
+           
+    def getLatestData(self):
+        data, ret = self.getRawData()
+        if ret.isOk():
+            data, ret = self.raw2Abs( data )            
         return data, ret
     
 
@@ -771,8 +825,10 @@ class VD6283(Sensor, SerialBusDevice):
         maxLoops = 3
         
         # Wait for an interrupt, indicated by '0'
-        wait_time = (self._shadowAlsExposure + self._shadowAlsPeriod)/2
-        wait_time /= 1000
+        wait_time = (self._shadowAlsExposure + 2) // 5  # Exposure time in ms 
+        wait_time += self._shadowAlsPeriod              # inter-measurement period
+        wait_time = (wait_time + 1) // 2                # take half of a period
+        wait_time /= 1000       # express in seconds (->float!)
         
         intr, ret = self.getStatus( None )
         while (not intr) and ret.isOk() and (loopCount < maxLoops):

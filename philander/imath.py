@@ -5,8 +5,46 @@ ispowtwo, iprevpowtwo and vlbs or ffs.
 """
 __author__ = "Oliver Maye"
 __version__ = "0.1"
-__all__ = ["ctz", "ffs", "ispowtwo", "iprevpowtwo", "vlbs"]
+__all__ = ["bswap16", "bswap32", "wswap32", 
+           "ctz", "ffs", "ispowtwo", "iprevpowtwo", "vlbs"]
 
+def bswap16( x: int ):
+    """Swap bytes, reverse byte order in least-significant word
+    
+    The byte series A-B is converted to B-A.
+    For example, a value of 0x1234 is transformed to 0x3412.
+
+    :param int x: The argument to operate on.
+    :return: The argument in reverse byte order.
+    :rtype: int
+    """
+    return ((x & 0xFF00) >> 8) | ((x & 0xFF) << 8)
+
+
+def bswap32( x: int ):
+    """Swap bytes, reverse byte order in least-significant d-word.
+    
+    The byte series A-B-C-D is converted to D-C-B-A.
+    So, a value of 0x12345678 is transformed to 0x78563412.
+
+    :param int x: The argument to operate on.
+    :return: The argument in reverse byte order.
+    :rtype: int
+    """
+    return ( ((x & 0xFF000000) >> 24) | ((x & 0x00FF0000) >> 8) | \
+             ((x & 0x0000FF00) << 8)  | ((x & 0x000000FF) << 24))
+
+def wswap32( x: int ):
+    """Swap words, while maintaining byte-order.
+    
+    The byte series A-B-C-D is converted to C-D-A-B.
+    So, a value of 0x12345678 is transformed to 0x56781234.
+
+    :param int x: The argument to operate on.
+    :return: The argument in reverse byte order.
+    :rtype: int
+    """
+    return ((x & 0xFFFF0000) >> 16) | ((x & 0x0000FFFF) <<16)
 
 def ctz( x: int ):
     """Count trailing zeroes.

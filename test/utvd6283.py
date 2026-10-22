@@ -6,6 +6,7 @@ import sys
 from time import sleep
 import unittest
 
+from philander.configurable import Configuration, ConfigItem
 from philander.vd6283 import VD6283 as SDUT # Sensor driver under test
 from philander.sensor import SelfTest, Sensor
 from philander.serialbus import SerialBusType
@@ -77,7 +78,37 @@ class TestVD6283( unittest.TestCase ):
         self.assertTrue( err.isOk() )
     
     #@unittest.skip("Disabled for easier diagnostics.")
-    def test_working(self):
+    def test_rawData(self):
+        global config
+        cfg = config.copy()
+        SDUT.Params_init( cfg )
+        sensor = SDUT()
+        self.assertIsNotNone( sensor )
+        err = sensor.open(cfg)
+        self.assertTrue( err.isOk(), f"Open failed: {err}." )
+        
+        headLine = "No., "
+        for chIdx in range( 1, 7 ):
+            headLine += SDUT.CHANNEL[chIdx].name+"["+str(chIdx)+"], "
+#         logging.info( headLine )
+        
+        for cnt in range(10):
+            sleep( 0.1 )
+            meas, err = sensor.getRawData()
+            self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
+#             logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
+#                          meas.get(SDUT.CHANNEL[1].name, -1),
+#                          meas.get(SDUT.CHANNEL[2].name, -1),
+#                          meas.get(SDUT.CHANNEL[3].name, -1),
+#                          meas.get(SDUT.CHANNEL[4].name, -1),
+#                          meas.get(SDUT.CHANNEL[5].name, -1),
+#                          meas.get(SDUT.CHANNEL[6].name, -1)
+#                          )
+        err = sensor.close()
+        self.assertTrue( err.isOk() )
+
+    #@unittest.skip("Disabled for easier diagnostics.")
+    def test_latestData(self):
         global config
         cfg = config.copy()
         SDUT.Params_init( cfg )
@@ -103,6 +134,24 @@ class TestVD6283( unittest.TestCase ):
 #                          meas.get(SDUT.CHANNEL[5].name, -1),
 #                          meas.get(SDUT.CHANNEL[6].name, -1)
 #                          )
+        err = sensor.close()
+        self.assertTrue( err.isOk() )
+
+    #@unittest.skip("Disabled for easier diagnostics.")
+    def test_nextData(self):
+        global config
+        cfg = config.copy()
+        SDUT.Params_init( cfg )
+        sensor = SDUT()
+        self.assertIsNotNone( sensor )
+        err = sensor.open(cfg)
+        self.assertTrue( err.isOk(), f"Open failed: {err}." )
+        
+        headLine = "No., "
+        for chIdx in range( 1, 7 ):
+            headLine += SDUT.CHANNEL[chIdx].name+"["+str(chIdx)+"], "
+#         logging.info( headLine )
+        
         for cnt in range(10):
             meas, err = sensor.getNextData()
             self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
@@ -116,6 +165,69 @@ class TestVD6283( unittest.TestCase ):
 #                          )
         err = sensor.close()
         self.assertTrue( err.isOk() )
+
+
+    #@unittest.skip("Disabled for easier diagnostics.")
+    def test_compensation(self):
+        global config
+        cfg = config.copy()
+        cfg["light.Sensor.flicker.enable"] = False
+        SDUT.Params_init( cfg )
+        sensor = SDUT()
+        self.assertIsNotNone( sensor )
+        err = sensor.open(cfg)
+        self.assertTrue( err.isOk(), f"Open failed: {err}." )
+        
+        cfg.clear()
+        cfgParam = Configuration( item=ConfigItem.multisetting,
+                                  setting=cfg )
+        exposure = (120, 240, 360, 600, 960)
+        gain = (1, 2.5, 5, 10, 16)
+        akk = dict()
+        
+        headLine = "Gain, Exp,   "
+        for chIdx in range( 1, 7 ):
+            headLine += SDUT.CHANNEL[chIdx].name+"["+str(chIdx)+"],   "
+#         logging.info( headLine )
+        
+        for gn in gain:
+            cfg.clear()
+            for chIdx in range( 1, SDUT.CHANNEL_NUM+1):
+                name = SDUT.CHANNEL[chIdx].name
+                cfg["light.Sensor."+name+".gain"] = gn
+            err = sensor.configure(cfgParam)
+            self.assertTrue( err.isOk(), f"Configuration of gain failed: {err}." )
+            for exp in exposure:
+                cfg.clear()
+                cfg["light.Sensor.exposure"] = exp
+                err = sensor.configure(cfgParam)
+                self.assertTrue( err.isOk(), f"Configuration of exposure={exp} failed: {err}." )
+                for chIdx in range( 1, SDUT.CHANNEL_NUM+1):
+                    akk[chIdx] = 0
+                for cnt in range(10):
+                    sleep( 0.1 )
+                    meas, err = sensor.getRawData()
+                    self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
+                    for chIdx in range( 1, SDUT.CHANNEL_NUM+1):
+                        akk[chIdx] += meas.get( SDUT.CHANNEL[chIdx].name, -1 )
+                for chIdx in range( 1, SDUT.CHANNEL_NUM+1):
+                    akk[chIdx] /= 10
+                    akk[ SDUT.CHANNEL[chIdx].name ] = akk[chIdx]
+                xdat, err = sensor.raw2Abs( akk )
+                self.assertTrue( err.isOk(), f"Compensation failed: {err}." )
+                for chIdx in range( 1, SDUT.CHANNEL_NUM+1):
+                    logging.info("  %d  %d    %d - %d    %d - %d    %d - %d    %d - %d    %d - %d    %d - %d",
+                                 gn, exp,
+                                 akk.get(SDUT.CHANNEL[1].name, -1), xdat.get(SDUT.CHANNEL[1].name, -1),
+                                 akk.get(SDUT.CHANNEL[2].name, -1), xdat.get(SDUT.CHANNEL[2].name, -1),
+                                 akk.get(SDUT.CHANNEL[3].name, -1), xdat.get(SDUT.CHANNEL[3].name, -1),
+                                 akk.get(SDUT.CHANNEL[4].name, -1), xdat.get(SDUT.CHANNEL[4].name, -1),
+                                 akk.get(SDUT.CHANNEL[5].name, -1), xdat.get(SDUT.CHANNEL[5].name, -1),
+                                 akk.get(SDUT.CHANNEL[6].name, -1), xdat.get(SDUT.CHANNEL[6].name, -1)
+                                 )
+        err = sensor.close()
+        self.assertTrue( err.isOk() )
+
 
         
 if __name__ == '__main__':
