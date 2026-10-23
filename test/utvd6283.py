@@ -77,7 +77,7 @@ class TestVD6283( unittest.TestCase ):
         err = sensor.close()
         self.assertTrue( err.isOk() )
     
-    #@unittest.skip("Disabled for easier diagnostics.")
+    @unittest.skip("Disabled for easier diagnostics.")
     def test_rawData(self):
         global config
         cfg = config.copy()
@@ -90,24 +90,25 @@ class TestVD6283( unittest.TestCase ):
         headLine = "No., "
         for chIdx in range( 1, 7 ):
             headLine += SDUT.CHANNEL[chIdx].name+"["+str(chIdx)+"], "
-#         logging.info( headLine )
+        logging.info( "Raw data" )
+        logging.info( headLine )
         
         for cnt in range(10):
-            sleep( 0.1 )
+            sleep( 0.5 )
             meas, err = sensor.getRawData()
             self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
-#             logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
-#                          meas.get(SDUT.CHANNEL[1].name, -1),
-#                          meas.get(SDUT.CHANNEL[2].name, -1),
-#                          meas.get(SDUT.CHANNEL[3].name, -1),
-#                          meas.get(SDUT.CHANNEL[4].name, -1),
-#                          meas.get(SDUT.CHANNEL[5].name, -1),
-#                          meas.get(SDUT.CHANNEL[6].name, -1)
-#                          )
+            logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
+                         meas.get(SDUT.CHANNEL[1].name, -1),
+                         meas.get(SDUT.CHANNEL[2].name, -1),
+                         meas.get(SDUT.CHANNEL[3].name, -1),
+                         meas.get(SDUT.CHANNEL[4].name, -1),
+                         meas.get(SDUT.CHANNEL[5].name, -1),
+                         meas.get(SDUT.CHANNEL[6].name, -1)
+                         )
         err = sensor.close()
         self.assertTrue( err.isOk() )
 
-    #@unittest.skip("Disabled for easier diagnostics.")
+    @unittest.skip("Disabled for easier diagnostics.")
     def test_latestData(self):
         global config
         cfg = config.copy()
@@ -120,24 +121,25 @@ class TestVD6283( unittest.TestCase ):
         headLine = "No., "
         for chIdx in range( 1, 7 ):
             headLine += SDUT.CHANNEL[chIdx].name+"["+str(chIdx)+"], "
-#         logging.info( headLine )
+        logging.info( "Latest data" )
+        logging.info( headLine )
         
         for cnt in range(10):
             sleep( 0.1 )
             meas, err = sensor.getLatestData()
             self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
-#             logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
-#                          meas.get(SDUT.CHANNEL[1].name, -1),
-#                          meas.get(SDUT.CHANNEL[2].name, -1),
-#                          meas.get(SDUT.CHANNEL[3].name, -1),
-#                          meas.get(SDUT.CHANNEL[4].name, -1),
-#                          meas.get(SDUT.CHANNEL[5].name, -1),
-#                          meas.get(SDUT.CHANNEL[6].name, -1)
-#                          )
+            logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
+                         meas.get(SDUT.CHANNEL[1].name, -1),
+                         meas.get(SDUT.CHANNEL[2].name, -1),
+                         meas.get(SDUT.CHANNEL[3].name, -1),
+                         meas.get(SDUT.CHANNEL[4].name, -1),
+                         meas.get(SDUT.CHANNEL[5].name, -1),
+                         meas.get(SDUT.CHANNEL[6].name, -1)
+                         )
         err = sensor.close()
         self.assertTrue( err.isOk() )
 
-    #@unittest.skip("Disabled for easier diagnostics.")
+    @unittest.skip("Disabled for easier diagnostics.")
     def test_nextData(self):
         global config
         cfg = config.copy()
@@ -150,19 +152,20 @@ class TestVD6283( unittest.TestCase ):
         headLine = "No., "
         for chIdx in range( 1, 7 ):
             headLine += SDUT.CHANNEL[chIdx].name+"["+str(chIdx)+"], "
-#         logging.info( headLine )
+        logging.info( "Next data" )
+        logging.info( headLine )
         
         for cnt in range(10):
             meas, err = sensor.getNextData()
             self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
-#             logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
-#                          meas.get(SDUT.CHANNEL[1].name, -1),
-#                          meas.get(SDUT.CHANNEL[2].name, -1),
-#                          meas.get(SDUT.CHANNEL[3].name, -1),
-#                          meas.get(SDUT.CHANNEL[4].name, -1),
-#                          meas.get(SDUT.CHANNEL[5].name, -1),
-#                          meas.get(SDUT.CHANNEL[6].name, -1)
-#                          )
+            logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
+                         meas.get(SDUT.CHANNEL[1].name, -1),
+                         meas.get(SDUT.CHANNEL[2].name, -1),
+                         meas.get(SDUT.CHANNEL[3].name, -1),
+                         meas.get(SDUT.CHANNEL[4].name, -1),
+                         meas.get(SDUT.CHANNEL[5].name, -1),
+                         meas.get(SDUT.CHANNEL[6].name, -1)
+                         )
         err = sensor.close()
         self.assertTrue( err.isOk() )
 
@@ -188,7 +191,8 @@ class TestVD6283( unittest.TestCase ):
         headLine = "Gain, Exp,   "
         for chIdx in range( 1, 7 ):
             headLine += SDUT.CHANNEL[chIdx].name+"["+str(chIdx)+"],   "
-#         logging.info( headLine )
+        logging.info( "Compensated data" )
+        logging.info( headLine )
         
         for gn in gain:
             cfg.clear()
@@ -204,8 +208,9 @@ class TestVD6283( unittest.TestCase ):
                 self.assertTrue( err.isOk(), f"Configuration of exposure={exp} failed: {err}." )
                 for chIdx in range( 1, SDUT.CHANNEL_NUM+1):
                     akk[chIdx] = 0
+                sleepTime = (exp + config["light.Sensor.interval"] + 20) / 1000
                 for cnt in range(10):
-                    sleep( 0.1 )
+                    sleep( sleepTime )
                     meas, err = sensor.getRawData()
                     self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
                     for chIdx in range( 1, SDUT.CHANNEL_NUM+1):
@@ -215,16 +220,15 @@ class TestVD6283( unittest.TestCase ):
                     akk[ SDUT.CHANNEL[chIdx].name ] = akk[chIdx]
                 xdat, err = sensor.raw2Abs( akk )
                 self.assertTrue( err.isOk(), f"Compensation failed: {err}." )
-                for chIdx in range( 1, SDUT.CHANNEL_NUM+1):
-                    logging.info("  %d  %d    %d - %d    %d - %d    %d - %d    %d - %d    %d - %d    %d - %d",
-                                 gn, exp,
-                                 akk.get(SDUT.CHANNEL[1].name, -1), xdat.get(SDUT.CHANNEL[1].name, -1),
-                                 akk.get(SDUT.CHANNEL[2].name, -1), xdat.get(SDUT.CHANNEL[2].name, -1),
-                                 akk.get(SDUT.CHANNEL[3].name, -1), xdat.get(SDUT.CHANNEL[3].name, -1),
-                                 akk.get(SDUT.CHANNEL[4].name, -1), xdat.get(SDUT.CHANNEL[4].name, -1),
-                                 akk.get(SDUT.CHANNEL[5].name, -1), xdat.get(SDUT.CHANNEL[5].name, -1),
-                                 akk.get(SDUT.CHANNEL[6].name, -1), xdat.get(SDUT.CHANNEL[6].name, -1)
-                                 )
+                logging.info("  %d  %d    %d - %d    %d - %d    %d - %d    %d - %d    %d - %d    %d - %d",
+                             gn, exp,
+                             akk.get(SDUT.CHANNEL[1].name, -1), xdat.get(SDUT.CHANNEL[1].name, -1),
+                             akk.get(SDUT.CHANNEL[2].name, -1), xdat.get(SDUT.CHANNEL[2].name, -1),
+                             akk.get(SDUT.CHANNEL[3].name, -1), xdat.get(SDUT.CHANNEL[3].name, -1),
+                             akk.get(SDUT.CHANNEL[4].name, -1), xdat.get(SDUT.CHANNEL[4].name, -1),
+                             akk.get(SDUT.CHANNEL[5].name, -1), xdat.get(SDUT.CHANNEL[5].name, -1),
+                             akk.get(SDUT.CHANNEL[6].name, -1), xdat.get(SDUT.CHANNEL[6].name, -1)
+                             )
         err = sensor.close()
         self.assertTrue( err.isOk() )
 

@@ -247,6 +247,16 @@ class VD6283(Sensor, SerialBusDevice):
     #
     
     def _syncShadows(self):
+        """Synchronize shadow registers.
+
+        Instance variables are used as local copies of frequently-used registers.
+        This method synchronizes the variables with the true register content by
+        reading in the registers and overwriting the instance attributes with
+        their content.
+        
+        :returns: An error code to indicate success or the reason of failure.
+        :rtype: ErrorCode
+        """
         data, ret = self.readByteRegister(VD6283.REG_ALS_CTRL)
         logging.debug("VD6283._syncShadows> read REG_ALS_CTRL: data=x%02x, err=%s.", data, ret)
         if ret.isOk():
@@ -278,17 +288,20 @@ class VD6283(Sensor, SerialBusDevice):
                     ch.isEnabled = ch.maskAlsEnable & ch6Ena
                 else:        
                     ch.isEnabled = ch.maskAlsEnable & chEna
-                ch.hasFlicker = ((acModeCtrl & AC_CH_SEL) == ch.maskAcModeCtrl)
+                ch.hasFlicker = ((acModeCtrl & VD6283.AC_CH_SEL) == ch.maskAcModeCtrl)
                 data, ret = self.readByteRegister(VD6283.REG_ALS_GAIN_CHX + ch.index - 1)
                 logging.debug("VD6283._syncShadows> read REG_ALS_GAIN_CH%d: data=x%02x, err=%s.", 
                               (ch.index-1), data, ret)
                 if ret.isOk():
-                    ch.gain = VD6283.GAIN_DICT.getValue(data & ALS_GAIN)
+                    ch.gain = VD6283.GAIN_DICT.getValue(data & VD6283.ALS_GAIN)
         return ret
     
     def _setGain(self, channel, value):
         """Set channel gain.
         Expect value in external format, as a plain factor, possibly float!
+
+        :returns: An error code to indicate success or the reason of failure.
+        :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
         data = None
@@ -331,6 +344,17 @@ class VD6283(Sensor, SerialBusDevice):
             logging.debug("VD6283._transferToIntensity> apply gain, sensitivity, exposure: ret=%s", ret)
             err = ErrorCode.errOk
         return ret, err
+    
+    def _clearInt(self):
+        """Clears the interrupt flag INTR_ST.
+
+        :returns: An error code to indicate success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        ret = self.writeByteRegister( VD6283.REG_INTERRUPT_CTRL, VD6283.CLR_INTR )
+        if ret.isOk():
+            ret = self.writeByteRegister( VD6283.REG_INTERRUPT_CTRL, 0x00 )
+        return ret
 
 
     def __init__(self):
@@ -490,7 +514,9 @@ class VD6283(Sensor, SerialBusDevice):
         if ret.isOk():
             ret = self.setRunLevel( RunLevel.active )
             logging.debug("VD6283.open> run level active: %s.", ret)
-        
+        # Clear any interrupt pending
+        if ret.isOk():
+            ret = self._clearInt()
         return ret
 
     def close(self):
@@ -556,6 +582,9 @@ class VD6283(Sensor, SerialBusDevice):
     def reset(self):
         # Re-read register shadows
         ret = self._syncShadows()
+        # Clear any interrupt pending
+        if ret.isOk():
+            ret = self._clearInt()
         return ret
 
 
@@ -612,6 +641,7 @@ class VD6283(Sensor, SerialBusDevice):
         ret = ErrorCode.errOk
         prefix = self.MODULE_PARAM_PREFIX + "."
         cs = cfg.setting
+        flagClearInt = False
         
         # light.int.cfg  -->  REG_GPIO1_DRV_CFG
         value = cs.get(prefix + "int.cfg", None)
@@ -648,6 +678,8 @@ class VD6283(Sensor, SerialBusDevice):
             logging.debug("VD6283.configure> write REG_ALS_EXPOSURE: %s, value=%s, data=x%04x, revdata=%d", ret, value, data, revdata)
             if ret.isOk():
                 self._shadowAlsExposure = revdata
+            flagClearInt = True
+            
         # light.Sensor.interval  -->  REG_ALS_PERIOD
         value = cs.get(prefix + "interval", None)
         if ret.isOk() and (value is not None) and isinstance(value, (int, float)):
@@ -658,6 +690,8 @@ class VD6283(Sensor, SerialBusDevice):
             logging.debug("VD6283.configure> write REG_ALS_PERIOD: %s, value=%s, data=%d, revdata=%d", ret, value, data, revdata)
             if ret.isOk():
                 self._shadowAlsPeriod = revdata
+            flagClearInt = True
+            
         # light.Sensor.mode  -->  REG_ALS_CTRL
         value = cs.get(prefix + "mode", None)
         if ret.isOk() and (value is not None) and \
@@ -667,6 +701,7 @@ class VD6283(Sensor, SerialBusDevice):
             logging.debug("VD6283.configure> write REG_ALS_CTRL: %s, value=%s, data=x%02x", ret, value, data)
             if ret.isOk():
                 self._shadowAlsCtrl = data
+            flagClearInt = True
         
         # light.Sensor.x.enable  -->  REG_ALS_CHANNEL_ENABLE
         data = None
@@ -703,7 +738,7 @@ class VD6283(Sensor, SerialBusDevice):
         # light.Sensor.flicker.bias.value  -->  REG_PEDESTAL_VALUE
         value = cs.get(prefix + "flicker.bias.value", None)
         if ret.isOk() and (value is not None) and isinstance(value, int):
-            data = value & PDST_VAL
+            data = value & VD6283.PDST_VAL
             ret = self.writeByteRegister( VD6283.REG_PEDESTAL_VALUE, data )
             logging.debug("VD6283.configure> write REG_PEDESTAL_VALUE: %s, value=%s, data=x%02x", ret, value, data)
 
@@ -716,7 +751,7 @@ class VD6283(Sensor, SerialBusDevice):
             data = clrFeature( value, data, VD6283.PEDESTAL_DIS, VD6283.PEDESTAL_DIS )
             value = cs.get(prefix + "flicker.channel", None)
             if (value is not None) and isinstance( value, int) and (value>=0) and (value<=6):
-                data &= ~AC_CH_SEL
+                data &= ~VD6283.AC_CH_SEL
                 for ch in self._channel:
                     if ch.index == value:
                         ch.hasFlicker = True
@@ -738,7 +773,10 @@ class VD6283(Sensor, SerialBusDevice):
                     self._shadowAcModeCtrl = data
             else:
                 logging.debug("VD6283.configure> no change for REG_AC_MODE_CTRL, data=x%02x.", data)
-
+        
+        # If necessary, clear the interrupt flag
+        if ret.isOk() and flagClearInt:
+            ret = self._clearInt()
         return ret
 
 
