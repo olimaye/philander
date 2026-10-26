@@ -42,6 +42,7 @@ There is no way of reading calibration factors.
 Exposure time and gain factor work mainly proportional on the data value,
 except when approaching saturation.
 """
+from tensorflow.python.framework.test_ops import old
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["VD6283"]
@@ -296,66 +297,6 @@ class VD6283(Sensor, SerialBusDevice):
                     ch.gain = VD6283.GAIN_DICT.getValue(data & VD6283.ALS_GAIN)
         return ret
     
-    def _setGain(self, channel, value):
-        """Set channel gain.
-        Expect value in external format, as a plain factor, possibly float!
-
-        :returns: An error code to indicate success or the reason of failure.
-        :rtype: ErrorCode
-        """
-        ret = ErrorCode.errOk
-        data = None
-        if (value is not None) and isinstance(value, (int, float)):
-            value = value * 24
-            if isinstance( value, float ):
-                value = round(value)
-            data, ret = VD6283.GAIN_DICT.findKey( value )
-            if ret.isOk():
-                register = VD6283.REG_ALS_GAIN_CHX + channel.index - 1
-                ret = self.writeByteRegister( register, data )
-            if ret.isOk():
-                channel.gain, ret = VD6283.GAIN_DICT.getValue(data)
-        logging.debug("VD6283._setGain> channel #%d: value=%s, data=%s, gain=%d, ret=%s",
-                      channel.index, value, data, channel.gain, ret)
-        return ret
-    
-    def _transferToIntensity( self, adcCounts, channel ):
-        """Translate digital measurement value into intensity.
-        
-        :param int adcCounts: 24bit digital register reading
-        :param Channel channel: The channel for which to compute the intensity. 
-        :returns: The corresponding intensity value in uW/cm^2 as int \
-        and an error code to indicate success or the reason of failure.
-        :rtype: int, ErrorCode
-        """
-        err = ErrorCode.errOk
-        logging.debug("VD6283._transferToIntensity> adc: %s, channel #%d.", adcCounts, channel.index)
-        if channel is None:
-            ret = 0
-            err = ErrorCode.errInvalidParameter
-        else:
-            # Apply channel gain, sensitivity and exposure time, where
-            # sensitivity reference is given for EXTIME=50ms.
-            # Gain correction:    * 24 / channel.gain
-            # sensitivity:        * 10 / VD6283.CHANNEL[channel.index].sensitivity
-            # exposure time:      * 248 / self._shadowAlsExposure; 248 = 49.6ms * 5 ~ 50ms*5
-            # So overall:        *24*10*248 / (...gain*...sensitivity*...exposure)
-            ret = adcCounts * 59520 // (channel.gain * VD6283.CHANNEL[channel.index].sensitivity * self._shadowAlsExposure)
-            logging.debug("VD6283._transferToIntensity> apply gain, sensitivity, exposure: ret=%s", ret)
-            err = ErrorCode.errOk
-        return ret, err
-    
-    def _clearInt(self):
-        """Clears the interrupt flag INTR_ST.
-
-        :returns: An error code to indicate success or the reason of failure.
-        :rtype: ErrorCode
-        """
-        ret = self.writeByteRegister( VD6283.REG_INTERRUPT_CTRL, VD6283.CLR_INTR )
-        if ret.isOk():
-            ret = self.writeByteRegister( VD6283.REG_INTERRUPT_CTRL, 0x00 )
-        return ret
-
 
     def __init__(self):
         # Create instance attributes
@@ -423,11 +364,10 @@ class VD6283(Sensor, SerialBusDevice):
         light.Sensor.visible.gain                Visible channel gain factor [66.6, 50, 33, 25, 16, 10, 7.1, 5, 3.33, 2.5, 1.67, 1.25, 1, 0.83, 0.71]
         light.Sensor.clear.enable                Enable the Clear un-filtered light channel measurements. bool [True | False]
         light.Sensor.clear.gain                  Clear channel gain factor [66.6, 50, 33, 25, 16, 10, 7.1, 5, 3.33, 2.5, 1.67, 1.25, 1, 0.83, 0.71]
-        light.Sensor.flicker.bias.enable         Enable/Disable pedestal value feature, bool [True | False].
-        light.Sensor.flicker.bias.value          Pedestal value for flicker output, int [0...7].
-        light.Sensor.flicker.channel             Flicker operation channel; VD6283.CHANNEL_[NONE | FIRST | IDX_[RED | GREEN | BLUE | IR | VISIBLE | CLEAR]]
-        light.Sensor.flicker.enable              Enable the frequency extraction feature. bool [True | False]
-        light.Sensor.flicker.outport             GPIO output port for the flicker PDM signal; int [1 | 2]
+        light.Sensor.flicker.bias.value          Pedestal value for flicker output, int [0...7] or None to disable feature.
+        light.Sensor.flicker.channel             Flicker operation channel; VD6283.CHANNEL_[NONE | IDX_1_RED ... IDX_6_CLEAR]. CHANNEL_NONE to disable.
+        light.Sensor.flicker.outport             GPIO output port for the flicker PDM signal; int [1 | 2]. Avoid conflict with externclk=True!
+        light.Sensor.flicker.externclk           bool. True if PDM uses external clock on GPIO2, False for internal clock (default).
         ===========================================================================================================================================================
         
         Also see: :meth:`.SerialBusDevice.Params_init`. 
@@ -461,11 +401,10 @@ class VD6283(Sensor, SerialBusDevice):
             "light.Sensor.visible.gain":        1,
             "light.Sensor.clear.enable":        True,
             "light.Sensor.clear.gain":          1,
-            "light.Sensor.flicker.bias.enable": True,
             "light.Sensor.flicker.bias.value":  3,
             "light.Sensor.flicker.channel":     VD6283.CHANNEL_IDX_6_CLEAR,
-            "light.Sensor.flicker.enable":      True,
-            "light.Sensor.flicker.outport":     2
+            "light.Sensor.flicker.outport":     2,
+            "light.Sensor.flicker.externclk":   False
         }
         # Add defaults to paramDict
         cls._aggregateParams( paramDict, defaults )
@@ -516,7 +455,7 @@ class VD6283(Sensor, SerialBusDevice):
             logging.debug("VD6283.open> run level active: %s.", ret)
         # Clear any interrupt pending
         if ret.isOk():
-            ret = self._clearInt()
+            ret = self.clearInt()
         return ret
 
     def close(self):
@@ -584,7 +523,7 @@ class VD6283(Sensor, SerialBusDevice):
         ret = self._syncShadows()
         # Clear any interrupt pending
         if ret.isOk():
-            ret = self._clearInt()
+            ret = self.clearInt()
         return ret
 
 
@@ -620,11 +559,10 @@ class VD6283(Sensor, SerialBusDevice):
         light.Sensor.visible.gain                Visible channel gain factor [66.6, 50, 33, 25, 16, 10, 7.1, 5, 3.33, 2.5, 1.67, 1.25, 1, 0.83, 0.71]
         light.Sensor.clear.enable                Enable the Clear un-filtered light channel measurements. bool [True | False]
         light.Sensor.clear.gain                  Clear channel gain factor [66.6, 50, 33, 25, 16, 10, 7.1, 5, 3.33, 2.5, 1.67, 1.25, 1, 0.83, 0.71]
-        light.Sensor.flicker.bias.enable         Enable/Disable pedestal value feature, bool [True | False].
-        light.Sensor.flicker.bias.value          Pedestal value for flicker output, int [0...7].
-        light.Sensor.flicker.channel             Flicker operation channel; VD6283.CHANNEL_[NONE | IDX_1_RED ... IDX_6_CLEAR]
-        light.Sensor.flicker.enable              Enable the frequency extraction feature. bool [True | False]
-        light.Sensor.flicker.outport             GPIO output port for the flicker PDM signal; int [1 | 2]
+        light.Sensor.flicker.bias.value          Pedestal value for flicker output, int [0...7] or None to disable feature.
+        light.Sensor.flicker.channel             Flicker operation channel; VD6283.CHANNEL_[NONE | IDX_1_RED ... IDX_6_CLEAR]. CHANNEL_NONE to disable.
+        light.Sensor.flicker.outport             GPIO output port for the flicker PDM signal; int [1 | 2]. Avoid conflict with externclk=True!
+        light.Sensor.flicker.externclk           bool. True if PDM uses external clock on GPIO2, False for internal clock (default).
         ===================================================================================================================================================
         
         Also see: :meth:`Params_init`, :class:`.configurable.Configuration`.        
@@ -646,137 +584,60 @@ class VD6283(Sensor, SerialBusDevice):
         # light.int.cfg  -->  REG_GPIO1_DRV_CFG
         value = cs.get(prefix + "int.cfg", None)
         if ret.isOk() and (value is not None) and isinstance(value, int):
-            data = value if (value >= 0) and (value <= 2) else VD6283.GPIO1_CFG_DEFAULT
-            ret = self.writeByteRegister( VD6283.REG_GPIO1_DRV_CFG, data )
-            logging.debug("VD6283.configure> write REG_GPIO1_DRV_CFG: %s, value=x%02x, data=x%02x", ret, value, data)
+            ret = self.setGpioDrv( value )
        
         # light.sda:highcap, drv  -->  REG_SDA_DRV_CFG
-        data = None
-        value = cs.get(prefix + "sda.highcap", None)
-        if ret.isOk() and (value is not None):
-            data, ret = self.readByteRegister( VD6283.REG_SDA_DRV_CFG )
-            data = (data | VD6283.SDA_LOAD) if value else (data & ~VD6283.SDA_LOAD)
+        flgHighCap = cs.get(prefix + "sda.highcap", None)
         value = cs.get(prefix + "sda.drv", None)
-        if ret.isOk() and (value is not None) and isinstance(value, int):
-            if not data:
-                data, ret = self.readByteRegister( VD6283.REG_SDA_DRV_CFG )
-            data = data & ~VD6283.SDA_DRV
-            data |= (value-1) if (value>0) and (value<=5) else VD6283.SDA_DRV_DEFAULT
-        if ret.isOk() and data:
-            ret = self.writeByteRegister( VD6283.REG_SDA_DRV_CFG, data )
-            logging.debug("VD6283.configure> write REG_SDA_DRV_CFG: %s, data=x%02x", ret, data)
+        if ret.isOk():
+            ret = self.setSdaDrv( flgHighCap, value )
         
         prefix += "Sensor" + "."
         # light.Sensor.exposure  -->  REG_ALS_EXPOSURE
         value = cs.get(prefix + "exposure", None)
         if ret.isOk() and (value is not None) and isinstance(value, (int, float)):
-            value = value if (value >= 1) and (value <= 1638) else 80	# ms!
-            data = int(value * 10 + 8) // 16 - 1    # ms -> native register format
-            revdata = (data + 1) * 8                # -> internal storage format in 1/5 ms
-            data = bswap16( data )          # swap endianess
-            ret = self.writeWordRegister( VD6283.REG_ALS_EXPOSURE, data )
-            logging.debug("VD6283.configure> write REG_ALS_EXPOSURE: %s, value=%s, data=x%04x, revdata=%d", ret, value, data, revdata)
-            if ret.isOk():
-                self._shadowAlsExposure = revdata
+            self.setExposure( value )
             flagClearInt = True
             
         # light.Sensor.interval  -->  REG_ALS_PERIOD
         value = cs.get(prefix + "interval", None)
         if ret.isOk() and (value is not None) and isinstance(value, (int, float)):
-            value = value if (value >= 0) and (value <= 5237) else 0
-            data = int(value * 2 + 20) // 41
-            revdata = data * 41 // 2
-            ret = self.writeByteRegister( VD6283.REG_ALS_PERIOD, data )
-            logging.debug("VD6283.configure> write REG_ALS_PERIOD: %s, value=%s, data=%d, revdata=%d", ret, value, data, revdata)
-            if ret.isOk():
-                self._shadowAlsPeriod = revdata
+            ret = self.setDelay( value )
             flagClearInt = True
             
         # light.Sensor.mode  -->  REG_ALS_CTRL
         value = cs.get(prefix + "mode", None)
-        if ret.isOk() and (value is not None) and \
-            value in [VD6283.ALS_MODE_SINGLE, VD6283.ALS_MODE_CONT]:
-            data = value | (self._shadowAlsCtrl & VD6283.ALS_EN) 
-            ret = self.writeByteRegister( VD6283.REG_ALS_CTRL, data )
-            logging.debug("VD6283.configure> write REG_ALS_CTRL: %s, value=%s, data=x%02x", ret, value, data)
-            if ret.isOk():
-                self._shadowAlsCtrl = data
+        if ret.isOk() and (value is not None):
+            ret = self.setMode( value )
             flagClearInt = True
         
-        # light.Sensor.x.enable  -->  REG_ALS_CHANNEL_ENABLE
-        data = None
+        # light.Sensor.x.enable  -->  REG_ALS_CHANNEL_ENABLE, REG_CHANNEL6_ENABLE
         if ret.isOk():
-            for ch in self._channel:
-                if ch.index != VD6283.CHANNEL_IDX_6_CLEAR:
-                    value = cs.get(prefix + VD6283.CHANNEL[ch.index].name + ".enable", None)
-                    if value is not None:
-                        ch.isEnabled = bool(value)
-                        if data is None:
-                            data = ch.maskAlsEnable if value else VD6283.ALS_CH_EN_NONE
-                        elif value:
-                            data |= ch.maskAlsEnable
-            if data:
-                ret = self.writeByteRegister( VD6283.REG_ALS_CHANNEL_ENABLE, data )
-                logging.debug("VD6283.configure> write REG_ALS_CHANNEL_ENABLE: %s, data=x%02x", ret, data)
-        
-        # light.Sensor.clear.enable  -->  REG_CHANNEL6_ENABLE
-        value = cs.get(prefix + "clear.enable", None)
-        if ret.isOk() and (value is not None):
-            for ch in self._channel:
-                if ch.index == VD6283.CHANNEL_IDX_6_CLEAR:
-                    ch.isEnabled = bool(value)
-                    data = ch.maskAlsEnable if value else 0
-                    ret = self.writeByteRegister( VD6283.REG_CHANNEL6_ENABLE, data )
-                    logging.debug("VD6283.configure> write REG_CHANNEL6_ENABLE: %s, value=%s, data=x%02x", ret, value, data)
+            value = [None] * VD6283.CHANNEL_NUM
+            for chIdx in range( VD6283.CHANNEL_NUM ):
+                token = cs.get(prefix + VD6283.CHANNEL[chIdx+1].name + ".enable", None)
+                if token is not None:
+                    value[chIdx] = bool(token)
+            ret = self.enableChannels( value )
         
         # light.Sensor.x.gain  -->  REG_ALS_GAIN_CHX
-        for ch in self._channel:
+        for chIdx in range(1, 7):
             if ret.isOk():
-                value = cs.get(prefix + VD6283.CHANNEL[ch.index].name + ".gain", None)
-                ret = self._setGain( ch, value )
+                value = cs.get(prefix + VD6283.CHANNEL[chIdx].name + ".gain", None)
+                ret = self.setGain( chIdx, value )
         
         # light.Sensor.flicker.bias.value  -->  REG_PEDESTAL_VALUE
-        value = cs.get(prefix + "flicker.bias.value", None)
-        if ret.isOk() and (value is not None) and isinstance(value, int):
-            data = value & VD6283.PDST_VAL
-            ret = self.writeByteRegister( VD6283.REG_PEDESTAL_VALUE, data )
-            logging.debug("VD6283.configure> write REG_PEDESTAL_VALUE: %s, value=%s, data=x%02x", ret, value, data)
-
         # light.Sensor.flicker:bias.enable, channel, enable, outport  -->  REG_AC_MODE_CTRL
-        setFeature = lambda ind, dat, pos, msk: dat if ind is None else ((dat & ~msk) | pos) if ind else (dat & ~msk)
-        clrFeature = lambda ind, dat, pos, msk: dat if ind is None else (dat & ~msk) if ind else ((dat & ~msk) | pos) 
-        data = self._shadowAcModeCtrl
         if ret.isOk():
-            value = cs.get(prefix + "flicker.bias.enable", None)
-            data = clrFeature( value, data, VD6283.PEDESTAL_DIS, VD6283.PEDESTAL_DIS )
-            value = cs.get(prefix + "flicker.channel", None)
-            if (value is not None) and isinstance( value, int) and (value>=0) and (value<=6):
-                data &= ~VD6283.AC_CH_SEL
-                for ch in self._channel:
-                    if ch.index == value:
-                        ch.hasFlicker = True
-                        data |= ch.maskAcModeCtrl
-                    else:
-                        ch.hasFlicker = False
-            value = cs.get(prefix + "flicker.enable", None)
-            data = setFeature( value, data, VD6283.AC_FREQEXT_EN, VD6283.AC_FREQEXT_EN )
-            value = cs.get(prefix + "flicker.outport", None)
-            if value is not None:
-                if value==1:
-                    data &= ~VD6283.AC_OUT_SEL
-                else: 
-                    data |= VD6283.AC_OUT_SEL
-            if data != self._shadowAcModeCtrl:
-                ret = self.writeByteRegister( VD6283.REG_AC_MODE_CTRL, data )
-                logging.debug("VD6283.configure> write REG_AC_MODE_CTRL: %s, data=x%02x", ret, data)
-                if ret.isOk():
-                    self._shadowAcModeCtrl = data
-            else:
-                logging.debug("VD6283.configure> no change for REG_AC_MODE_CTRL, data=x%02x.", data)
+            bias = cs.get(prefix + "flicker.bias.value", None)
+            chNum = cs.get(prefix + "flicker.channel", None)
+            pdmOut = cs.get(prefix + "flicker.outport", None)
+            extClk = cs.get(prefix + "flicker.externclk", None)
+            ret = self.setFlicker(chNum, pdmOut, extClk, bias)
         
         # If necessary, clear the interrupt flag
         if ret.isOk() and flagClearInt:
-            ret = self._clearInt()
+            ret = self.clearInt()
         return ret
 
 
@@ -805,60 +666,15 @@ class VD6283(Sensor, SerialBusDevice):
         return status, ret
 
 
-    def getRawData(self):
-        data = dict()
-        ret = ErrorCode.errOk
-        
-        flickerDisabled = not (self._shadowAcModeCtrl & VD6283.AC_FREQEXT_EN)
-        # Immediate read, no wait for nothing
-        for ch in self._channel:
-            # Read out raw data
-            if ch.isEnabled and (flickerDisabled or not ch.hasFlicker):
-                reg = VD6283.REG_ALS_CHX_DATA + (ch.index - 1)*4
-                value, ret = self.readWordRegister( reg )
-                logging.debug("VD6283.getRawData> read REG #x%02X: data=x%04x, err=%s.", reg, value, ret)
-                if ret.isOk():
-                    value = bswap16( value )  # swap endianess
-                    logging.debug("VD6283.getRawData> swapped value=x%04x.", value)
-                    name = VD6283.CHANNEL[ch.index].name
-                    data[name] = value
-                    logging.debug("VD6283.getRawData> data[%s]: %d.", name, value)
-            else:
-                logging.debug("VD6283.getRawData> Channel #%d skipped. ch.enabled=%r flkDisabled=%r ch.hasFlk=%r.",
-                              ch.index, ch.isEnabled, flickerDisabled, ch.hasFlicker)
-        if not data:
-            ret = ErrorCode.errFewData
-        return data, ret
- 
-    def raw2Abs(self, raw):
-        data = dict()
-        ret = ErrorCode.errOk
-
-        for ch in self._channel:
-            chName = VD6283.CHANNEL[ch.index].name
-            rawValue = raw.get( chName, None )
-            if rawValue is not None:
-                absValue, ret = self._transferToIntensity( rawValue, ch )
-                if ret.isOk():
-                    data[chName] = absValue
-                    logging.debug("VD6283.raw2Abs> transferred %d -> %d, err=%s.",
-                                  rawValue, absValue, ret)
-                    
-        if not data:
-            ret = ErrorCode.errFewData
-        return data, ret
-
-           
     def getLatestData(self):
         data, ret = self.getRawData()
         if ret.isOk():
-            data, ret = self.raw2Abs( data )            
+            data, ret = self.rawToIntensity( data )            
         return data, ret
     
 
     def getNextData(self):
         data = None
-        ret = ErrorCode.errOk
         loopCount = 0
         maxLoops = 3
         
@@ -881,7 +697,352 @@ class VD6283(Sensor, SerialBusDevice):
             elif ret.isOk():
                 ret = ErrorCode.errUnavailable
         # Clear interrupt
-        self.writeByteRegister( VD6283.REG_INTERRUPT_CTRL, VD6283.CLR_INTR )
-        self.writeByteRegister( VD6283.REG_INTERRUPT_CTRL, 0x00 )
+        self.clearInt()
 
         return data, ret
+
+
+    #
+    # Individual, proprietary API
+    #
+
+    def clearInt(self):
+        """Clears the interrupt flag INTR_ST.
+
+        :returns: An error code to indicate success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        ret = self.writeByteRegister( VD6283.REG_INTERRUPT_CTRL, VD6283.CLR_INTR )
+        if ret.isOk():
+            ret = self.writeByteRegister( VD6283.REG_INTERRUPT_CTRL, 0x00 )
+        return ret
+    
+    def setGpioDrv(self, value):
+        """Set GPIO drive capability.
+
+        The given value is written to the REG_GPIO1_DRV_CFG register.
+        
+        :param int value: New GPIO drive configuration, one of the VD6283.GPIO1_CFG_ constants.
+        :returns: An error code to indicate success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        data = value if (value >= 0) and (value <= 2) else VD6283.GPIO1_CFG_DEFAULT
+        ret = self.writeByteRegister( VD6283.REG_GPIO1_DRV_CFG, data )
+        logging.debug("VD6283.configure> write REG_GPIO1_DRV_CFG: %s, value=x%02x, data=x%02x", ret, value, data)
+        return ret
+    
+    def setSdaDrv(self, valHighcap, valDrv):
+        """Set SDA drive capability.
+
+        The given values are written to the REG_SDA_DRV_CFG register.
+        
+        :param int valHighcap: VD6283.SDA_LOAD for high capacitive load on SDA, zero otherwise.
+        :param int valDrv: [0...4] New SDA drive configuration, one of the VD6283.SDA_DRV_ constants.
+        :returns: An error code to indicate success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        data = None
+        ret = ErrorCode.errOk
+        if valHighcap is not None:
+            data, ret = self.readByteRegister( VD6283.REG_SDA_DRV_CFG )
+            data = (data | VD6283.SDA_LOAD) if valHighcap else (data & ~VD6283.SDA_LOAD)
+        if ret.isOk() and (valDrv is not None) and isinstance(valDrv, int):
+            if not data:
+                data, ret = self.readByteRegister( VD6283.REG_SDA_DRV_CFG )
+            data = data & ~VD6283.SDA_DRV
+            data |= (valDrv-1) if (valDrv>0) and (valDrv<=5) else VD6283.SDA_DRV_DEFAULT
+        if ret.isOk() and data:
+            ret = self.writeByteRegister( VD6283.REG_SDA_DRV_CFG, data )
+            logging.debug("VD6283.configure> write REG_SDA_DRV_CFG: %s, data=x%02x", ret, data)
+        return ret
+    
+    def setExposure(self, value):
+        """Set exposure time.
+
+        The given value is written to the REG_ALS_EXPOSURE register.
+        Note the exposure time defines the duration that the sensor is
+        exposed light. This is the ADC integration time.
+        The exposure time plus the inter-measurement delay plus some
+        time for housekeeping (~6ms) together define the duration of one
+        measurement cycle, which as its reciprocal, gives the data rate.  
+        
+        :param int value: New exposure time in milliseconds (ms), increments of 1.6ms.
+        :returns: An error code to indicate success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        value = value if (value >= 1) and (value <= 1638) else 80    # ms!
+        data = int(value * 10 + 8) // 16 - 1    # ms -> native register format
+        revdata = (data + 1) * 8                # -> internal storage format in 1/5 ms
+        data = bswap16( data )          # swap endianess
+        ret = self.writeWordRegister( VD6283.REG_ALS_EXPOSURE, data )
+        logging.debug("VD6283.configure> write REG_ALS_EXPOSURE: %s, value=%s, data=x%04x, revdata=%d", ret, value, data, revdata)
+        if ret.isOk():
+            self._shadowAlsExposure = revdata
+        return ret
+
+    def setDelay(self, value):
+        """Set the inter-measurement delay interval.
+
+        The given value is written to the REG_ALS_PERIOD register.
+        Note the delay time defines the time between the end of one
+        measurement and the beginning of the next one.
+        The exposure time plus the inter-measurement interval plus some
+        time for housekeeping (~6ms) together define the duration of one
+        measurement cycle, which as its reciprocal, gives the data rate.  
+        
+        :param int value: New delay time in milliseconds (ms), increments of 20.5ms
+        :returns: An error code to indicate success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        value = value if (value >= 0) and (value <= 5237) else 0
+        data = int(value * 2 + 20) // 41
+        revdata = data * 41 // 2
+        ret = self.writeByteRegister( VD6283.REG_ALS_PERIOD, data )
+        logging.debug("VD6283.configure> write REG_ALS_PERIOD: %s, value=%s, data=%d, revdata=%d", ret, value, data, revdata)
+        if ret.isOk():
+            self._shadowAlsPeriod = revdata
+        return ret
+    
+    def setMode(self, value):
+        """Set the measurement mode to either single or continous measurement.
+
+        The given value is written to the REG_ALS_CTRL register.
+        
+        :param int value: New mode to operate in.
+        :returns: An error code to indicate success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        ret = ErrorCode.errOk
+        if value in [VD6283.ALS_MODE_SINGLE, VD6283.ALS_MODE_CONT]:
+            data = value | (self._shadowAlsCtrl & VD6283.ALS_EN) 
+            ret = self.writeByteRegister( VD6283.REG_ALS_CTRL, data )
+            logging.debug("VD6283.configure> write REG_ALS_CTRL: %s, value=%s, data=x%02x", ret, value, data)
+            if ret.isOk():
+                self._shadowAlsCtrl = data
+        else:
+            ret = ErrorCode.errInvalidParameter
+        return ret
+    
+    def enableChannels(self, lstValue):
+        """Enables or disables one or more channels.
+
+        The given parameter must be a list with at least VD6283.CHANNEL_NUM
+        positions. It is interpreted as a list of values, where each value
+        corresponds to a channel.
+        Note the different indexing scheme: The value at list index zero
+        [0] corresponds to the first channel, which is channel #1.
+        If a value is True, the corresponding channel is enabled.
+        If it is False, the channel is disabled.
+        If the value is None, the status of the channel is left unchanged.
+        The result affects the REG_ALS_CHANNEL_ENABLE and
+        REG_CHANNEL6_ENABLE registers.
+        
+        :param int value: New mode to operate in.
+        :returns: An error code to indicate success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        ret = ErrorCode.errOk
+        if isinstance( lstValue, list ) and (len(lstValue) >= VD6283.CHANNEL_NUM+1):
+            if not all( val is None for val in lstValue ):
+                oldData, ret = self.readByteRegister( VD6283.REG_ALS_CHANNEL_ENABLE )
+                if ret.isOk():
+                    oldData &= VD6283.ALS_CH_EN_ALL
+                    newData = oldData
+                    for chIdx in range(VD6283.CHANNEL_NUM-1):
+                        if lstValue[chIdx]:
+                            newData |= self._channel[chIdx].maskAlsEnable
+                        elif lstValue[chIdx] is not None:
+                            newData &= ~self._channel[chIdx].maskAlsEnable
+                        self._channel[chIdx].isEnabled = bool(newData & self._channel[chIdx].maskAlsEnable)
+                    if newData != oldData:
+                        ret = self.writeByteRegister( VD6283.REG_ALS_CHANNEL_ENABLE, newData )
+                        logging.debug("VD6283.configure> write REG_ALS_CHANNEL_ENABLE: %s, newData=x%02x", ret, newData)
+                if ret.isOk() and (lstValue[5] is not None):
+                    oldData, ret = self.readByteRegister( VD6283.REG_CHANNEL6_ENABLE )
+                    if ret.isOk():
+                        if bool(oldData & VD6283.CH6_EN) != bool(lstValue[5]):
+                            newData = oldData ^ VD6283.CH6_EN
+                            ret = self.writeByteRegister( VD6283.REG_CHANNEL6_ENABLE, newData )
+                            self._channel[5].isEnabled = bool(newData & VD6283.CH6_EN)
+                            logging.debug("VD6283.configure> write REG_CHANNEL6_ENABLE: %s, newData=x%02x", ret, newData)
+        else:
+            ret = ErrorCode.errInvalidParameter
+        return ret
+    
+    def setGain(self, channelNum, value):
+        """Set channel gain.
+
+        Expect value in external format, as a plain factor, possibly float!
+        The given value is written to the REG_ALS_GAIN_CHX register.
+
+        :param int channelNum: [1...6] Number of the channel to adjust the gain for.
+        :param int value: [0.71 ... 67] The new gain factor for the given channel.
+        :returns: An error code to indicate success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        ret = ErrorCode.errOk
+        data = None
+        if (channelNum is None) or not isinstance(channelNum, int) or \
+            (value is None) or not isinstance(value, (int, float)):
+            ret = ErrorCode.errInvalidParameter
+            logging.debug("VD6283.setGain> channel #%s, value=%s failed ret=%s",
+                          channelNum, value, ret)
+        else:
+            value = value * 24
+            if isinstance( value, float ):
+                value = round(value)
+            data, ret = VD6283.GAIN_DICT.findKey( value )
+            if ret.isOk():
+                register = VD6283.REG_ALS_GAIN_CHX + channelNum - 1
+                ret = self.writeByteRegister( register, data )
+            if ret.isOk():
+                gain, ret = VD6283.GAIN_DICT.getValue(data)
+                self._channel[channelNum-1].gain = gain
+            logging.debug("VD6283.setGain> channel #%d: value=%s, data=%s, gain=%d, ret=%s",
+                          channelNum, value, data, gain, ret)
+        return ret
+
+    def setFlicker(self, channelNum=CHANNEL_NONE,
+                    pdmOut=1, extClk=False,
+                    pedestal=PEDESTAL_DEFAULT ):
+        """Setup the flicker engine.
+
+        Configures the flicker engine as specified by the given parameters.
+        Note that there is implicit meaning and side effects as described
+        in the parameters section.
+        The given values affect the REG_AC_MODE_CTRL and REG_PEDESTAL_VALUE
+        registers.
+
+        :param int channelNum: [0...6] The ALS channel to use for flicker recognition.\
+        Intensity measurements cannot be made on that channel, simultaneously!\
+        VD6283.CHANNEL_NONE to disable the flicker engine.
+        :param int pdmOut: [1 | 2] Sensor's GPIO for PDM output. 1 for GPIO1 (default), 2 for GPIO2.
+        :param bool extClk: True if external clk on GPIO2 shall be used for PDM, False for internal clock.
+        :param int pedestal: [0...7] Pedestal value to apply. None to disable the pedestal feature.
+        :returns: An error code to indicate success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        ret = ErrorCode.errOk
+        newAcModeCtrl = self._shadowAcModeCtrl
+        # REG_PEDESTAL_VALUE and REG_AC_MODE_CTRL:PEDESTAL_DIS
+        if pedestal is None:
+            newAcModeCtrl |= VD6283.PEDESTAL_DIS
+        elif not isinstance(pedestal, int):
+            ret = ErrorCode.errInvalidParameter
+        else:
+            newAcModeCtrl &= ~VD6283.PEDESTAL_DIS
+            data = pedestal & VD6283.PDST_VAL
+            ret = self.writeByteRegister( VD6283.REG_PEDESTAL_VALUE, data )
+            logging.debug("VD6283.setFlicker> write REG_PEDESTAL_VALUE: %s, pedestal=%s, data=x%02x", ret, pedestal, data)
+        if ret.isOk():  # AC_CH_SEL and AC_FREQEXT_EN
+            if (channelNum is None) or not isinstance( channelNum, int) or \
+                (channelNum < VD6283.CHANNEL_NONE) or (channelNum > VD6283.CHANNEL_NUM):
+                ret = ErrorCode.errInvalidParameter
+            else:
+                newAcModeCtrl &= ~VD6283.AC_CH_SEL
+                newAcModeCtrl &= ~VD6283.AC_FREQEXT_EN
+                for ch in self._channel:
+                    if ch.index == channelNum:
+                        ch.hasFlicker = True
+                        newAcModeCtrl |= ch.maskAcModeCtrl | VD6283.AC_FREQEXT_EN
+                    else:
+                        ch.hasFlicker = False
+        if ret.isOk():  # AC_OUT_SEL
+            if (pdmOut is None) or not isinstance( pdmOut, int) or  \
+                (pdmOut < 1) or (pdmOut > 2):
+                ret = ErrorCode.errInvalidParameter
+            else:
+                if pdmOut==1:
+                    newAcModeCtrl &= ~VD6283.AC_OUT_SEL
+                else: 
+                    newAcModeCtrl |= VD6283.AC_OUT_SEL
+        if ret.isOk():  # PDM_CLK_SEL
+            if (extClk is None) or not isinstance( extClk, bool):
+                ret = ErrorCode.errInvalidParameter
+            else:
+                if extClk:
+                    newAcModeCtrl |= VD6283.PDM_CLK_SEL
+                else: 
+                    newAcModeCtrl &= ~VD6283.PDM_CLK_SEL
+        # Update REG_AC_MODE_CTRL, if new content is different    
+        if ret.isOk():
+            if newAcModeCtrl != self._shadowAcModeCtrl:
+                ret = self.writeByteRegister( VD6283.REG_AC_MODE_CTRL, newAcModeCtrl )
+                logging.debug("VD6283.setFlicker> write REG_AC_MODE_CTRL: %s, newAcModeCtrl=x%02x, old shadow=x%02x",
+                              ret, newAcModeCtrl, self._shadowAcModeCtrl)
+                if ret.isOk():
+                    self._shadowAcModeCtrl = newAcModeCtrl
+            else:
+                logging.debug("VD6283.setFlicker> no change for REG_AC_MODE_CTRL, newAcModeCtrl=x%02x.", newAcModeCtrl)
+        return ret
+
+    def getRawData(self):
+        """Retrieve a measurement as raw digital counts.
+
+        The measurement result is a list of integer values.
+        This list has always CHANNEL_NUM entries.
+        The first element in this list (at index 0) is the measurement
+        result for CHANNEL_IDX_1_RED, the second element at index 1
+        corresponds to CHANNEL_IDX_2_VISIBLE and so on.
+        So, list[0...5] corresponds to CHANNEL_1...CHANNEL_6.
+        Note that the flicker frequency is not part of a sensor
+        measurement. Instead, flicker must be determined by the surrounding
+        circuitry and the application.
+        If a sensor channel is disabled or has the flicker engine operating
+        on it, the corresponding list entry is negative.
+        Otherwise, the raw ADC measurement value is a 16 bit value
+        ranging in [0 ... 65535].
+        
+        :returns: A list of raw measurement int values \
+        and an error code to indicate success or the reason of failure.
+        :rtype: list, ErrorCode
+        """
+        data = [-1] * VD6283.CHANNEL_NUM
+        ret = ErrorCode.errOk
+        
+        flickerDisabled = not (self._shadowAcModeCtrl & VD6283.AC_FREQEXT_EN)
+        # Immediate read, no wait for nothing
+        for ch in self._channel:
+            # Read out raw data
+            if ch.isEnabled and (flickerDisabled or not ch.hasFlicker):
+                reg = VD6283.REG_ALS_CHX_DATA + (ch.index - 1)*4
+                value, ret = self.readWordRegister( reg )
+                logging.debug("VD6283.getRawData> read REG #x%02X: data=x%04x, err=%s.", reg, value, ret)
+                if ret.isOk():
+                    value = bswap16( value )  # swap endianess
+                    logging.debug("VD6283.getRawData> swapped value=x%04x.", value)
+                    data[ch.index - 1] = value
+                    logging.debug("VD6283.getRawData> data[%d]: %d.", (ch.index - 1), value)
+            else:
+                logging.debug("VD6283.getRawData> Channel #%d skipped. ch.enabled=%r flkDisabled=%r ch.hasFlk=%r.",
+                              ch.index, ch.isEnabled, flickerDisabled, ch.hasFlicker)
+        return data, ret
+ 
+    def rawToIntensity( self, rawData ):
+        """Translate digital measurement value into intensity.
+        
+        :param list(int) adcCounts: List of 16bit raw digital reading
+        :returns: List of corresponding intensity values in uW/cm^2 as int \
+        and an error code to indicate success or the reason of failure.
+        :rtype: list(int), ErrorCode
+        """
+        err = ErrorCode.errOk
+        result = [-1] * len(rawData)
+        for ch in self._channel:
+            rawIdx = ch.index - 1
+            rawValue = rawData[rawIdx]
+            if rawValue >= 0:
+                # Apply channel gain, sensitivity and exposure time, where
+                # sensitivity reference is given for EXTIME=50ms.
+                # Gain correction:    * 24 / channel.gain
+                # sensitivity:        * 10 / VD6283.CHANNEL[channel.index].sensitivity
+                # exposure time:      * 248 / self._shadowAlsExposure; 248 = 49.6ms * 5 ~ 50ms*5
+                # So overall:        *24*10*248 / (...gain*...sensitivity*...exposure)
+                result[rawIdx] = rawValue * 59520 // (ch.gain * VD6283.CHANNEL[ch.index].sensitivity * self._shadowAlsExposure)
+                logging.debug("VD6283._transferToIntensity> channel #%d: raw=%d -> result=%d",
+                              ch.index, rawValue, result[rawIdx])
+                err = ErrorCode.errOk
+            else:
+                logging.debug("VD6283._transferToIntensity> channel #%d skipped.",
+                              ch.index)
+        return result, err

@@ -98,13 +98,7 @@ class TestVD6283( unittest.TestCase ):
             meas, err = sensor.getRawData()
             self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
             logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
-                         meas.get(SDUT.CHANNEL[1].name, -1),
-                         meas.get(SDUT.CHANNEL[2].name, -1),
-                         meas.get(SDUT.CHANNEL[3].name, -1),
-                         meas.get(SDUT.CHANNEL[4].name, -1),
-                         meas.get(SDUT.CHANNEL[5].name, -1),
-                         meas.get(SDUT.CHANNEL[6].name, -1)
-                         )
+                         meas[0], meas[1], meas[2], meas[3], meas[4], meas[5])
         err = sensor.close()
         self.assertTrue( err.isOk() )
 
@@ -129,13 +123,7 @@ class TestVD6283( unittest.TestCase ):
             meas, err = sensor.getLatestData()
             self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
             logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
-                         meas.get(SDUT.CHANNEL[1].name, -1),
-                         meas.get(SDUT.CHANNEL[2].name, -1),
-                         meas.get(SDUT.CHANNEL[3].name, -1),
-                         meas.get(SDUT.CHANNEL[4].name, -1),
-                         meas.get(SDUT.CHANNEL[5].name, -1),
-                         meas.get(SDUT.CHANNEL[6].name, -1)
-                         )
+                         meas[0], meas[1], meas[2], meas[3], meas[4], meas[5])
         err = sensor.close()
         self.assertTrue( err.isOk() )
 
@@ -159,19 +147,12 @@ class TestVD6283( unittest.TestCase ):
             meas, err = sensor.getNextData()
             self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
             logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
-                         meas.get(SDUT.CHANNEL[1].name, -1),
-                         meas.get(SDUT.CHANNEL[2].name, -1),
-                         meas.get(SDUT.CHANNEL[3].name, -1),
-                         meas.get(SDUT.CHANNEL[4].name, -1),
-                         meas.get(SDUT.CHANNEL[5].name, -1),
-                         meas.get(SDUT.CHANNEL[6].name, -1)
-                         )
+                         meas[0], meas[1], meas[2], meas[3], meas[4], meas[5])
         err = sensor.close()
         self.assertTrue( err.isOk() )
 
-
     #@unittest.skip("Disabled for easier diagnostics.")
-    def test_compensation(self):
+    def test_transfer(self):
         global config
         cfg = config.copy()
         cfg["light.Sensor.flicker.enable"] = False
@@ -181,54 +162,85 @@ class TestVD6283( unittest.TestCase ):
         err = sensor.open(cfg)
         self.assertTrue( err.isOk(), f"Open failed: {err}." )
         
-        cfg.clear()
-        cfgParam = Configuration( item=ConfigItem.multisetting,
-                                  setting=cfg )
         exposure = (120, 240, 360, 600, 960)
         gain = (1, 2.5, 5, 10, 16)
-        akk = dict()
+        adcData = (0, 1, 5, 10, 50, 100, 500, 1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000, 65000, 0xFFFF)
         
+        logging.info( "Raw to intensity transfer function" )
         headLine = "Gain, Exp,   "
         for chIdx in range( 1, 7 ):
             headLine += SDUT.CHANNEL[chIdx].name+"["+str(chIdx)+"],   "
-        logging.info( "Compensated data" )
         logging.info( headLine )
         
         for gn in gain:
-            cfg.clear()
             for chIdx in range( 1, SDUT.CHANNEL_NUM+1):
-                name = SDUT.CHANNEL[chIdx].name
-                cfg["light.Sensor."+name+".gain"] = gn
-            err = sensor.configure(cfgParam)
+                err = sensor.setGain( chIdx, gn )
             self.assertTrue( err.isOk(), f"Configuration of gain failed: {err}." )
             for exp in exposure:
-                cfg.clear()
-                cfg["light.Sensor.exposure"] = exp
-                err = sensor.configure(cfgParam)
+                err = sensor.setExposure( exp )
                 self.assertTrue( err.isOk(), f"Configuration of exposure={exp} failed: {err}." )
-                for chIdx in range( 1, SDUT.CHANNEL_NUM+1):
-                    akk[chIdx] = 0
+                for value in adcData:
+                    raw = [value] * SDUT.CHANNEL_NUM
+                    xdat, err = sensor.rawToIntensity( raw )
+                    self.assertTrue( err.isOk(), f"Compensation failed: {err}." )
+                    logging.info("  %d  %d    %d - %d    %d - %d    %d - %d    %d - %d    %d - %d    %d - %d",
+                                 gn, exp,
+                                 raw[0], xdat[0],
+                                 raw[1], xdat[1],
+                                 raw[2], xdat[2],
+                                 raw[3], xdat[3],
+                                 raw[4], xdat[4],
+                                 raw[5], xdat[5] )
+        err = sensor.close()
+        self.assertTrue( err.isOk() )
+
+    #@unittest.skip("Disabled for easier diagnostics.")
+    def test_multiConfig(self):
+        global config
+        cfg = config.copy()
+        cfg["light.Sensor.flicker.enable"] = False
+        SDUT.Params_init( cfg )
+        sensor = SDUT()
+        self.assertIsNotNone( sensor )
+        err = sensor.open(cfg)
+        self.assertTrue( err.isOk(), f"Open failed: {err}." )
+        
+        exposure = (120, 240, 360, 600, 960)
+        gain = (1, 2.5, 5, 10, 16)
+        
+        logging.info( "MultiConfig compensated measurement data" )
+        headLine = "Gain, Exp,   "
+        for chIdx in range( 1, 7 ):
+            headLine += SDUT.CHANNEL[chIdx].name+"["+str(chIdx)+"],   "
+        logging.info( headLine )
+        
+        for gn in gain:
+            for chIdx in range( 1, SDUT.CHANNEL_NUM+1):
+                err = sensor.setGain( chIdx, gn )
+            self.assertTrue( err.isOk(), f"Configuration of gain failed: {err}." )
+            for exp in exposure:
+                err = sensor.setExposure( exp )
+                self.assertTrue( err.isOk(), f"Configuration of exposure={exp} failed: {err}." )
+                akk = [0] * SDUT.CHANNEL_NUM
                 sleepTime = (exp + config["light.Sensor.interval"] + 20) / 1000
-                for cnt in range(10):
+                for _ in range(10):
                     sleep( sleepTime )
                     meas, err = sensor.getRawData()
                     self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
                     for chIdx in range( 1, SDUT.CHANNEL_NUM+1):
-                        akk[chIdx] += meas.get( SDUT.CHANNEL[chIdx].name, -1 )
+                        akk[chIdx] += meas[chIdx]
                 for chIdx in range( 1, SDUT.CHANNEL_NUM+1):
                     akk[chIdx] /= 10
-                    akk[ SDUT.CHANNEL[chIdx].name ] = akk[chIdx]
-                xdat, err = sensor.raw2Abs( akk )
+                xdat, err = sensor.rawToIntensity( akk )
                 self.assertTrue( err.isOk(), f"Compensation failed: {err}." )
                 logging.info("  %d  %d    %d - %d    %d - %d    %d - %d    %d - %d    %d - %d    %d - %d",
                              gn, exp,
-                             akk.get(SDUT.CHANNEL[1].name, -1), xdat.get(SDUT.CHANNEL[1].name, -1),
-                             akk.get(SDUT.CHANNEL[2].name, -1), xdat.get(SDUT.CHANNEL[2].name, -1),
-                             akk.get(SDUT.CHANNEL[3].name, -1), xdat.get(SDUT.CHANNEL[3].name, -1),
-                             akk.get(SDUT.CHANNEL[4].name, -1), xdat.get(SDUT.CHANNEL[4].name, -1),
-                             akk.get(SDUT.CHANNEL[5].name, -1), xdat.get(SDUT.CHANNEL[5].name, -1),
-                             akk.get(SDUT.CHANNEL[6].name, -1), xdat.get(SDUT.CHANNEL[6].name, -1)
-                             )
+                             akk[0], xdat[0],
+                             akk[1], xdat[1],
+                             akk[2], xdat[2],
+                             akk[3], xdat[3],
+                             akk[4], xdat[4],
+                             akk[5], xdat[5] )
         err = sensor.close()
         self.assertTrue( err.isOk() )
 
