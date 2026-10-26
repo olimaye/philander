@@ -88,6 +88,9 @@ class VD6283(Sensor, SerialBusDevice):
     ALS_EN              = 0x01
     
     REG_ALS_PERIOD      = 0x04  # Periods of 20.5 ms (=LSB)
+    DELAY_MIN			= 0
+    DELAY_DEFAULT 		= 0
+    DELAY_MAX			= 5228
 
     REG_ALS_CHX_DATA    = 0x06
     # REG_ALS_CH1_DATA_H  = 0x06
@@ -109,10 +112,12 @@ class VD6283(Sensor, SerialBusDevice):
     # REG_ALS_CH6_DATA_M  = 0x1B
     # REG_ALS_CH6_DATA_L  = 0x1C
     
-    REG_ALS_EXPOSURE    = 0x1D
+    REG_ALS_EXPOSURE    = 0x1D		# Intervals of 1.6 ms 
     # REG_ALS_EXPOSURE_M  = 0x1D
     # REG_ALS_EXPOSURE_L  = 0x1E
-    # EXPOSURE_DEFAULT    = 0x0032    # Intervals of 1.6 ms 
+    EXPOSURE_MIN		= 1
+    EXPOSURE_DEFAULT    = 80
+    EXPOSURE_MAX		= 1638
     
     REG_ALS_GAIN_CHX    = 0x25
     ALS_GAIN            = 0x0F
@@ -137,6 +142,9 @@ class VD6283(Sensor, SerialBusDevice):
     # ALS_GAIN_1      = 0x0D
     # ALS_GAIN_0p83   = 0x0E
     # ALS_GAIN_0p71   = 0x0F
+    GAIN_MIN		= 0.71
+    GAIN_DEFAULT	= 1
+    GAIN_MAX		= 67
     
     REG_CHANNEL6_ENABLE = 0x2D
     CH6_EN          = 0x01
@@ -771,7 +779,7 @@ class VD6283(Sensor, SerialBusDevice):
         :returns: An error code to indicate success or the reason of failure.
         :rtype: ErrorCode
         """
-        value = value if (value >= 1) and (value <= 1638) else 80    # ms!
+        value = value if (value >= VD6283.EXPOSURE_MIN) and (value <= VD6283.EXPOSURE_MAX) else VD6283.EXPOSURE_DEFAULT
         data = int(value * 10 + 8) // 16 - 1    # ms -> native register format
         revdata = (data + 1) * 8                # -> internal storage format in 1/5 ms
         data = bswap16( data )          # swap endianess
@@ -795,7 +803,7 @@ class VD6283(Sensor, SerialBusDevice):
         :returns: An error code to indicate success or the reason of failure.
         :rtype: ErrorCode
         """
-        value = value if (value >= 0) and (value <= 5237) else 0
+        value = value if (value >= VD6283.DELAY_MIN) and (value <= VD6283.DELAY_MAX) else VD6283.DELAY_DEFAULT
         data = int(value * 2 + 20) // 41
         revdata = data * 41 // 2
         ret = self.writeByteRegister( VD6283.REG_ALS_PERIOD, data )
