@@ -42,7 +42,6 @@ There is no way of reading calibration factors.
 Exposure time and gain factor work mainly proportional on the data value,
 except when approaching saturation.
 """
-from tensorflow.python.framework.test_ops import old
 __author__ = "Oliver Maye"
 __version__ = "0.1"
 __all__ = ["VD6283"]
@@ -443,6 +442,7 @@ class VD6283(Sensor, SerialBusDevice):
         # Read register shadows
         if ret.isOk():
             ret = self._syncShadows()
+            logging.debug("VD6283.open> _syncShadows: %s.", ret)
         # Configure
         if ret.isOk():
             cfg = Configuration( item=ConfigItem.multisetting,
@@ -715,6 +715,7 @@ class VD6283(Sensor, SerialBusDevice):
         ret = self.writeByteRegister( VD6283.REG_INTERRUPT_CTRL, VD6283.CLR_INTR )
         if ret.isOk():
             ret = self.writeByteRegister( VD6283.REG_INTERRUPT_CTRL, 0x00 )
+        logging.debug("VD6283.clearInt> write REG_INTERRUPT_CTRL: %s", ret)
         return ret
     
     def setGpioDrv(self, value):
@@ -728,7 +729,7 @@ class VD6283(Sensor, SerialBusDevice):
         """
         data = value if (value >= 0) and (value <= 2) else VD6283.GPIO1_CFG_DEFAULT
         ret = self.writeByteRegister( VD6283.REG_GPIO1_DRV_CFG, data )
-        logging.debug("VD6283.configure> write REG_GPIO1_DRV_CFG: %s, value=x%02x, data=x%02x", ret, value, data)
+        logging.debug("VD6283.setGpioDrv> write REG_GPIO1_DRV_CFG: %s, value=x%02x, data=x%02x", ret, value, data)
         return ret
     
     def setSdaDrv(self, valHighcap, valDrv):
@@ -753,7 +754,7 @@ class VD6283(Sensor, SerialBusDevice):
             data |= (valDrv-1) if (valDrv>0) and (valDrv<=5) else VD6283.SDA_DRV_DEFAULT
         if ret.isOk() and data:
             ret = self.writeByteRegister( VD6283.REG_SDA_DRV_CFG, data )
-            logging.debug("VD6283.configure> write REG_SDA_DRV_CFG: %s, data=x%02x", ret, data)
+            logging.debug("VD6283.setSdaDrv> write REG_SDA_DRV_CFG: %s, data=x%02x", ret, data)
         return ret
     
     def setExposure(self, value):
@@ -775,7 +776,7 @@ class VD6283(Sensor, SerialBusDevice):
         revdata = (data + 1) * 8                # -> internal storage format in 1/5 ms
         data = bswap16( data )          # swap endianess
         ret = self.writeWordRegister( VD6283.REG_ALS_EXPOSURE, data )
-        logging.debug("VD6283.configure> write REG_ALS_EXPOSURE: %s, value=%s, data=x%04x, revdata=%d", ret, value, data, revdata)
+        logging.debug("VD6283.setExposure> write REG_ALS_EXPOSURE: %s, value=%s, data=x%04x, revdata=%d", ret, value, data, revdata)
         if ret.isOk():
             self._shadowAlsExposure = revdata
         return ret
@@ -798,7 +799,7 @@ class VD6283(Sensor, SerialBusDevice):
         data = int(value * 2 + 20) // 41
         revdata = data * 41 // 2
         ret = self.writeByteRegister( VD6283.REG_ALS_PERIOD, data )
-        logging.debug("VD6283.configure> write REG_ALS_PERIOD: %s, value=%s, data=%d, revdata=%d", ret, value, data, revdata)
+        logging.debug("VD6283.setDelay> write REG_ALS_PERIOD: %s, value=%s, data=%d, revdata=%d", ret, value, data, revdata)
         if ret.isOk():
             self._shadowAlsPeriod = revdata
         return ret
@@ -816,7 +817,7 @@ class VD6283(Sensor, SerialBusDevice):
         if value in [VD6283.ALS_MODE_SINGLE, VD6283.ALS_MODE_CONT]:
             data = value | (self._shadowAlsCtrl & VD6283.ALS_EN) 
             ret = self.writeByteRegister( VD6283.REG_ALS_CTRL, data )
-            logging.debug("VD6283.configure> write REG_ALS_CTRL: %s, value=%s, data=x%02x", ret, value, data)
+            logging.debug("VD6283.setMode> write REG_ALS_CTRL: %s, value=%s, data=x%02x", ret, value, data)
             if ret.isOk():
                 self._shadowAlsCtrl = data
         else:
@@ -842,7 +843,7 @@ class VD6283(Sensor, SerialBusDevice):
         :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
-        if isinstance( lstValue, list ) and (len(lstValue) >= VD6283.CHANNEL_NUM+1):
+        if isinstance( lstValue, list ) and (len(lstValue) >= VD6283.CHANNEL_NUM):
             if not all( val is None for val in lstValue ):
                 oldData, ret = self.readByteRegister( VD6283.REG_ALS_CHANNEL_ENABLE )
                 if ret.isOk():
@@ -856,7 +857,7 @@ class VD6283(Sensor, SerialBusDevice):
                         self._channel[chIdx].isEnabled = bool(newData & self._channel[chIdx].maskAlsEnable)
                     if newData != oldData:
                         ret = self.writeByteRegister( VD6283.REG_ALS_CHANNEL_ENABLE, newData )
-                        logging.debug("VD6283.configure> write REG_ALS_CHANNEL_ENABLE: %s, newData=x%02x", ret, newData)
+                        logging.debug("VD6283.enableChannels> write REG_ALS_CHANNEL_ENABLE: %s, newData=x%02x", ret, newData)
                 if ret.isOk() and (lstValue[5] is not None):
                     oldData, ret = self.readByteRegister( VD6283.REG_CHANNEL6_ENABLE )
                     if ret.isOk():
@@ -864,9 +865,13 @@ class VD6283(Sensor, SerialBusDevice):
                             newData = oldData ^ VD6283.CH6_EN
                             ret = self.writeByteRegister( VD6283.REG_CHANNEL6_ENABLE, newData )
                             self._channel[5].isEnabled = bool(newData & VD6283.CH6_EN)
-                            logging.debug("VD6283.configure> write REG_CHANNEL6_ENABLE: %s, newData=x%02x", ret, newData)
+                            logging.debug("VD6283.enableChannels> write REG_CHANNEL6_ENABLE: %s, newData=x%02x", ret, newData)
+                logging.debug("VD6283.enableChannels> %s. Leaving. list=%s", ret, lstValue)
+            else:
+                logging.debug("VD6283.enableChannels> %s. Nothing to do: list=%s", ret, lstValue)
         else:
             ret = ErrorCode.errInvalidParameter
+            logging.debug("VD6283.enableChannels> %s. list=%s", ret, lstValue)
         return ret
     
     def setGain(self, channelNum, value):

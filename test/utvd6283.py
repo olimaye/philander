@@ -77,7 +77,7 @@ class TestVD6283( unittest.TestCase ):
         err = sensor.close()
         self.assertTrue( err.isOk() )
     
-    @unittest.skip("Disabled for easier diagnostics.")
+    #@unittest.skip("Disabled for easier diagnostics.")
     def test_rawData(self):
         global config
         cfg = config.copy()
@@ -102,7 +102,7 @@ class TestVD6283( unittest.TestCase ):
         err = sensor.close()
         self.assertTrue( err.isOk() )
 
-    @unittest.skip("Disabled for easier diagnostics.")
+    #@unittest.skip("Disabled for easier diagnostics.")
     def test_latestData(self):
         global config
         cfg = config.copy()
@@ -127,7 +127,7 @@ class TestVD6283( unittest.TestCase ):
         err = sensor.close()
         self.assertTrue( err.isOk() )
 
-    @unittest.skip("Disabled for easier diagnostics.")
+    #@unittest.skip("Disabled for easier diagnostics.")
     def test_nextData(self):
         global config
         cfg = config.copy()
@@ -183,7 +183,7 @@ class TestVD6283( unittest.TestCase ):
                     raw = [value] * SDUT.CHANNEL_NUM
                     xdat, err = sensor.rawToIntensity( raw )
                     self.assertTrue( err.isOk(), f"Compensation failed: {err}." )
-                    logging.info("  %d  %d    %d - %d    %d - %d    %d - %d    %d - %d    %d - %d    %d - %d",
+                    logging.info("%2d, %3d,  %5d, %5d,  %5d, %5d,  %5d, %5d,  %5d, %5d,  %5d, %5d,  %5d, %5d",
                                  gn, exp,
                                  raw[0], xdat[0],
                                  raw[1], xdat[1],
@@ -227,13 +227,13 @@ class TestVD6283( unittest.TestCase ):
                     sleep( sleepTime )
                     meas, err = sensor.getRawData()
                     self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
-                    for chIdx in range( 1, SDUT.CHANNEL_NUM+1):
-                        akk[chIdx] += meas[chIdx]
-                for chIdx in range( 1, SDUT.CHANNEL_NUM+1):
-                    akk[chIdx] /= 10
+                    for idx in range( SDUT.CHANNEL_NUM ):
+                        akk[idx] += meas[idx]
+                for idx in range( SDUT.CHANNEL_NUM ):
+                    akk[idx] /= 10
                 xdat, err = sensor.rawToIntensity( akk )
                 self.assertTrue( err.isOk(), f"Compensation failed: {err}." )
-                logging.info("  %d  %d    %d - %d    %d - %d    %d - %d    %d - %d    %d - %d    %d - %d",
+                logging.info("%2d, %3d,  %5d, %5d,  %5d, %5d,  %5d, %5d,  %5d, %5d,  %5d, %5d,  %5d, %5d",
                              gn, exp,
                              akk[0], xdat[0],
                              akk[1], xdat[1],
@@ -248,7 +248,7 @@ class TestVD6283( unittest.TestCase ):
         
 if __name__ == '__main__':
     logger = logging.getLogger()
-    logger.setLevel( logging.INFO )
+    logger.setLevel( logging.WARNING )
     logger.addHandler( logging.StreamHandler() )
 
     parser = argparse.ArgumentParser()
