@@ -203,31 +203,47 @@ class VD6283(Sensor, SerialBusDevice):
         """Data structure to represent fix channel data (characteristic).
         """
         name:			str
-        # Scaling factor for mapping into intensity [uW/cm^2]
+        maskAlsEnable:  int     # For REG_ALS_CHANNEL_ENABLE / REG_CHANNEL6_ENABLE
+        maskFlkEnable:  int     # For REG_AC_MODE_CTRL
+        # Scaling factor for mapping into intensity [mW/m^2]
         # Holds for exposure=50ms and at 25 deg. C.
-        # Stored in 1/10 Counts / uW/cm^2
-        # so, e.g. 62.3 is stored as 623.
+        # Datasheet gives it in counts per uW/cm^2, so we store it
+        # as 1/100 counts per mw/m^2
+        # so, e.g. 62.3 cnt/(uW/cm^2) = 623 * 1/100 * cnt/(mW/m^2).
         # Refer to chap. 8.2. for more details on the sensitivity.
-        sensitivity:    int     # in 1/10
-
-    @dataclass
-    class ChannelConfig():
-        """Data structure to represent variable channel data (configuration).
-        """
-        index:          int
-        maskAlsEnable:  int
-        maskAcModeCtrl: int
-        isEnabled:      bool = False
-        hasFlicker:     bool = False
-        gain:			int = 24    # Gain factor stored in 1/24.
+        sensitivity:    int     # in 1/100 mW/m^2
 
     CHANNEL = {
-        CHANNEL_IDX_1_RED:		ChannelCharacteristic(name="red", sensitivity=146),
-        CHANNEL_IDX_2_VISIBLE:	ChannelCharacteristic(name="visible", sensitivity=497),
-        CHANNEL_IDX_3_BLUE:		ChannelCharacteristic(name="blue", sensitivity=146),
-        CHANNEL_IDX_4_GREEN:	ChannelCharacteristic(name="green", sensitivity=295),
-        CHANNEL_IDX_5_IR:		ChannelCharacteristic(name="ir", sensitivity=860),
-        CHANNEL_IDX_6_CLEAR:	ChannelCharacteristic(name="clear", sensitivity=623),
+        CHANNEL_IDX_1_RED:		ChannelCharacteristic(
+                                    name="red",
+                                    maskAlsEnable=ALS_CH_EN_1,
+                                    maskFlkEnable=AC_CH_SEL_1,
+                                    sensitivity=146 ),
+        CHANNEL_IDX_2_VISIBLE:	ChannelCharacteristic(
+                                    name="visible",
+                                    maskAlsEnable=ALS_CH_EN_2,
+                                    maskFlkEnable=AC_CH_SEL_2,
+                                    sensitivity=497 ),
+        CHANNEL_IDX_3_BLUE:		ChannelCharacteristic(
+                                    name="blue",
+                                    maskAlsEnable=ALS_CH_EN_3,
+                                    maskFlkEnable=AC_CH_SEL_3,
+                                    sensitivity=146 ),
+        CHANNEL_IDX_4_GREEN:	ChannelCharacteristic(
+                                    name="green",
+                                    maskAlsEnable=ALS_CH_EN_4,
+                                    maskFlkEnable=AC_CH_SEL_4,
+                                    sensitivity=295 ),
+        CHANNEL_IDX_5_IR:		ChannelCharacteristic(
+                                    name="ir",
+                                    maskAlsEnable=ALS_CH_EN_5,
+                                    maskFlkEnable=AC_CH_SEL_5,
+                                    sensitivity=860 ),
+        CHANNEL_IDX_6_CLEAR:	ChannelCharacteristic(
+                                    name="clear",
+                                    maskAlsEnable=CH6_EN,
+                                    maskFlkEnable=AC_CH_SEL_6,
+                                    sensitivity=623 ),
         }
     
     # Map register REG_ALS_GAIN_CHX content to gain factors as stored internally in 1/24.
@@ -249,6 +265,15 @@ class VD6283(Sensor, SerialBusDevice):
                     1:  1600,   # 66.6
         } )
     
+
+    @dataclass
+    class ChannelConfig():
+        """Data structure to represent variable channel data (configuration).
+        """
+        isEnabled:      bool = False
+        hasFlicker:     bool = False
+        gain:           int = 24    # Gain factor stored in 1/24.
+
 
     #
     # Internal helpers
@@ -291,15 +316,16 @@ class VD6283(Sensor, SerialBusDevice):
             acModeCtrl, ret = self.readByteRegister(VD6283.REG_AC_MODE_CTRL)
             logging.debug("VD6283._syncShadows> read REG_AC_MODE_CTRL: data=x%02x, err=%s.", acModeCtrl, ret)
         if ret.isOk():
-            for ch in self._channel:
-                if ch.index == VD6283.CHANNEL_IDX_6_CLEAR:
-                    ch.isEnabled = ch.maskAlsEnable & ch6Ena
+            for chIdx in range( VD6283.CHANNEL_NUM ):
+                ch = self._channel[chIdx]
+                if (chIdx+1) == VD6283.CHANNEL_IDX_6_CLEAR:
+                    ch.isEnabled = ch6Ena & VD6283.CH6_EN
                 else:        
-                    ch.isEnabled = ch.maskAlsEnable & chEna
-                ch.hasFlicker = ((acModeCtrl & VD6283.AC_CH_SEL) == ch.maskAcModeCtrl)
-                data, ret = self.readByteRegister(VD6283.REG_ALS_GAIN_CHX + ch.index - 1)
+                    ch.isEnabled = chEna & VD6283.CHANNEL[chIdx+1].maskAlsEnable
+                ch.hasFlicker = ((acModeCtrl & VD6283.AC_CH_SEL) == VD6283.CHANNEL[chIdx+1].maskFlkEnable)
+                data, ret = self.readByteRegister(VD6283.REG_ALS_GAIN_CHX + chIdx)
                 logging.debug("VD6283._syncShadows> read REG_ALS_GAIN_CH%d: data=x%02x, err=%s.", 
-                              (ch.index-1), data, ret)
+                              chIdx, data, ret)
                 if ret.isOk():
                     ch.gain = VD6283.GAIN_DICT.getValue(data & VD6283.ALS_GAIN)
         return ret
@@ -314,24 +340,12 @@ class VD6283(Sensor, SerialBusDevice):
         self._shadowAlsExposure = 0 # exposure time in 1/5ms, derived from REG_ALS_EXPOSURE
         self._shadowAcModeCtrl = 0  # copy of REG_AC_MODE_CTRL
         self._channel = [
-            VD6283.ChannelConfig( index=VD6283.CHANNEL_IDX_1_RED,
-                                      maskAlsEnable=VD6283.ALS_CH_EN_1,
-                                      maskAcModeCtrl=VD6283.AC_CH_SEL_1 ),
-            VD6283.ChannelConfig( index=VD6283.CHANNEL_IDX_2_VISIBLE,
-                                      maskAlsEnable=VD6283.ALS_CH_EN_2,
-                                      maskAcModeCtrl=VD6283.AC_CH_SEL_2 ),
-            VD6283.ChannelConfig( index=VD6283.CHANNEL_IDX_3_BLUE,
-                                      maskAlsEnable=VD6283.ALS_CH_EN_3,
-                                      maskAcModeCtrl=VD6283.AC_CH_SEL_3 ),
-            VD6283.ChannelConfig( index=VD6283.CHANNEL_IDX_4_GREEN,
-                                      maskAlsEnable=VD6283.ALS_CH_EN_4,
-                                      maskAcModeCtrl=VD6283.AC_CH_SEL_4 ),
-            VD6283.ChannelConfig( index=VD6283.CHANNEL_IDX_5_IR ,
-                                      maskAlsEnable=VD6283.ALS_CH_EN_5,
-                                      maskAcModeCtrl=VD6283.AC_CH_SEL_5 ),
-            VD6283.ChannelConfig( index=VD6283.CHANNEL_IDX_6_CLEAR,
-                                      maskAlsEnable=VD6283.CH6_EN,
-                                      maskAcModeCtrl=VD6283.AC_CH_SEL_6 ),
+            VD6283.ChannelConfig(),
+            VD6283.ChannelConfig(),
+            VD6283.ChannelConfig(),
+            VD6283.ChannelConfig(),
+            VD6283.ChannelConfig(),
+            VD6283.ChannelConfig(),
             ]
         Sensor.__init__(self)
         SerialBusDevice.__init__(self)
@@ -859,10 +873,13 @@ class VD6283(Sensor, SerialBusDevice):
                     newData = oldData
                     for chIdx in range(VD6283.CHANNEL_NUM-1):
                         if lstValue[chIdx]:
-                            newData |= self._channel[chIdx].maskAlsEnable
+                            newData |= VD6283.CHANNEL[chIdx+1].maskAlsEnable
+                            self._channel[chIdx].isEnabled = True
                         elif lstValue[chIdx] is not None:
-                            newData &= ~self._channel[chIdx].maskAlsEnable
-                        self._channel[chIdx].isEnabled = bool(newData & self._channel[chIdx].maskAlsEnable)
+                            newData &= ~VD6283.CHANNEL[chIdx+1].maskAlsEnable
+                            self._channel[chIdx].isEnabled = False
+                        else:
+                            self._channel[chIdx].isEnabled = bool(newData & VD6283.CHANNEL[chIdx+1].maskAlsEnable)
                     if newData != oldData:
                         ret = self.writeByteRegister( VD6283.REG_ALS_CHANNEL_ENABLE, newData )
                         logging.debug("VD6283.enableChannels> write REG_ALS_CHANNEL_ENABLE: %s, newData=x%02x", ret, newData)
@@ -954,10 +971,11 @@ class VD6283(Sensor, SerialBusDevice):
             else:
                 newAcModeCtrl &= ~VD6283.AC_CH_SEL
                 newAcModeCtrl &= ~VD6283.AC_FREQEXT_EN
-                for ch in self._channel:
-                    if ch.index == channelNum:
+                for chIdx in range( VD6283.CHANNEL_NUM ): 
+                    ch = self._channel[chIdx]
+                    if (chIdx+1) == channelNum:
                         ch.hasFlicker = True
-                        newAcModeCtrl |= ch.maskAcModeCtrl | VD6283.AC_FREQEXT_EN
+                        newAcModeCtrl |= VD6283.CHANNEL[chIdx+1].maskFlkEnable | VD6283.AC_FREQEXT_EN
                     else:
                         ch.hasFlicker = False
         if ret.isOk():  # AC_OUT_SEL
@@ -1015,47 +1033,55 @@ class VD6283(Sensor, SerialBusDevice):
         
         flickerDisabled = not (self._shadowAcModeCtrl & VD6283.AC_FREQEXT_EN)
         # Immediate read, no wait for nothing
-        for ch in self._channel:
+        for chIdx in range( VD6283.CHANNEL_NUM ): 
+            ch = self._channel[chIdx]
             # Read out raw data
             if ch.isEnabled and (flickerDisabled or not ch.hasFlicker):
-                reg = VD6283.REG_ALS_CHX_DATA + (ch.index - 1)*4
+                reg = VD6283.REG_ALS_CHX_DATA + chIdx*4
                 value, ret = self.readWordRegister( reg )
                 logging.debug("VD6283.getRawData> read REG #x%02X: data=x%04x, err=%s.", reg, value, ret)
                 if ret.isOk():
                     value = bswap16( value )  # swap endianess
                     logging.debug("VD6283.getRawData> swapped value=x%04x.", value)
-                    data[ch.index - 1] = value
-                    logging.debug("VD6283.getRawData> data[%d]: %d.", (ch.index - 1), value)
+                    data[chIdx] = value
+                    logging.debug("VD6283.getRawData> data[%d]: %d.", chIdx, value)
             else:
                 logging.debug("VD6283.getRawData> Channel #%d skipped. ch.enabled=%r flkDisabled=%r ch.hasFlk=%r.",
-                              ch.index, ch.isEnabled, flickerDisabled, ch.hasFlicker)
+                              (chIdx+1), ch.isEnabled, flickerDisabled, ch.hasFlicker)
         return data, ret
  
     def rawToIntensity( self, rawData ):
         """Translate digital measurement value into intensity.
         
         :param list(int) adcCounts: List of 16bit raw digital reading
-        :returns: List of corresponding intensity values in uW/cm^2 as int \
+        :returns: List of corresponding intensity values in mW/m^2 as int \
         and an error code to indicate success or the reason of failure.
         :rtype: list(int), ErrorCode
         """
         err = ErrorCode.errOk
         result = [-1] * len(rawData)
-        for ch in self._channel:
-            rawIdx = ch.index - 1
-            rawValue = rawData[rawIdx]
+        for chIdx in range( VD6283.CHANNEL_NUM ):
+            ch = self._channel[chIdx]
+            rawValue = rawData[chIdx]
             if rawValue >= 0:
                 # Apply channel gain, sensitivity and exposure time, where
-                # sensitivity reference is given for EXTIME=50ms.
-                # Gain correction:    * 24 / channel.gain
-                # sensitivity:        * 10 / VD6283.CHANNEL[channel.index].sensitivity
+                # sensitivity reference is given for EXTIME=50ms and 5x / 10x gain
+                # sensitivity is already in mW/m^2.
+                # Gain correction:    * 10[5] * 24 / channel.gain
+                # sensitivity:        * 100 / VD6283.CHANNEL[channel.index].sensitivity
                 # exposure time:      * 248 / self._shadowAlsExposure; 248 = 49.6ms * 5 ~ 50ms*5
-                # So overall:        *24*10*248 / (...gain*...sensitivity*...exposure)
-                result[rawIdx] = rawValue * 59520 // (ch.gain * VD6283.CHANNEL[ch.index].sensitivity * self._shadowAlsExposure)
+                # So overall:        *24*10[5]*100*248 / (...gain*...sensitivity*...exposure)
+                # Finally, reduce the fraction by 256 for numerical reasons.
+                divisor = (ch.gain * VD6283.CHANNEL[chIdx+1].sensitivity * self._shadowAlsExposure + 128) >> 8
+                if ch.index==VD6283.CHANNEL_IDX_6_CLEAR:
+                    intens = rawValue * 11625 
+                else:
+                    intens = rawValue * 23250
+                result[chIdx] = (intens + (divisor>>1)) // divisor
                 logging.debug("VD6283._transferToIntensity> channel #%d: raw=%d -> result=%d",
-                              ch.index, rawValue, result[rawIdx])
+                              (chIdx+1), rawValue, result[chIdx])
                 err = ErrorCode.errOk
             else:
                 logging.debug("VD6283._transferToIntensity> channel #%d skipped.",
-                              ch.index)
+                              (chIdx+1))
         return result, err
