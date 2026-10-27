@@ -325,7 +325,7 @@ class VD6283(Sensor, SerialBusDevice):
                 ch.hasFlicker = ((acModeCtrl & VD6283.AC_CH_SEL) == VD6283.CHANNEL[chIdx+1].maskFlkEnable)
                 data, ret = self.readByteRegister(VD6283.REG_ALS_GAIN_CHX + chIdx)
                 logging.debug("VD6283._syncShadows> read REG_ALS_GAIN_CH%d: data=x%02x, err=%s.", 
-                              chIdx, data, ret)
+                              (chIdx+1), data, ret)
                 if ret.isOk():
                     ch.gain = VD6283.GAIN_DICT.getValue(data & VD6283.ALS_GAIN)
         return ret
@@ -500,25 +500,17 @@ class VD6283(Sensor, SerialBusDevice):
         ret = self.isAttached()
         if ret.isOk():
             dataALS = self._shadowAlsCtrl
-            dataFLK = self._shadowAcModeCtrl
             if level == RunLevel.active:
                 # Set enable bit
                 dataALS |= VD6283.ALS_EN     
-                dataFLK |= VD6283.AC_FREQEXT_EN
             else:
                 # Wipe-out enable bit
                 dataALS &= ~VD6283.ALS_EN
-                dataFLK &= ~VD6283.AC_FREQEXT_EN
             ret = self.writeByteRegister( VD6283.REG_ALS_CTRL, dataALS )
             logging.debug("VD6283.setRunLevel> write REG_ALS_CTRL(x%02x): %s.",
                           dataALS, ret)
             if ret.isOk():
                 self._shadowAlsCtrl = dataALS
-                ret = self.writeByteRegister( VD6283.REG_AC_MODE_CTRL, dataFLK )
-                logging.debug("VD6283.setRunLevel> write REG_AC_MODE_CTRL(x%02x): %s.",
-                              dataFLK, ret)
-                if ret.isOk():
-                    self._shadowAcModeCtrl = dataFLK
         else:
             logging.debug("VD6283.setRunLevel> serial bus not attached: %s.", ret)
         return ret
@@ -882,7 +874,12 @@ class VD6283(Sensor, SerialBusDevice):
                             self._channel[chIdx].isEnabled = bool(newData & VD6283.CHANNEL[chIdx+1].maskAlsEnable)
                     if newData != oldData:
                         ret = self.writeByteRegister( VD6283.REG_ALS_CHANNEL_ENABLE, newData )
-                        logging.debug("VD6283.enableChannels> write REG_ALS_CHANNEL_ENABLE: %s, newData=x%02x", ret, newData)
+                        logging.debug("VD6283.enableChannels> Write REG_ALS_CHANNEL_ENABLE: %s, newData=x%02x", ret, newData)
+                    else:
+                        logging.debug("VD6283.enableChannels> Skipping rewriting REG_ALS_CHANNEL_ENABLE: oldData=x%02x, newData=x%02x",
+                                      oldData, newData)
+                else:
+                    logging.debug("VD6283.enableChannels> Couldn't read REG_ALS_CHANNEL_ENABLE: %s", ret)
                 if ret.isOk() and (lstValue[5] is not None):
                     oldData, ret = self.readByteRegister( VD6283.REG_CHANNEL6_ENABLE )
                     if ret.isOk():
@@ -890,7 +887,14 @@ class VD6283(Sensor, SerialBusDevice):
                             newData = oldData ^ VD6283.CH6_EN
                             ret = self.writeByteRegister( VD6283.REG_CHANNEL6_ENABLE, newData )
                             self._channel[5].isEnabled = bool(newData & VD6283.CH6_EN)
-                            logging.debug("VD6283.enableChannels> write REG_CHANNEL6_ENABLE: %s, newData=x%02x", ret, newData)
+                            logging.debug("VD6283.enableChannels> Write REG_CHANNEL6_ENABLE: %s, newData=x%02x", ret, newData)
+                        else:
+                            logging.debug("VD6283.enableChannels> No change for REG_CHANNEL6_ENABLE: oldData=x%02x, newData=%s",
+                                          oldData, lstValue[5])
+                    else:
+                        logging.debug("VD6283.enableChannels> Couldn't read REG_CHANNEL6_ENABLE: %s", ret)
+                else:
+                    logging.debug("VD6283.enableChannels> Something went wrong before working on REG_CHANNEL6_ENABLE: %s", ret)
                 logging.debug("VD6283.enableChannels> %s. Leaving. list=%s", ret, lstValue)
             else:
                 logging.debug("VD6283.enableChannels> %s. Nothing to do: list=%s", ret, lstValue)
@@ -978,19 +982,19 @@ class VD6283(Sensor, SerialBusDevice):
                         newAcModeCtrl |= VD6283.CHANNEL[chIdx+1].maskFlkEnable | VD6283.AC_FREQEXT_EN
                     else:
                         ch.hasFlicker = False
-        if ret.isOk():  # AC_OUT_SEL
+        if ret.isOk():  # AC_OUT_SEL and PDM_CLK_SEL
             if (pdmOut is None) or not isinstance( pdmOut, int) or  \
                 (pdmOut < 1) or (pdmOut > 2):
                 ret = ErrorCode.errInvalidParameter
+            elif (extClk is None) or not isinstance( extClk, bool):
+                ret = ErrorCode.errInvalidParameter
+            elif (pdmOut != 1) and extClk:	# GPIO2 shall be PDM output and input for external clock
+                ret = ErrorCode.errResourceConflict
             else:
                 if pdmOut==1:
                     newAcModeCtrl &= ~VD6283.AC_OUT_SEL
                 else: 
                     newAcModeCtrl |= VD6283.AC_OUT_SEL
-        if ret.isOk():  # PDM_CLK_SEL
-            if (extClk is None) or not isinstance( extClk, bool):
-                ret = ErrorCode.errInvalidParameter
-            else:
                 if extClk:
                     newAcModeCtrl |= VD6283.PDM_CLK_SEL
                 else: 
@@ -1073,7 +1077,7 @@ class VD6283(Sensor, SerialBusDevice):
                 # So overall:        *24*10[5]*100*248 / (...gain*...sensitivity*...exposure)
                 # Finally, reduce the fraction by 256 for numerical reasons.
                 divisor = (ch.gain * VD6283.CHANNEL[chIdx+1].sensitivity * self._shadowAlsExposure + 128) >> 8
-                if ch.index==VD6283.CHANNEL_IDX_6_CLEAR:
+                if (chIdx+1)==VD6283.CHANNEL_IDX_6_CLEAR:
                     intens = rawValue * 11625 
                 else:
                     intens = rawValue * 23250
