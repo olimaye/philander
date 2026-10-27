@@ -93,8 +93,11 @@ class TestVD6283( unittest.TestCase ):
         logging.info( "Raw data" )
         logging.info( headLine )
         
+        sleepTime = cfg["light.Sensor.exposure"] + cfg["light.Sensor.exposure"] + 5
+        sleepTime /= 1000
         for cnt in range(10):
-            sleep( 0.5 )
+            sensor.clearInt()
+            sleep( sleepTime )
             meas, err = sensor.getRawData()
             self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
             logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
@@ -119,6 +122,7 @@ class TestVD6283( unittest.TestCase ):
         logging.info( headLine )
         
         for cnt in range(10):
+            sensor.clearInt()
             sleep( 0.1 )
             meas, err = sensor.getLatestData()
             self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
@@ -162,14 +166,14 @@ class TestVD6283( unittest.TestCase ):
         err = sensor.open(cfg)
         self.assertTrue( err.isOk(), f"Open failed: {err}." )
         
-        exposure = (120, 240, 360, 600, 960)
-        gain = (1, 2.5, 5, 10, 16)
-        adcData = (0, 1, 5, 10, 50, 100, 500, 1000, 5000, 10000, 20000, 30000, 40000, 50000, 60000, 65000, 0xFFFF)
+        exposure = (1, 2, 5, 50, 120, 360, 600, 1200, 1600, 1638)
+        gain = (0.71, 0.83, 1, 5, 10, 50, 67 )
+        adcData = (0, 1, 5, 25, 125, 625, 3125, 30000, 60000, 0xFFFF)
         
         logging.info( "Raw to intensity transfer function" )
-        headLine = "Gain, Exp,   "
+        headLine = " Gain, Exp"
         for chIdx in range( 1, 7 ):
-            headLine += SDUT.CHANNEL[chIdx].name+"["+str(chIdx)+"],   "
+            headLine += ",  raw-"+str(chIdx)+",xfer-"+str(chIdx)
         logging.info( headLine )
         
         for gn in gain:
@@ -183,7 +187,7 @@ class TestVD6283( unittest.TestCase ):
                     raw = [value] * SDUT.CHANNEL_NUM
                     xdat, err = sensor.rawToIntensity( raw )
                     self.assertTrue( err.isOk(), f"Compensation failed: {err}." )
-                    logging.info("%2d, %3d,  %5d, %5d,  %5d, %5d,  %5d, %5d,  %5d, %5d,  %5d, %5d,  %5d, %5d",
+                    logging.info("%5.2f, %3d,  %5d, %5d,  %5d, %5d,  %5d, %5d,  %5d, %5d,  %5d, %5d,  %5d, %5d",
                                  gn, exp,
                                  raw[0], xdat[0],
                                  raw[1], xdat[1],
@@ -205,13 +209,13 @@ class TestVD6283( unittest.TestCase ):
         err = sensor.open(cfg)
         self.assertTrue( err.isOk(), f"Open failed: {err}." )
         
-        exposure = (120, 240, 360, 600, 960)
-        gain = (1, 2.5, 5, 10, 16)
+        exposure = (20, 50, 120, 360, 600)
+        gain = (1, 2.5, 5, 10)
         
         logging.info( "MultiConfig compensated measurement data" )
-        headLine = "Gain, Exp,   "
+        headLine = "Gain, Exp"
         for chIdx in range( 1, 7 ):
-            headLine += SDUT.CHANNEL[chIdx].name+"["+str(chIdx)+"],   "
+            headLine += ",  raw-"+str(chIdx)+",xfer-"+str(chIdx)
         logging.info( headLine )
         
         for gn in gain:
@@ -233,7 +237,7 @@ class TestVD6283( unittest.TestCase ):
                     akk[idx] /= 10
                 xdat, err = sensor.rawToIntensity( akk )
                 self.assertTrue( err.isOk(), f"Compensation failed: {err}." )
-                logging.info("%2d, %3d,  %5d, %5d,  %5d, %5d,  %5d, %5d,  %5d, %5d,  %5d, %5d,  %5d, %5d",
+                logging.info("%4.1f, %3d,  %5d, %5d,  %5d, %5d,  %5d, %5d,  %5d, %5d,  %5d, %5d,  %5d, %5d",
                              gn, exp,
                              akk[0], xdat[0],
                              akk[1], xdat[1],
@@ -248,7 +252,7 @@ class TestVD6283( unittest.TestCase ):
         
 if __name__ == '__main__':
     logger = logging.getLogger()
-    logger.setLevel( logging.WARNING )
+    logger.setLevel( logging.INFO )
     logger.addHandler( logging.StreamHandler() )
 
     parser = argparse.ArgumentParser()

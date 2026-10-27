@@ -17,7 +17,7 @@ light channels as follows:
 Undocumented details on the mode of operation:
 - Endiannes for multi-byte registers, such as ALS_CHx_DATA or ALS_EXPOSURE,
   is BIG endian! So the high-byte is at the lower address, gets read first.
-- Continous and handshake mode run in parallel, more or less.
+- Continous (streaming) mode is still mystique. It's unclear, how it works.
 - The interrupt flag INTR_ST is low-active.
 - Clearing INTR_ST is achieved by cycling CRL_INTR through a 1-0 sequence.
   So, INTERRUPT_CTRL needs to be written twice.
@@ -25,10 +25,11 @@ Undocumented details on the mode of operation:
 - Not verified: EXPOSURE+6ms after clearing INTR_ST the ALS_CHx_DATA have
   fresh data ready to be read.
 - After EXPOSURE+IM_PERIOD the interrupt is raised (INTR_ST=0).
-- ALS_CHx_DATA registers are never locked. They may change with fresh data.
-- If interrupt is not cleared, another measurement starts automatically ("continously")
+- ALS_CHx_DATA registers are not locked with INTR_ST. They still may change afterwards.
+- If interrupt is not cleared, another measurement starts automatically
 - After another EXPOSURE+IM_PERIOD, the next measurement is available
 - but interrupt is still active.
+- This cycle works only once. Data is locked then until INTR_ST is cleared.
 
 So, without using  the interrupt flag, it's purely the application's
 responsibility to stay in sync with the sensor's continous mode. There
@@ -1052,6 +1053,24 @@ class VD6283(Sensor, SerialBusDevice):
             else:
                 logging.debug("VD6283.getRawData> Channel #%d skipped. ch.enabled=%r flkDisabled=%r ch.hasFlk=%r.",
                               (chIdx+1), ch.isEnabled, flickerDisabled, ch.hasFlicker)
+
+        # Alternative implementation
+        # Immediate read, no wait for nothing
+#         buf, ret = self.readBufferRegister( VD6283.REG_ALS_CHX_DATA, VD6283.CHANNEL_NUM * 4 )
+#         logging.debug("VD6283.getRawData> read base REG #x%02X: err=%s.",
+#                       VD6283.REG_ALS_CHX_DATA, ret)
+#         if ret.isOk():
+#             for chIdx in range( VD6283.CHANNEL_NUM ): 
+#                 ch = self._channel[chIdx]
+#                 # Peek raw data
+#                 if ch.isEnabled and (flickerDisabled or not ch.hasFlicker):
+#                     # Just _H and _M, ignore _L.
+#                     data[chIdx] = (buf[4*chIdx] << 8) | buf[4*chIdx+1]
+#                     logging.debug("VD6283.getRawData> data[%d]: %d.", chIdx, data[chIdx])
+#                 else:
+#                     logging.debug("VD6283.getRawData> Channel #%d skipped. ch.enabled=%r flkDisabled=%r ch.hasFlk=%r.",
+#                                   (chIdx+1), ch.isEnabled, flickerDisabled, ch.hasFlicker)
+        
         return data, ret
  
     def rawToIntensity( self, rawData ):
