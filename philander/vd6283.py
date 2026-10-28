@@ -199,6 +199,8 @@ class VD6283(Sensor, SerialBusDevice):
     CHANNEL_IDX_5_IR    = 5
     CHANNEL_IDX_6_CLEAR = 6
     
+    HOUSEKEEPING_DELAY  = 6     # Delay in ms for measurement housekeeping
+    
     @dataclass
     class ChannelCharacteristic():
         """Data structure to represent fix channel data (characteristic).
@@ -512,6 +514,8 @@ class VD6283(Sensor, SerialBusDevice):
                           dataALS, ret)
             if ret.isOk():
                 self._shadowAlsCtrl = dataALS
+                if level == RunLevel.active:
+                    self.settle()
         else:
             logging.debug("VD6283.setRunLevel> serial bus not attached: %s.", ret)
         return ret
@@ -721,6 +725,27 @@ class VD6283(Sensor, SerialBusDevice):
     # Individual, proprietary API
     #
 
+    def settle(self):
+        """Waits an amount of time to get the sensor settled.
+        
+        This method does nothing else than just spending time. The exact
+        amount of time depends on the currently adjusted exposure time
+        EXTIME and inter-measuremen period IM_PERIOD. The sum of both is
+        extend by the ```VD6283.HOUSEKEEPING_DELAY``` to render a complete
+        measurement cycle.
+        The application should call this method once after modifying the
+        exposure or gain setting before starting measurements.
+
+        :returns: An error code to indicate success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        ret = ErrorCode.errOk
+        wait_time = self._shadowAlsExposure / 5 + self._shadowAlsPeriod
+        wait_time += VD6283.HOUSEKEEPING_DELAY
+        wait_time /= 1000
+        sleep( wait_time )
+        return ret
+         
     def clearInt(self):
         """Clears the interrupt flag INTR_ST.
 
@@ -772,7 +797,7 @@ class VD6283(Sensor, SerialBusDevice):
             logging.debug("VD6283.setSdaDrv> write REG_SDA_DRV_CFG: %s, data=x%02x", ret, data)
         return ret
     
-    def setExposure(self, value):
+    def setExposure(self, value, autoSettle=False):
         """Set exposure time.
 
         The given value is written to the REG_ALS_EXPOSURE register.
@@ -780,9 +805,10 @@ class VD6283(Sensor, SerialBusDevice):
         exposed light. This is the ADC integration time.
         The exposure time plus the inter-measurement delay plus some
         time for housekeeping (~6ms) together define the duration of one
-        measurement cycle, which as its reciprocal, gives the data rate.  
+        measurement cycle, which as its reciprocal, gives the data rate.
         
         :param int value: New exposure time in milliseconds (ms), increments of 1.6ms.
+        :param bool autoSettle: True for automatically calling  ```settle``` afterwards.
         :returns: An error code to indicate success or the reason of failure.
         :rtype: ErrorCode
         """
@@ -794,6 +820,8 @@ class VD6283(Sensor, SerialBusDevice):
         logging.debug("VD6283.setExposure> write REG_ALS_EXPOSURE: %s, value=%s, data=x%04x, revdata=%d", ret, value, data, revdata)
         if ret.isOk():
             self._shadowAlsExposure = revdata
+            if autoSettle:
+                ret = self.settle()
         return ret
 
     def setDelay(self, value):
@@ -904,7 +932,7 @@ class VD6283(Sensor, SerialBusDevice):
             logging.debug("VD6283.enableChannels> %s. list=%s", ret, lstValue)
         return ret
     
-    def setGain(self, channelNum, value):
+    def setGain(self, channelNum, value, autoSettle=False):
         """Set channel gain.
 
         Expect value in external format, as a plain factor, possibly float!
@@ -912,6 +940,7 @@ class VD6283(Sensor, SerialBusDevice):
 
         :param int channelNum: [1...6] Number of the channel to adjust the gain for.
         :param int value: [0.71 ... 67] The new gain factor for the given channel.
+        :param bool autoSettle: True for automatically calling  ```settle``` afterwards.
         :returns: An error code to indicate success or the reason of failure.
         :rtype: ErrorCode
         """
@@ -933,6 +962,8 @@ class VD6283(Sensor, SerialBusDevice):
             if ret.isOk():
                 gain, ret = VD6283.GAIN_DICT.getValue(data)
                 self._channel[channelNum-1].gain = gain
+                if autoSettle:
+                    ret = self.settle()
             logging.debug("VD6283.setGain> channel #%d: value=%s, data=%s, gain=%d, ret=%s",
                           channelNum, value, data, gain, ret)
         return ret
