@@ -93,11 +93,9 @@ class TestVD6283( unittest.TestCase ):
         logging.info( "Raw data" )
         logging.info( headLine )
         
-        sleepTime = cfg["light.Sensor.exposure"] + cfg["light.Sensor.exposure"] + 5
-        sleepTime /= 1000
         for cnt in range(10):
             sensor.clearInt()
-            sleep( sleepTime )
+            sensor.settle()
             meas, err = sensor.getRawData()
             self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
             logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
@@ -123,7 +121,7 @@ class TestVD6283( unittest.TestCase ):
         
         for cnt in range(10):
             sensor.clearInt()
-            sleep( 0.1 )
+            sensor.settle()
             meas, err = sensor.getLatestData()
             self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
             logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
@@ -226,9 +224,8 @@ class TestVD6283( unittest.TestCase ):
                 err = sensor.setExposure( exp )
                 self.assertTrue( err.isOk(), f"Configuration of exposure={exp} failed: {err}." )
                 akk = [0] * SDUT.CHANNEL_NUM
-                sleepTime = (exp + config["light.Sensor.interval"] + 20) / 1000
                 for _ in range(10):
-                    sleep( sleepTime )
+                    sensor.settle()
                     meas, err = sensor.getRawData()
                     self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
                     for idx in range( SDUT.CHANNEL_NUM ):
