@@ -6,7 +6,7 @@ https://www.st.com/en/data-converters/adc1283.html
 """
 __author__ = "Oliver Maye"
 __version__ = "0.1"
-__all__ = ["_ADC_STADC1283"]
+__all__ = ["STADC1283"]
 
 from philander.adc import ADC
 from philander.serialbus import SerialBusDevice, SerialBusType
@@ -61,9 +61,8 @@ class STADC1283( ADC, SerialBusDevice ):
         defaults = {
             "adc.channel":  cls.DEFAULT_CHANNEL,
         }
-        for key, value in defaults.items():
-            if not key in paramDict:
-                paramDict[key] = value
+        # Add defaults to paramDict
+        cls._aggregateParams( paramDict, defaults )
         return None
 
     def open(self, paramDict):
@@ -154,19 +153,3 @@ class STADC1283( ADC, SerialBusDevice ):
             val = 0
             err = ErrorCode.errResourceConflict
         return val, err
-
-    def getVoltage(self, channel=USE_CONFIGURED_CHANNEL):
-        """Retrieve a sample and return it as a voltage in mV.
-
-        Also see :meth:`.ADC.getVoltage`
-        
-        :return: A mV-value in the range [vref_lower, vref_upper] and\
-        an error code indicating either success or the reason of failure.
-        :rtype: int, ErrorCode
-        """
-        val = self.vref_lower
-        dval, err = self.getDigital(channel)
-        if err.isOk():
-            val, err = self.toVoltage( dval )
-        return val, err
-
