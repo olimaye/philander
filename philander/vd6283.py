@@ -388,7 +388,7 @@ class VD6283(Sensor, SerialBusDevice):
         light.Sensor.visible.gain                Visible channel gain factor [66.6, 50, 33, 25, 16, 10, 7.1, 5, 3.33, 2.5, 1.67, 1.25, 1, 0.83, 0.71]
         light.Sensor.clear.enable                Enable the Clear un-filtered light channel measurements. bool [True | False]
         light.Sensor.clear.gain                  Clear channel gain factor [66.6, 50, 33, 25, 16, 10, 7.1, 5, 3.33, 2.5, 1.67, 1.25, 1, 0.83, 0.71]
-        light.Sensor.flicker.bias.value          Pedestal value for flicker output, int [0...7] or None to disable feature.
+        light.Sensor.flicker.bias                Pedestal value for flicker output, int [0...7] or None to disable feature.
         light.Sensor.flicker.channel             Flicker operation channel; VD6283.CHANNEL_[NONE | IDX_1_RED ... IDX_6_CLEAR]. CHANNEL_NONE to disable.
         light.Sensor.flicker.outport             GPIO output port for the flicker PDM signal; int [1 | 2]. Avoid conflict with externclk=True!
         light.Sensor.flicker.externclk           bool. True if PDM uses external clock on GPIO2, False for internal clock (default).
@@ -425,7 +425,7 @@ class VD6283(Sensor, SerialBusDevice):
             "light.Sensor.visible.gain":        1,
             "light.Sensor.clear.enable":        True,
             "light.Sensor.clear.gain":          1,
-            "light.Sensor.flicker.bias.value":  3,
+            "light.Sensor.flicker.bias":        3,
             "light.Sensor.flicker.channel":     VD6283.CHANNEL_IDX_6_CLEAR,
             "light.Sensor.flicker.outport":     2,
             "light.Sensor.flicker.externclk":   False
@@ -578,7 +578,7 @@ class VD6283(Sensor, SerialBusDevice):
         light.Sensor.visible.gain                Visible channel gain factor [66.6, 50, 33, 25, 16, 10, 7.1, 5, 3.33, 2.5, 1.67, 1.25, 1, 0.83, 0.71]
         light.Sensor.clear.enable                Enable the Clear un-filtered light channel measurements. bool [True | False]
         light.Sensor.clear.gain                  Clear channel gain factor [66.6, 50, 33, 25, 16, 10, 7.1, 5, 3.33, 2.5, 1.67, 1.25, 1, 0.83, 0.71]
-        light.Sensor.flicker.bias.value          Pedestal value for flicker output, int [0...7] or None to disable feature.
+        light.Sensor.flicker.bias                Pedestal value for flicker output, int [0...7] or None to disable feature.
         light.Sensor.flicker.channel             Flicker operation channel; VD6283.CHANNEL_[NONE | IDX_1_RED ... IDX_6_CLEAR]. CHANNEL_NONE to disable.
         light.Sensor.flicker.outport             GPIO output port for the flicker PDM signal; int [1 | 2]. Avoid conflict with externclk=True!
         light.Sensor.flicker.externclk           bool. True if PDM uses external clock on GPIO2, False for internal clock (default).
@@ -645,10 +645,10 @@ class VD6283(Sensor, SerialBusDevice):
                 value = cs.get(prefix + VD6283.CHANNEL[chIdx].name + ".gain", None)
                 ret = self.setGain( chIdx, value )
         
-        # light.Sensor.flicker.bias.value  -->  REG_PEDESTAL_VALUE
-        # light.Sensor.flicker:bias.enable, channel, enable, outport  -->  REG_AC_MODE_CTRL
+        # light.Sensor.flicker.bias  -->  REG_PEDESTAL_VALUE
+        # light.Sensor.flicker:(bias), channel, enable, outport  -->  REG_AC_MODE_CTRL
         if ret.isOk():
-            bias = cs.get(prefix + "flicker.bias.value", None)
+            bias = cs.get(prefix + "flicker.bias", None)
             chNum = cs.get(prefix + "flicker.channel", None)
             pdmOut = cs.get(prefix + "flicker.outport", None)
             extClk = cs.get(prefix + "flicker.externclk", None)
