@@ -26,7 +26,8 @@ class ADC( Module ):
 
     # Static constants, independent from the implementation    
     CHANNEL_DIE_TEMP = -1       # Internal ADC channel for die/core temp.
-     
+    CHANNEL_PRECONFIGURED = -2	# Preconfigured or "current" channel
+    
     DEFAULT_SAMPLING_TIME = 100 # default sampling time in microseconds
     DEFAULT_VREF_LOWER = 0      # default lower reference Voltage VRef-
     DEFAULT_VREF_UPPER = 3000   # default upper reference Voltage VRef+
@@ -184,21 +185,23 @@ class ADC( Module ):
     # ADC specific API
     #
 
-    def getDigital(self):
+    def getDigital(self, channel=CHANNEL_PRECONFIGURED):
         """Retrieve a sample and return its digital value.
 
         Gives the most recent sample as a digital value between zero and
         the maximum digital value [0...DIGITAL_MAX].
         
+        :param int channel: Number of channel to retrieve the sample from.
         :return: A value in the range [0, DIGITAL_MAX] and an error code\
         indicating either success or the reason of failure.
         :rtype: int, ErrorCode
         """
+        del channel
         err = ErrorCode.errNotImplemented
         val = 0
         return val, err
 
-    def getVoltage(self):
+    def getVoltage(self, channel=CHANNEL_PRECONFIGURED):
         """Retrieve a sample and return it as a voltage in mV.
 
         Gives the most recent sample as a voltage value between
@@ -206,12 +209,13 @@ class ADC( Module ):
         Calibration and temperature correction is at the discretion of
         the implementation and hence, cannot be assured.
         
+        :param int channel: Number of channel to retrieve the sample from.
         :return: A mV-value in the range [vref_lower, vref_upper] and\
         an error code indicating either success or the reason of failure.
         :rtype: int, ErrorCode
         """
         val = self.vref_lower
-        dval, err = self.getDigital()
+        dval, err = self.getDigital(channel)
         if err.isOk():
             val, err = self.toVoltage( dval )
         return val, err

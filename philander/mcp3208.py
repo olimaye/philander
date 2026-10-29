@@ -26,9 +26,7 @@ class MCP3208( ADC, SerialBusDevice ):
     DIGITAL_MAX = 0x0FFF        # Maximum digital value
     
     DEFAULT_CHANNEL = 0
-    
-    USE_CONFIGURED_CHANNEL = 8
-    
+        
     DIFF_MODE_NONE  = 0
     DIFF_MODE_POS   = 1
     DIFF_MODE_NEG   = 2
@@ -151,7 +149,7 @@ class MCP3208( ADC, SerialBusDevice ):
     # ADC specific API
     #
 
-    def getDigital(self, channel=USE_CONFIGURED_CHANNEL):
+    def getDigital(self, channel=ADC.CHANNEL_PRECONFIGURED):
         """Retrieve a sample and return its digital value.
 
         Gives the most recent sample as a digital value between zero and
@@ -164,7 +162,7 @@ class MCP3208( ADC, SerialBusDevice ):
         val = 0
         err = ErrorCode.errOk
         if self.isOpen:
-            if channel == self.USE_CONFIGURED_CHANNEL:
+            if channel == ADC.CHANNEL_PRECONFIGURED:
                 channel = self.channel
             if (channel<0) or (channel>7) or not isinstance(channel, int):
                 err = ErrorCode.errInvalidParameter
