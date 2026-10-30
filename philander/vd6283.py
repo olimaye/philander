@@ -714,10 +714,10 @@ class VD6283(Sensor, SerialBusDevice, EventEmitter):
         wait_time = (wait_time + 1) // 2                # take half of a period
         wait_time /= 1000       # express in seconds (->float!)
         
-        intr, ret = self._intFlag, ErrorCode.errOk if self.pinInt else self.isInt()
+        intr, ret = (self._intFlag, ErrorCode.errOk) if self.pinInt else self.isInt()
         while (not intr) and ret.isOk() and (loopCount < maxLoops):
             sleep( wait_time )   
-            intr, ret = self._intFlag, ErrorCode.errOk if self.pinInt else self.isInt()
+            intr, ret = (self._intFlag, ErrorCode.errOk) if self.pinInt else self.isInt()
             loopCount += 1
             
         # Retrieve data

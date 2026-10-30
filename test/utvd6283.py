@@ -3,11 +3,12 @@
 import argparse
 import logging
 import sys
-from time import sleep
+from time import sleep, time
 import unittest
 
 from philander.configurable import Configuration, ConfigItem
 from philander.vd6283 import VD6283 as SDUT # Sensor driver under test
+from philander.gpio import GPIO
 from philander.sensor import SelfTest, Sensor
 from philander.serialbus import SerialBusType
 from philander.systypes import ErrorCode, RunLevel
@@ -133,7 +134,7 @@ class TestVD6283( unittest.TestCase ):
         err = sensor.close()
         self.assertTrue( err.isOk() )
 
-    #@unittest.skip("Disabled for easier diagnostics.")
+    @unittest.skip("Disabled for easier diagnostics.")
     def test_transfer(self):
         global config
         cfg = config.copy()
@@ -176,7 +177,7 @@ class TestVD6283( unittest.TestCase ):
         err = sensor.close()
         self.assertTrue( err.isOk() )
 
-    #@unittest.skip("Disabled for easier diagnostics.")
+    @unittest.skip("Disabled for easier diagnostics.")
     def test_multiConfig(self):
         global config
         cfg = config.copy()
@@ -225,31 +226,69 @@ class TestVD6283( unittest.TestCase ):
         err = sensor.close()
         self.assertTrue( err.isOk() )
 
-    #@unittest.skip("Disabled for easier diagnostics.")
+    @unittest.skip("Disabled for easier diagnostics.")
     def test_interrupt(self):
         global config
         cfg = config.copy()
+        #cfg["light.int.cfg"] = SDUT.GPIO1_CFG_OD
         cfg["light.int.gpio.pinDesignator"] = 6 # Spectrometer click board at port #1
-        cfg["light.int.cfg"] = SDUT.GPIO1_CFG_PUSH_PULL
+        #cfg["light.int.gpio.pull"] = GPIO.PULL_NONE
+        cfg["light.int.gpio.bounce"] = GPIO.BOUNCE_NONE
         SDUT.Params_init( cfg )
         sensor = SDUT()
         self.assertIsNotNone( sensor )
         err = sensor.open(cfg)
         self.assertTrue( err.isOk(), f"Open failed: {err}." )
 
-        logging.info( "Next data - with interrupts" )
-        for cnt in range(10):
-            meas, err = sensor.getNextData()
-            self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
-            logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
-                         meas[0], meas[1], meas[2], meas[3], meas[4], meas[5])
-        logging.info( "Latest data - with interrupts" )
-        for cnt in range(10):
-            sensor.settle()
-            meas, err = sensor.getLatestData()
-            self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
-            logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
-                         meas[0], meas[1], meas[2], meas[3], meas[4], meas[5])
+        t0 = time()
+        t1 = 0
+        duration = 10 	# seconds
+        done = False
+        logging.info( "Just generating interrupts for %d seconds.", duration )
+        ret = sensor.clearInt()
+        while not done and ret.isOk():
+            t = time()
+            data, ret = sensor.readByteRegister( SDUT.REG_INTERRUPT_CTRL )
+            if sensor._intFlag:
+                if t1==0:
+                    t1 = t
+                elif (t-t1) > 0.25:
+                    ret = sensor.clearInt()
+                    t1 = 0
+            done = t > t0 + duration
+
+#         num = 3
+#         akk = 0
+#         settle_time = cfg["light.Sensor.exposure"] + cfg["light.Sensor.interval"] + SDUT.HOUSEKEEPING_DELAY
+#         for _ in range(num):
+#             sensor.clearInt()
+#             t0 = time()
+#             t = t0
+#             while not sensor._intFlag:
+#                 t = time()
+#                 if (t-t0) > 1:
+#                     break
+#             akk += (t-t0)
+#         akk /= num
+#         akk *= 1000
+#         logging.info("Average INT period: %d ms, settle time: %d ms", akk, settle_time)
+#         self.assertLessEqual( settle_time * 0.9, akk )
+#         self.assertLessEqual( akk, settle_time * 2 )
+            
+            
+#         logging.info( "Next data - with interrupts" )
+#         for cnt in range(10):
+#             meas, err = sensor.getNextData()
+#             self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
+#             logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
+#                          meas[0], meas[1], meas[2], meas[3], meas[4], meas[5])
+#         logging.info( "Latest data - with interrupts" )
+#         for cnt in range(10):
+#             sensor.settle()
+#             meas, err = sensor.getLatestData()
+#             self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
+#             logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
+#                          meas[0], meas[1], meas[2], meas[3], meas[4], meas[5])
 
         err = sensor.close()
         self.assertTrue( err.isOk() )

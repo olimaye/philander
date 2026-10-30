@@ -46,10 +46,11 @@ class _GPIO_Periphery( GPIO ):
 
 
     def _callback(self, handin):
-        if self._softDebounce and (self._bounce > 0):
-            evt = self.pin.read_event()
+        # Consume event, first!
+        evt = self.pin.read_event()
+        if self._softDebounce and (self.bounce > 0):
             now = evt.timestamp / 1000000
-            if (now - self._lastEventTime) > self._bounce: 
+            if (now - self._lastEventTime) > self.bounce: 
                 self._lastEventTime = now
                 self._fire(GPIO.EVENT_DEFAULT, handin)
         else:
@@ -66,6 +67,7 @@ class _GPIO_Periphery( GPIO ):
         while not self._workerDone:
             value = self.pin.poll(GPIO._POLL_TIMEOUT)
             if value:
+                logging.debug("_GPIO_Periphery #%d invokes callback.", self.designator)
                 self._callback(self.pin)
         logging.debug("_GPIO_Periphery #%d terminates working loop.", self.designator)
 
@@ -123,7 +125,10 @@ class _GPIO_Periphery( GPIO ):
             ret = super().open( paramDict )
         if ret.isOk():
             # Retrieve defaults
-            defaults = {}
+            defaults = dict()
+            key = "gpio.direction"
+            if key in paramDict:
+                defaults[key] = paramDict[key]
             self.Params_init(defaults)
             self.chippath = paramDict.get("gpio.chippath", defaults["gpio.chippath"])
             if self.numScheme == GPIO.PINNUMBERING_BCM:

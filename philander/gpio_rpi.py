@@ -73,7 +73,10 @@ class _GPIO_RPi( GPIO ):
             ret = super().open( paramDict )
         if ret.isOk():
             # Retrieve defaults
-            defaults = {}
+            defaults = dict()
+            key = "gpio.direction"
+            if key in paramDict:
+                defaults[key] = paramDict[key]
             self.Params_init(defaults)
 
             # With RPi.GPIO, it may happen that abandoned references to instances

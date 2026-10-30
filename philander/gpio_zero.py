@@ -56,7 +56,10 @@ class _GPIO_Zero( GPIO ):
             ret = super().open( paramDict )
         if ret.isOk():
             # Retrieve defaults
-            defaults = {}
+            defaults = dict()
+            key = "gpio.direction"
+            if key in paramDict:
+                defaults[key] = paramDict[key]
             self.Params_init(defaults)
 
             if self.numScheme == GPIO.PINNUMBERING_BOARD:

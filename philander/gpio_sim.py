@@ -88,7 +88,10 @@ class _GPIO_Sim( GPIO ):
             ret = super().open( paramDict )
         if ret.isOk():
             # Retrieve defaults
-            defaults = {}
+            defaults = dict()
+            key = "gpio.direction"
+            if key in paramDict:
+                defaults[key] = paramDict[key]
             self.Params_init(defaults)
 
             if self.direction == GPIO.DIRECTION_OUT:

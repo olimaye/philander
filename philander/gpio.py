@@ -176,9 +176,7 @@ class GPIO( Module, Interruptable ):
             }
             
         defaults.update(dirdef)
-        for key, value in defaults.items():
-            if not key in paramDict:
-                paramDict[key] = value
+        cls._aggregateParams( paramDict, defaults )
         return None
 
 
@@ -198,7 +196,10 @@ class GPIO( Module, Interruptable ):
         """
         ret = ErrorCode.errOk
         # Retrieve defaults
-        defaults = {}
+        defaults = dict()
+        key = "gpio.direction"
+        if key in paramDict:
+            defaults[key] = paramDict[key]
         self.Params_init(defaults)
         # Scan parameters
         self.designator = paramDict.get("gpio.pinDesignator", None)
