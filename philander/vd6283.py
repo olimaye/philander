@@ -50,6 +50,8 @@ __all__ = ["VD6283"]
 import logging
 from time import sleep
 
+from pymitter import EventEmitter
+
 from .configurable import ConfigItem, Configuration
 from .dictionary import Dictionary
 from .gpio import GPIO
@@ -59,7 +61,7 @@ from .sensor import SelfTest, Sensor
 from .serialbus import SerialBusDevice, SerialBus, SerialBusType
 from .systypes import ErrorCode, Info, RunLevel
 
-class VD6283(Sensor, SerialBusDevice):
+class VD6283(Sensor, SerialBusDevice, EventEmitter):
     """VD6283 driver implementation.
     """
 
@@ -68,6 +70,8 @@ class VD6283(Sensor, SerialBusDevice):
     ADDRESSES_ALLOWED = [0x20]
     """The only address is 0x20.
     """
+    
+    EVENT_DATA_READY = "dataReady"
     
     #
     # Hardware register definitions.
@@ -333,10 +337,16 @@ class VD6283(Sensor, SerialBusDevice):
                     ch.gain = VD6283.GAIN_DICT.getValue(data & VD6283.ALS_GAIN)
         return ret
     
+    def _handleInterrupt(self, _feedback=None, *_unused):
+        self._intFlag = True
+        self.emit( VD6283.EVENT_DATA_READY )
+        logging.debug('VD6283._handleInterrupt> emitted event.')
+        return None
+        
 
     def __init__(self):
         # Create instance attributes
-        self.pinInt = None
+        self.pinInt = None      # Interrupt pin, instance of GPIO
         # Shadow / copies of register contents
         self._shadowAlsCtrl = 0     # copy of REG_ALS_CTRL
         self._shadowAlsPeriod = 0   # inter-measurement period in ms, derived from REG_ALS_PERIOD
@@ -350,8 +360,10 @@ class VD6283(Sensor, SerialBusDevice):
             VD6283.ChannelConfig(),
             VD6283.ChannelConfig(),
             ]
+        self._intFlag = False           # Interrupt flag
         Sensor.__init__(self)
         SerialBusDevice.__init__(self)
+        EventEmitter.__init__( self )
 
 
     #
@@ -369,7 +381,7 @@ class VD6283(Sensor, SerialBusDevice):
         light.SerialBusDevice.address            ``int`` I2C serial device address, one of :attr:`ADDRESSES_ALLOWED`; default is :attr:`ADDRESSES_ALLOWED` ``[0]``.
         light.SerialBus.*                        optional: serial bus configuration; See :meth:`serialbus.SerialBus.Params_init`.
         light.SerialBusDevice.*                  serial bus configuration; See :meth:`serialbus.SerialBusDevice.Params_init`.
-        light.int.gpio.*                         GPIO1 pin configuration; See :meth:`.GPIO.Params_init`.
+        light.int.gpio.*                         Interrupt GPIO(1) pin configuration; See :meth:`.GPIO.Params_init`.
         light.int.cfg                            GPIO1 Interrupt pin configuration, VD6283.GPIO1_CFG_[OD | PUSH_PULL | ANALOGUE]
         light.sda.highcap                        SDA line capacitive load > 95pF, bool [True | False]
         light.sda.drv                            SDA current drive strength, low to high, int [1, ..., 5]
@@ -407,6 +419,7 @@ class VD6283(Sensor, SerialBusDevice):
         defaults = {
             "light.SerialBusDevice.address": cls.ADDRESSES_ALLOWED[0],
             "light.int.gpio.direction":         GPIO.DIRECTION_IN,
+            "light.int.gpio.trigger":           GPIO.TRIGGER_EDGE_FALLING,
             "light.int.cfg":                    VD6283.GPIO1_CFG_OD,
             "light.sda.highcap":                True, 
             "light.sda.drv":                    2,
@@ -432,6 +445,10 @@ class VD6283(Sensor, SerialBusDevice):
         }
         # Add defaults to paramDict
         cls._aggregateParams( paramDict, defaults )
+        # Set mandatory fix values
+        paramDict["light.int.gpio.direction"] = GPIO.DIRECTION_IN
+        paramDict["light.int.gpio.feedback"] = None
+        paramDict["light.int.gpio.handler"] = None
         
         localParams = cls._extractParams( paramDict, prefix)
         SerialBus.Params_init(localParams)
@@ -457,6 +474,7 @@ class VD6283(Sensor, SerialBusDevice):
         if ret.isOk():
             gpioParams = self._extractParams( localParams, "int.")
             if "gpio.pinDesignator" in gpioParams:
+                gpioParams["gpio.handler"] = self._handleInterrupt
                 self.pinInt = GPIO.getGPIO()
                 ret = self.pinInt.open( gpioParams )
                 logging.debug("VD6283.open> GPIO.open: %s.", ret)
@@ -540,6 +558,9 @@ class VD6283(Sensor, SerialBusDevice):
     def reset(self):
         # Re-read register shadows
         ret = self._syncShadows()
+        # Enable interrupt pin
+        if ret.isOk() and self.pinInt:
+            self.pinInt.enableInterrupt()
         # Clear any interrupt pending
         if ret.isOk():
             ret = self.clearInt()
@@ -598,7 +619,6 @@ class VD6283(Sensor, SerialBusDevice):
         ret = ErrorCode.errOk
         prefix = self.MODULE_PARAM_PREFIX + "."
         cs = cfg.setting
-        flagClearInt = False
         
         # light.int.cfg  -->  REG_GPIO1_DRV_CFG
         value = cs.get(prefix + "int.cfg", None)
@@ -616,19 +636,16 @@ class VD6283(Sensor, SerialBusDevice):
         value = cs.get(prefix + "exposure", None)
         if ret.isOk() and (value is not None) and isinstance(value, (int, float)):
             self.setExposure( value )
-            flagClearInt = True
             
         # light.Sensor.interval  -->  REG_ALS_PERIOD
         value = cs.get(prefix + "interval", None)
         if ret.isOk() and (value is not None) and isinstance(value, (int, float)):
             ret = self.setDelay( value )
-            flagClearInt = True
             
         # light.Sensor.mode  -->  REG_ALS_CTRL
         value = cs.get(prefix + "mode", None)
         if ret.isOk() and (value is not None):
             ret = self.setMode( value )
-            flagClearInt = True
         
         # light.Sensor.x.enable  -->  REG_ALS_CHANNEL_ENABLE, REG_CHANNEL6_ENABLE
         if ret.isOk():
@@ -653,10 +670,7 @@ class VD6283(Sensor, SerialBusDevice):
             pdmOut = cs.get(prefix + "flicker.outport", None)
             extClk = cs.get(prefix + "flicker.externclk", None)
             ret = self.setFlicker(chNum, pdmOut, extClk, bias)
-        
-        # If necessary, clear the interrupt flag
-        if ret.isOk() and flagClearInt:
-            ret = self.clearInt()
+
         return ret
 
 
@@ -678,11 +692,7 @@ class VD6283(Sensor, SerialBusDevice):
 
     def getStatus(self, statusID):
         del statusID
-        status, ret = self.readByteRegister( VD6283.REG_INTERRUPT_CTRL )
-        logging.debug("VD6283.getStatus> read REG_INTERRUPT_CTRL: data=x%02x, err=%s.", status, ret)
-        if ret.isOk():
-            status = not (status & VD6283.INTR_ST)
-        return status, ret
+        return self.isInt()
 
 
     def getLatestData(self):
@@ -694,29 +704,28 @@ class VD6283(Sensor, SerialBusDevice):
 
     def getNextData(self):
         data = None
+        
         loopCount = 0
         maxLoops = 3
-        
         # Wait for an interrupt, indicated by '0'
-        wait_time = (self._shadowAlsExposure + 2) // 5  # Exposure time in ms 
+        wait_time = self._shadowAlsExposure // 5 + 1    # Exposure time in ms 
         wait_time += self._shadowAlsPeriod              # inter-measurement period
+        wait_time += VD6283.HOUSEKEEPING_DELAY          # housekeeping
         wait_time = (wait_time + 1) // 2                # take half of a period
         wait_time /= 1000       # express in seconds (->float!)
         
-        intr, ret = self.getStatus( None )
+        intr, ret = self._intFlag, ErrorCode.errOk if self.pinInt else self.isInt()
         while (not intr) and ret.isOk() and (loopCount < maxLoops):
             sleep( wait_time )   
-            intr, ret = self.getStatus( None )
+            intr, ret = self._intFlag, ErrorCode.errOk if self.pinInt else self.isInt()
             loopCount += 1
             
         # Retrieve data
         if ret.isOk():
             if intr:
-                data, ret = self.getLatestData()
+                data, ret = self.getLatestData()    # clears Interrupt.
             elif ret.isOk():
                 ret = ErrorCode.errUnavailable
-        # Clear interrupt
-        self.clearInt()
 
         return data, ret
 
@@ -731,7 +740,7 @@ class VD6283(Sensor, SerialBusDevice):
         This method does nothing else than just spending time. The exact
         amount of time depends on the currently adjusted exposure time
         EXTIME and inter-measuremen period IM_PERIOD. The sum of both is
-        extend by the ```VD6283.HOUSEKEEPING_DELAY``` to render a complete
+        extend by the :attr:`VD6283.HOUSEKEEPING_DELAY` to render a complete
         measurement cycle.
         The application should call this method once after modifying the
         exposure or gain setting before starting measurements.
@@ -756,8 +765,30 @@ class VD6283(Sensor, SerialBusDevice):
         if ret.isOk():
             ret = self.writeByteRegister( VD6283.REG_INTERRUPT_CTRL, 0x00 )
         logging.debug("VD6283.clearInt> write REG_INTERRUPT_CTRL: %s", ret)
+        if ret.isOk():
+            self._intFlag = False
         return ret
     
+    def isInt(self):
+        """Checks for the interrupt flag being set.
+        
+        By reading the interrupt flag, that flag is not cleared or reset
+        automatically. If it was set, it must be cleared manually by
+        calling :meth:`clearInt`.
+
+        :returns: True if an interrupt occurred, False otherwise,\
+        and an error code to indicate success or the reason of failure.
+        :rtype: bool, ErrorCode
+        """
+        ret = False
+        val, err = self.readByteRegister( VD6283.REG_INTERRUPT_CTRL )
+        if err.isOk():
+            ret = not ( val & VD6283.INTR_ST )
+            self._intFlag = ret
+        logging.debug("VD6283.isInt> read REG_INTERRUPT_CTRL: val=x%02x, ret=%s, err=%s",
+                      val, ret, err)
+        return ret, err
+        
     def setGpioDrv(self, value):
         """Set GPIO drive capability.
 
@@ -808,7 +839,7 @@ class VD6283(Sensor, SerialBusDevice):
         measurement cycle, which as its reciprocal, gives the data rate.
         
         :param int value: New exposure time in milliseconds (ms), increments of 1.6ms.
-        :param bool autoSettle: True for automatically calling  ```settle``` afterwards.
+        :param bool autoSettle: True for automatically calling  :meth:`settle` afterwards.
         :returns: An error code to indicate success or the reason of failure.
         :rtype: ErrorCode
         """
@@ -820,6 +851,7 @@ class VD6283(Sensor, SerialBusDevice):
         logging.debug("VD6283.setExposure> write REG_ALS_EXPOSURE: %s, value=%s, data=x%04x, revdata=%d", ret, value, data, revdata)
         if ret.isOk():
             self._shadowAlsExposure = revdata
+            ret = self.clearInt()
             if autoSettle:
                 ret = self.settle()
         return ret
@@ -845,6 +877,7 @@ class VD6283(Sensor, SerialBusDevice):
         logging.debug("VD6283.setDelay> write REG_ALS_PERIOD: %s, value=%s, data=%d, revdata=%d", ret, value, data, revdata)
         if ret.isOk():
             self._shadowAlsPeriod = revdata
+            ret = self.clearInt()
         return ret
     
     def setMode(self, value):
@@ -863,6 +896,7 @@ class VD6283(Sensor, SerialBusDevice):
             logging.debug("VD6283.setMode> write REG_ALS_CTRL: %s, value=%s, data=x%02x", ret, value, data)
             if ret.isOk():
                 self._shadowAlsCtrl = data
+                ret = self.clearInt()
         else:
             ret = ErrorCode.errInvalidParameter
         return ret
@@ -940,7 +974,7 @@ class VD6283(Sensor, SerialBusDevice):
 
         :param int channelNum: [1...6] Number of the channel to adjust the gain for.
         :param int value: [0.71 ... 67] The new gain factor for the given channel.
-        :param bool autoSettle: True for automatically calling  ```settle``` afterwards.
+        :param bool autoSettle: True for automatically calling  :meth:`settle` afterwards.
         :returns: An error code to indicate success or the reason of failure.
         :rtype: ErrorCode
         """
@@ -962,6 +996,7 @@ class VD6283(Sensor, SerialBusDevice):
             if ret.isOk():
                 gain, ret = VD6283.GAIN_DICT.getValue(data)
                 self._channel[channelNum-1].gain = gain
+                ret = self.clearInt()
                 if autoSettle:
                     ret = self.settle()
             logging.debug("VD6283.setGain> channel #%d: value=%s, data=%s, gain=%d, ret=%s",
@@ -1060,6 +1095,9 @@ class VD6283(Sensor, SerialBusDevice):
         Otherwise, the raw ADC measurement value is a 16 bit value
         ranging in [0 ... 65535].
         
+        In handshake-by-polling mode, the interrupt flag is checked
+        and - if set - cleared in order to trigger the next measurement.
+        
         :returns: A list of raw measurement int values \
         and an error code to indicate success or the reason of failure.
         :rtype: list, ErrorCode
@@ -1102,6 +1140,14 @@ class VD6283(Sensor, SerialBusDevice):
 #                     logging.debug("VD6283.getRawData> Channel #%d skipped. ch.enabled=%r flkDisabled=%r ch.hasFlk=%r.",
 #                                   (chIdx+1), ch.isEnabled, flickerDisabled, ch.hasFlicker)
         
+        # Handshake: trigger next measurement period, if necessary
+        if ret.isOk():
+            if self.pinInt:
+                intFlag = self._intFlag
+            else:
+                intFlag, ret = self.isInt()
+        if ret.isOk() and intFlag:
+            ret = self.clearInt()
         return data, ret
  
     def rawToIntensity( self, rawData ):

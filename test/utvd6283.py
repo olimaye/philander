@@ -78,6 +78,37 @@ class TestVD6283( unittest.TestCase ):
         self.assertTrue( err.isOk() )
     
     #@unittest.skip("Disabled for easier diagnostics.")
+    def test_apiData(self):
+        global config
+        cfg = config.copy()
+        SDUT.Params_init( cfg )
+        sensor = SDUT()
+        self.assertIsNotNone( sensor )
+        err = sensor.open(cfg)
+        self.assertTrue( err.isOk(), f"Open failed: {err}." )
+        
+        headLine = "No., "
+        for chIdx in range( 1, 7 ):
+            headLine += SDUT.CHANNEL[chIdx].name+"["+str(chIdx)+"], "
+        logging.info( headLine )
+
+        logging.info( "Latest data" )
+        for cnt in range(10):
+            sensor.settle()
+            meas, err = sensor.getLatestData()
+            self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
+            logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
+                         meas[0], meas[1], meas[2], meas[3], meas[4], meas[5])
+        logging.info( "Next data" )
+        for cnt in range(10):
+            meas, err = sensor.getNextData()
+            self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
+            logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
+                         meas[0], meas[1], meas[2], meas[3], meas[4], meas[5])
+        err = sensor.close()
+        self.assertTrue( err.isOk() )
+
+    #@unittest.skip("Disabled for easier diagnostics.")
     def test_rawData(self):
         global config
         cfg = config.copy()
@@ -94,59 +125,8 @@ class TestVD6283( unittest.TestCase ):
         logging.info( headLine )
         
         for cnt in range(10):
-            sensor.clearInt()
             sensor.settle()
             meas, err = sensor.getRawData()
-            self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
-            logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
-                         meas[0], meas[1], meas[2], meas[3], meas[4], meas[5])
-        err = sensor.close()
-        self.assertTrue( err.isOk() )
-
-    #@unittest.skip("Disabled for easier diagnostics.")
-    def test_latestData(self):
-        global config
-        cfg = config.copy()
-        SDUT.Params_init( cfg )
-        sensor = SDUT()
-        self.assertIsNotNone( sensor )
-        err = sensor.open(cfg)
-        self.assertTrue( err.isOk(), f"Open failed: {err}." )
-        
-        headLine = "No., "
-        for chIdx in range( 1, 7 ):
-            headLine += SDUT.CHANNEL[chIdx].name+"["+str(chIdx)+"], "
-        logging.info( "Latest data" )
-        logging.info( headLine )
-        
-        for cnt in range(10):
-            sensor.clearInt()
-            sensor.settle()
-            meas, err = sensor.getLatestData()
-            self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
-            logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
-                         meas[0], meas[1], meas[2], meas[3], meas[4], meas[5])
-        err = sensor.close()
-        self.assertTrue( err.isOk() )
-
-    #@unittest.skip("Disabled for easier diagnostics.")
-    def test_nextData(self):
-        global config
-        cfg = config.copy()
-        SDUT.Params_init( cfg )
-        sensor = SDUT()
-        self.assertIsNotNone( sensor )
-        err = sensor.open(cfg)
-        self.assertTrue( err.isOk(), f"Open failed: {err}." )
-        
-        headLine = "No., "
-        for chIdx in range( 1, 7 ):
-            headLine += SDUT.CHANNEL[chIdx].name+"["+str(chIdx)+"], "
-        logging.info( "Next data" )
-        logging.info( headLine )
-        
-        for cnt in range(10):
-            meas, err = sensor.getNextData()
             self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
             logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
                          meas[0], meas[1], meas[2], meas[3], meas[4], meas[5])
@@ -245,6 +225,34 @@ class TestVD6283( unittest.TestCase ):
         err = sensor.close()
         self.assertTrue( err.isOk() )
 
+    #@unittest.skip("Disabled for easier diagnostics.")
+    def test_interrupt(self):
+        global config
+        cfg = config.copy()
+        cfg["light.int.gpio.pinDesignator"] = 6 # Spectrometer click board at port #1
+        cfg["light.int.cfg"] = SDUT.GPIO1_CFG_PUSH_PULL
+        SDUT.Params_init( cfg )
+        sensor = SDUT()
+        self.assertIsNotNone( sensor )
+        err = sensor.open(cfg)
+        self.assertTrue( err.isOk(), f"Open failed: {err}." )
+
+        logging.info( "Next data - with interrupts" )
+        for cnt in range(10):
+            meas, err = sensor.getNextData()
+            self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
+            logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
+                         meas[0], meas[1], meas[2], meas[3], meas[4], meas[5])
+        logging.info( "Latest data - with interrupts" )
+        for cnt in range(10):
+            sensor.settle()
+            meas, err = sensor.getLatestData()
+            self.assertTrue( err.isOk(), f"Measurement failed: {err}." )
+            logging.info("  %d      %d    %d    %d    %d    %d    %d", cnt,
+                         meas[0], meas[1], meas[2], meas[3], meas[4], meas[5])
+
+        err = sensor.close()
+        self.assertTrue( err.isOk() )
 
         
 if __name__ == '__main__':
