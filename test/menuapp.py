@@ -1,10 +1,12 @@
-"""A general TestSuite for testing implementations with a simple TUI based menu
+"""A general TestSuite for testing implementations with a simple, text-based user interface (TUI) menu
 """
 __author__ = "Carl Bellgardt"
 __version__ = "0.1"
-__all__ = ["run", "MenuFunction"]
+__all__ = ["MenuApp", "MenuItem", "ArgInput"]
 
+import logging
 from time import sleep
+import traceback
 try:
     from simple_term_menu import TerminalMenu
 except ImportError as exc:
@@ -12,46 +14,54 @@ except ImportError as exc:
 
 from philander.systypes import ErrorCode
 
+logger = logging.getLogger(__name__)
 
-
-def run(settings={}, functions=[], title=""):
-    """Run the generalTestSuite
-
-    Opens a TUI menu with a predefined configuration function for editing configuration parameters
-    and other given functions of the tested implementation.\
-    An example on how to use this function can be found at the bottom of the file,
-    and can be executed by running the file directly or as a module.
-
-    :param dict settings: Configuration parameters as obtained from the tested implementation's :meth:`Params_init`, possibly.
-    :param MenuFunction[] functions: Functions to test with given settings and arguments. See :class:`MenuFunction`.
-    :param string title: Title string for the TUI menu.
-    :return: None
-    :rtype: None
+class MenuApp:
+    """Formal container holding useful functionality for menu-based applications.
     """
-    if functions is None:
-        functions = []
-    title = ("_" * len(title)) + "\n" + title
-    # setup default function
-    menu_functions = [MenuFunction(_config, mode="call-once", name="Edit Config", args=(settings, title))]
-    menu_functions += functions
-    menu_functions.append(MenuFunction(None, mode="call-once", name="Exit"))
 
-    # run application
-    terminal_menu = TerminalMenu([str(f) for f in menu_functions], title=title)
-    while True:
-        try:
-            sel = terminal_menu.show()
-            if (sel is None) or (sel>=len(menu_functions)-1):  # sel is None on KeyboardInterrupt
-                print("Exited with no Error.")
-                break
-            menu_functions[sel].run()
-        except Exception as e:
-            #traceback.print_exc()
-            print(f"TestSuite {e.__class__.__name__}: {e}")
-            break
+    def __init__(self, items=[], title=""):
+        """Initialize the application menu with the given parameters.
 
+        :param MenuItem[] items: Functions to test with given settings and arguments. See :class:`MenuItem`.
+        :param string title: Title string for the TUI menu.
+        """
+        self.items = items
+        self.title = title
+        
+    def run(self):
+        """Run the application menu.
 
-def _config(settings, title):
+        Opens a TUI menu with a predefined configuration function for editing configuration parameters
+        and other given functions of the tested implementation.\
+        An example on how to use this function can be found at the bottom of the file,
+        and can be executed by running the file directly or as a module.
+
+        :return: None
+        :rtype: None
+        """
+        if self.items is None:
+            self.items = []
+        topTitle = ("_" * len(self.title)) + "\n" + self.title
+        # setup default function
+        menu_items = self.items
+        menu_items.append(MenuItem(None, mode="call-once", name="Exit"))
+
+        # run application
+        terminal_menu = TerminalMenu([str(item) for item in menu_items], title=topTitle)
+        done = False
+        while not done:
+            try:
+                sel = terminal_menu.show()
+                if (sel is None) or (sel>=len(menu_items)-1):  # sel is None on KeyboardInterrupt
+                    logger.debug("Exited with no Error.")
+                    done = True
+                else:
+                    menu_items[sel].run()
+            except Exception as e:
+                traceback.print_exc()
+                logger.warning("MenuApp.run> %s: %s.", e.__class__.__name__, e)
+
     """ TODO: WIP
     def autoRun(testClass):
         \"""Generate all required arguments for a test and run the generalTestSuite
@@ -82,86 +92,92 @@ def _config(settings, title):
                 # TODO: use function data with args and default values
                 functions.append(func) # TODO: convert func to Object
     """
-    title += "\n[Config]"
-    padding = max([len(str(k)) for k in settings.keys()])
-    while True:
-        options = [(k, f"{k} {' ' * (padding - len(k))}: {v}") for k, v in settings.items()]
-        settings_menu = TerminalMenu([o[1] for o in options], title=title)
-        try:
-            # process selection
-            sel = settings_menu.show()
-            if sel is None:  # sel is None on KeyboardInterrupt
-                break
-            key, descr = options[sel]
-            cur_val = settings[key]
-            val_type = type(cur_val)
-            val_class = cur_val.__class__
-            print(f"{descr} [{val_type.__name__}]")
-            print(f"Old value: {cur_val}")
-            # if type(val_type) == EnumType:  # check type of type to get super class
-            #     print(f"Possible values for type \"{val_class.__name__}\":")
-            #     print(f" -> {', '.join(val_class.__members__.keys())}")
-            # set new value dialogue
+
+    @staticmethod
+    def editConfig(config, title="[Config]"):
+        """Edit configuration dictionary, as used by most philander implementations.
+
+        :param dict config: Configuration parameters as obtained from the tested implementation's :meth:`Params_init`, possibly.
+        """
+        padding = max([len(str(k)) for k in config.keys()])
+        while True:
+            options = [(k, f"{k} {' ' * (padding - len(k))}: {v}") for k, v in config.items()]
+            settings_menu = TerminalMenu([o[1] for o in options], title=title)
             try:
-                new_val = input("New value: ")
-                if val_type == bool:
-                    if new_val.lower() in ["false",
-                                           "none"]:  # non-empty strings will be auto-casted to true, so this custom conversion makes it more intuitive
-                        new_val = False
-                # elif type(val_type) == EnumType:  # try to convert strings to enum values
-                #     new_val = val_class[new_val]
-                settings[key] = val_type(new_val)
-            except KeyboardInterrupt:
+                # process selection
+                sel = settings_menu.show()
+                if sel is None:  # sel is None on KeyboardInterrupt
+                    break
+                key, descr = options[sel]
+                cur_val = config[key]
+                val_type = type(cur_val)
+                val_class = cur_val.__class__
+                print(f"{descr} [{val_type.__name__}]")
+                print(f"Old value: {cur_val}")
+                # if type(val_type) == EnumType:  # check type of type to get super class
+                #     print(f"Possible values for type \"{val_class.__name__}\":")
+                #     print(f" -> {', '.join(val_class.__members__.keys())}")
+                # set new value dialogue
+                try:
+                    new_val = input("New value: ")
+                    if val_type == bool:
+                        if new_val.lower() in ["false",
+                                               "none"]:  # non-empty strings will be auto-casted to true, so this custom conversion makes it more intuitive
+                            new_val = False
+                    # elif type(val_type) == EnumType:  # try to convert strings to enum values
+                    #     new_val = val_class[new_val]
+                    config[key] = val_type(new_val)
+                except KeyboardInterrupt:
+                    break
+            except Exception as e:
+                logger.warning("MenuApp.editConfig> Exited with Error: %s", e)
                 break
-        except Exception as e:
-            print(f"Exited with Error: {e}")
-            break
 
 
-def _output_processor(output_processor, output, custom_processor=None):
-    # automatic output-processor determination
-    if output_processor == "auto":
-        if custom_processor is not None:
-            output_processor = "custom"
-        elif output is None:
-            output_processor = None
-        elif type(output) in [list, tuple] and len(output) == 2:
-            if type(output[0]) == ErrorCode:
-                if output[0].isOk():
-                    output_processor = "print-second"
-                else:
-                    output_processor = "print"
-            elif type(output[1]) == ErrorCode:
-                if output[1].isOk():
-                    output_processor = "print-first"
+    def _output_processor(self, output_processor, output, custom_processor=None):
+        # automatic output-processor determination
+        if output_processor == "auto":
+            if custom_processor is not None:
+                output_processor = "custom"
+            elif output is None:
+                output_processor = None
+            elif type(output) in [list, tuple] and len(output) == 2:
+                if type(output[0]) == ErrorCode:
+                    if output[0].isOk():
+                        output_processor = "print-second"
+                    else:
+                        output_processor = "print"
+                elif type(output[1]) == ErrorCode:
+                    if output[1].isOk():
+                        output_processor = "print-first"
+                    else:
+                        output_processor = "print"
                 else:
                     output_processor = "print"
             else:
                 output_processor = "print"
+        if output_processor == "none" or output_processor is None:
+            pass
+            # available output-processors [(auto), print, print-first, print-second, custom]
+        elif output_processor == "print":
+            print(output)
+        elif output_processor == "print-first":
+            print(output[0])
+        elif output_processor == "print-second":
+            print(output[1])
+        elif output_processor == "custom":
+            if custom_processor is not None:
+                custom_processor(output)
+            else:
+                raise AttributeError("output_processor is set to custom but custom_output_processor is None.")
         else:
-            output_processor = "print"
-    if output_processor == "none" or output_processor is None:
-        pass
-        # available output-processors [(auto), print, print-first, print-second, custom]
-    elif output_processor == "print":
-        print(output)
-    elif output_processor == "print-first":
-        print(output[0])
-    elif output_processor == "print-second":
-        print(output[1])
-    elif output_processor == "custom":
-        if custom_processor is not None:
-            custom_processor(output)
-        else:
-            raise AttributeError("output_processor is set to custom but custom_output_processor is None.")
-    else:
-        raise AttributeError("Invalid output_processor specified, see docs for reference.")
+            raise AttributeError("Invalid output_processor specified, see docs for reference.")
 
 
-class MenuFunction:
-    """Class for defining functions for the TestSuite to test.
+class MenuItem:
+    """Class for defining items for the TestSuite to test.
 
-    Functions are defined by the underlying implementation function to be called, it's parameters,
+    Items are defined by the underlying implementation function to be called, it's parameters,
     and how it's run, and it's output is processed.
 
     :param function func: Callable function taken from the tested implementation.
@@ -207,13 +223,12 @@ class MenuFunction:
             rt_args[key] = input_func_data[0](
                 *input_func_data[1])  # TODO: documents this procedure properly or rewrite it
         # run function with set mode
-        mode = self.mode
         # call function once
-        if mode == "call-once":
+        if self.mode == "call-once":
             ret = self.func(*self.args, **self.kwargs, **rt_args)
             _output_processor(self.output_processor, ret, self.custom_output_processor)
         # call function repeatedly until KeyboardInterrupt
-        elif mode == "call-repeat":
+        elif self.mode == "call-repeat":
             while True:
                 try:
                     ret = self.func(*self.args, **self.kwargs, **rt_args)
@@ -223,11 +238,12 @@ class MenuFunction:
                     break
 
 
-"""Collection of ready to use input functions to use for runtime_kwargs (see :meth:`MenuFunction.run`)
+"""Collection of ready to use input functions to use for runtime_kwargs (see :meth:`MenuItem.run`)
 """
 
 
 class ArgInput:
+    
     @staticmethod
     def type_cast(dtype):
         """Cast input into a predefined type.
@@ -280,18 +296,20 @@ if __name__ == "__main__":
         # (e.g. set a digital potentiometer to a new value)
 
 
-    settings = {"conf": "Test",
+    title = "Test TestSuite"
+
+    config = {"conf": "Test",
                 "conf2": 2,
                 "config3": False}
 
-    functions = [
-        MenuFunction(test_settings, args=(settings,)),
-        MenuFunction(test_repeat, mode="call-repeat", name="repeat test"),
-        MenuFunction(test_args, name="args test", args=(42,)),
-        MenuFunction(test_args, name="kwargs test", kwargs={'a': 43}),
-        MenuFunction(set_something, runtime_kwargs={"val": (ArgInput.type_cast, (float,))})
+    items = [
+        MenuItem(MenuApp.editConfig, mode="call-once", name="Edit Config", args=(config,)),
+        MenuItem(test_settings, args=(settings,)),
+        MenuItem(test_repeat, mode="call-repeat", name="repeat test"),
+        MenuItem(test_args, name="args test", args=(42,)),
+        MenuItem(test_args, name="kwargs test", kwargs={'a': 43}),
+        MenuItem(set_something, runtime_kwargs={"val": (ArgInput.type_cast, (float,))})
     ]
 
-    title = "Test TestSuite"
-
-    run(settings, functions, title)
+    app = MenuApp(items, title)
+    app.run()
