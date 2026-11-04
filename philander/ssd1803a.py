@@ -219,7 +219,7 @@ class SSD1803A( TextDisplay ):
 
 
     #
-    # Higer level internal helpers
+    # Higher level internal helpers
     #    
     def _instrFunctionSet(self, RE=0, IS=0, BE=0, REV=0):
         cmd = 0x30      # DL = 1
