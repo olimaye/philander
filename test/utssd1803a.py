@@ -14,10 +14,11 @@ from philander.systypes import ErrorCode
 TARGET_SYSTEM_SOLARCHARLY = "solarcharly"
 
 params = {\
-     "display.SerialBus.designator":   "/dev/spidev0.0",    # "/dev/spidev0.1", SPI0
+     "display.SerialBus.designator":   "/dev/spidev0.1",    # "/dev/spidev0.1", SPI0
      "display.SerialBus.type":          SerialBusType.SPI,
      "display.SerialBus.SPI.bitorder":   "MSB",
      "display.SerialBus.SPI.mode":   SPIMode.CPOL1_CPHA1,   # CLK idles high, read 2nd edge
+     "display.light.gpio.pinDesignator":	12,
 }
 
 testData = [ 0x01, 0x02, 0x03, 0x04, 0x05 ]
@@ -26,7 +27,7 @@ delay_s = 1
 
 class TestSSD1803A( unittest.TestCase ):
     
-    #@unittest.skip("Disabled for easier diagnostics.")
+    @unittest.skip("Disabled for easier diagnostics.")
     def test_invBuffer(self):
         validSet = [0x00, 0x81, 0x42, 0xC3, 0x24, 0xA5, 0x66, 0xE7,
                     0x18, 0x99, 0x5A, 0xDB, 0x3C, 0xBD, 0x7E, 0xFF]
@@ -40,7 +41,7 @@ class TestSSD1803A( unittest.TestCase ):
             self.assertEqual( buffer[0], buffer[2], f"[0]={buffer[0]}  [1]={buffer[2]}" )
             self.assertEqual( buffer[1], buffer[2], f"[0]={buffer[1]}  [1]={buffer[2]}" )
 
-    #@unittest.skip("Disabled for easier diagnostics.")
+    @unittest.skip("Disabled for easier diagnostics.")
     def test_params(self):
         dev = SSD1803A()
         self.assertIsNotNone( dev )
@@ -56,7 +57,7 @@ class TestSSD1803A( unittest.TestCase ):
             self.assertEqual( cfg["display.SerialBus.SPI.bpw"], SerialBus.DEFAULT_SPI_BITS_PER_WORD )
         
         
-    #@unittest.skip("Disabled for easier diagnostics.")
+    @unittest.skip("Disabled for easier diagnostics.")
     def test_commHelper(self):
         dev = SSD1803A()
         self.assertIsNotNone( dev )
@@ -84,12 +85,34 @@ class TestSSD1803A( unittest.TestCase ):
         err = dev.close()
         self.assertEqual( err, ErrorCode.errOk )
         
-        
-if __name__ == '__main__':
-    logger = logging.getLogger()
-    logger.setLevel( logging.DEBUG )
-    logger.addHandler( logging.StreamHandler() )
 
+    #@unittest.skip("Disabled for easier diagnostics.")
+    def test_simpleTextAPI(self):
+        dev = SSD1803A()
+        self.assertIsNotNone( dev )
+        cfg = params.copy()
+        err = dev.open(cfg)
+        self.assertEqual( err, ErrorCode.errOk )
+        val = dev.widthChar
+        self.assertEqual( val, 20 )
+        val = dev.heightChar
+        self.assertEqual( val, 4 )
+        err = dev.printString("Hello World!\nEi der Daus!")
+        #err = dev.printString("Ei der Daus!")
+        self.assertEqual( err, ErrorCode.errOk )
+        sleep(10)
+        err = dev.close()
+        self.assertEqual( err, ErrorCode.errOk )
+
+
+if __name__ == '__main__':
+    logger = logging.getLogger("philander.ssd1803a")
+    logger.setLevel( logging.INFO )
+    hdlr = logging.StreamHandler()
+    formatter = logging.Formatter("%(asctime)s %(name)s.%(funcName)s %(levelname)s> %(message)s")
+    hdlr.setFormatter(formatter)
+    logger.addHandler( hdlr )
+    
     parser = argparse.ArgumentParser()
     parser.add_argument("--target", help="target system identifier", default=None)
     args, unknown = parser.parse_known_args()

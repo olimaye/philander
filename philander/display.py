@@ -9,6 +9,7 @@ __all__ = ["Display", ]
 
 from abc import ABC, abstractmethod
 
+from .gpio import GPIO
 from .module import Module
 from .pwm import PWM
 from .systypes import ErrorCode, RunLevel
@@ -84,6 +85,9 @@ class Display(ABC, Module):
         self._shape = Display.SHAPE_RECTANGLE   # Geometry of the display
         self._brightness = Display.INTENSITY_HIGH
         self._contrast = Display.INTENSITY_HIGH
+        # attributes to carry hardware-related objects
+        self._lightPWM = None # PWM instance to control backlight
+        self._lightPin = None # GPIO pin for backlight
         
     #############################
     # Module API
@@ -99,11 +103,34 @@ class Display(ABC, Module):
     def _drvOpen(self, paramDict):
         """Open the low-level driver and prepare it for use.
 
+        This implementation provides support for switching the
+        backlight via either GPIO or PWM.
+        
         :param dict(str, object) paramDict: Configuration parameters.
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        pass
+        ret = ErrorCode.errOk
+        prefix = self.MODULE_PARAM_PREFIX + ".light."
+        localParams = Module._extractParams( paramDict, prefix)
+        if localParams:
+            if self._lightPin or self._lightPWM:
+                ret = ErrorCode.errResourceConflict
+            elif "gpio.pinDesignator" in localParams:		# GPIO
+                self._lightPin = GPIO.getGPIO()
+                if not self._lightPin:
+                    ret = ErrorCode.errExhausted
+                else:
+                    ret = self._lightPin.open( localParams )
+            elif "pwm.pinDesignator" in localParams:	#PWM
+                self._lightPWM = PWM.getPWM()
+                if not self._lightPWM:
+                    ret = ErrorCode.errExhausted
+                else:
+                    ret = self._lightPWM.open( localParams )
+            else:
+                ret = ErrorCode.errInvalidParameter
+        return ret
     
     @abstractmethod
     def _drvClose(self):
@@ -112,7 +139,16 @@ class Display(ABC, Module):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        pass
+        ret = ErrorCode.errOk
+        if self._lightPin:
+            ret = self._lightPin.close()
+            self._lightPin = None
+        if self._lightPWM:
+            err = self._lightPWM.close()
+            self._lightPWM = None
+            if ret.isOk():
+                ret = err
+        return ret
     
     def _drvSetRunLevel(self, level):
         """Select the power-saving operation mode.
@@ -140,7 +176,8 @@ class Display(ABC, Module):
         ===========================    ===============================================================================================
         display.brightness             Brightness of screen or backlight as a percentage; 0...100; :attr:`Display.INTENSITY_HIGH`
         display.contrast               Screen contrast setting as a percentage; 0...100; :attr:`Display.INTENSITY_HIGH`
-        display.light.pwm.*            PWM configuration for the display light
+        display.light.gpio.*           GPIO configuration for the display light. Allows for switching backlight on or off.
+        display.light.pwm.*            PWM configuration for the display light. Exclusive-alternatively with GPIO!
         display.orientation            Orientation of the screen; :attr:`Display.ORIENTATION_NATURAL`
         ===========================    ===============================================================================================
         
@@ -157,31 +194,27 @@ class Display(ABC, Module):
 
         prefix = cls.MODULE_PARAM_PREFIX + ".light."
         tempDict = cls._extractParams( paramDict, prefix)
-        PWM.Params_init(tempDict)
+        if tempDict and ("gpio.pinDesignator" in tempDict):
+            tempDict["gpio.direction"] = GPIO.DIRECTION_OUT
+            GPIO.Params_init( tempDict )
+        else:
+            PWM.Params_init(tempDict)
         cls._aggregateParams( paramDict, tempDict, prefix )
-        
         return None
 
     def open(self, paramDict):
         self.Params_init(paramDict)
         ret = self._drvOpen(paramDict)
         if ret.isOk():
+            # Setting the run level also includes adjustment of
+            # brightness and contrast!
             ret = self.setRunLevel( RunLevel.active )
-            if ret.isLight():
-                key = self.MODULE_PARAM_PREFIX + ".orientation"
-                ret = self.setOrientation( paramDict[key] )
-            if ret.isLight():
-                key = self.MODULE_PARAM_PREFIX + ".brightness"
-                ret = self.setBrightness( paramDict[key] )
-            if ret.isLight():
-                key = self.MODULE_PARAM_PREFIX + ".contrast"
-                ret = self.setContrast( paramDict[key] )
             if ret.isLight():
                 ret = ErrorCode.errOk
         return ret
 
     def close(self):
-        ret = self.setRunLevel( RunLevel.sleep )
+        ret = self.setRunLevel( RunLevel.shutdown )
         err = self._drvClose()
         if not err.isOk():
             ret = err
@@ -244,8 +277,21 @@ class Display(ABC, Module):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        del value
-        return ErrorCode.errNotSupported
+        ret = ErrorCode.errOk
+        if self._lightPin:	# GPIO
+            lvl = GPIO.LEVEL_LOW if value <= self.INTENSITY_MEDIUM else GPIO.LEVEL_HIGH
+            ret = self._lightPin.set( lvl )
+        elif self._lightPWM:	# PWM
+            if value == self.INTENSITY_OFF:
+                ret = self._lightPWM.stop()
+            else:
+                state, ret = self._lightPWM.getState()
+                if ret.isOk():
+                    if state == PWM.ON:
+                        ret = self._lightPWM.setDuty( value )
+                    else:
+                        ret = self._lightPWM.start( value )
+        return ret
 
     def _drvSetContrast(self, value):
         """ Adjusts the contrast intensity.

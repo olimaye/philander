@@ -166,11 +166,7 @@ class TextDisplay(Display):
             if ret.isLight():
                 ret = self.setCursorSize(TextDisplay.CURSOR_SIZE_FULL, TextDisplay.CURSOR_SIZE_QUARTER)
             if ret.isLight():
-                ret = self.moveCursorToChar(0, 0)
-            if ret.isLight():
                 ret = self.clearScreen()
-            if ret.isLight():
-                ret = self.goToChar(0, 0)
             if ret.isOk():
                 key = self.MODULE_PARAM_PREFIX + ".screenpolicy"
                 ret = self.setScreenFullPolicy( paramDict[key] )
@@ -182,7 +178,13 @@ class TextDisplay(Display):
                 ret = ErrorCode.errOk
         return ret
     
-    
+    def close(self):
+        self.clearScreen()
+        ret = super().close()
+        return ret
+
+
+
     #############################
     # Specific API
     #############################
@@ -615,8 +617,9 @@ class TextDisplay(Display):
             ret = ErrorCode.errInvalidParameter
         else:
             ret = self._drvSetFont(font)
-        if ret.isOk():
+        if ret.isLight():
             self._font = font
+            ret = ErrorCode.errOk
         return ret
     
     def setScreenFullPolicy( self, policy ):
@@ -732,7 +735,7 @@ class TextDisplay(Display):
     
         if( self._font is None ):
             ret = ErrorCode.errInadequate
-        elif( (self._currentX + 1 > self._widthChar) or \
+        if( (self._currentX + 1 > self._widthChar) or \
                 (self._currentY + 1 > self._heightChar) ):
             ret = ErrorCode.errSpecRange
         else:

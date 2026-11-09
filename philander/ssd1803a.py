@@ -11,6 +11,7 @@ from .display_text import TextDisplay, ColorSpace, Font
 from .serialbus import SerialBusDevice, SerialBusType, SerialBus, SPIMode
 from .systypes import ErrorCode, RunLevel
 
+logger = logging.getLogger(__name__)
 
 class SSD1803A( TextDisplay ):
     """Driver class for a text LCD driven by SSD1803A.
@@ -124,9 +125,10 @@ class SSD1803A( TextDisplay ):
             # D/C#=0, Co=0
             ret = self._serbusdev.writeByteRegister( 0x00, data )
         else:
-            logging.error("SSD1803A._writeCmd> Bus type %s unsupported.",
+            logger.error("Bus type %s unsupported.",
                           self._serbusdev.serialBus.type)
             ret = ErrorCode.errNotImplemented
+        logger.debug("data=0x%02X, return: %s", data, ret)
         return ret
 
     def _readInfo(self):
@@ -154,10 +156,11 @@ class SSD1803A( TextDisplay ):
             ac = data & 0x7F
             cid = (data & 0x7F00) >> 8
         else:
-            logging.error("SSD1803A._readInfo> Bus type %s unsupported.",
+            logger.error("Bus type %s unsupported.",
                           self._serbusdev.serialBus.type)
             ret = ErrorCode.errNotImplemented
         # busy flag, AC = address counter, ID, error
+        logger.debug("bf=%s, ac=0x%02X, cid=0x%02X, return: %s", bf, ac, cid, ret)
         return bf, ac, cid, ret
 
     def _writeRAM(self, data):
@@ -176,15 +179,17 @@ class SSD1803A( TextDisplay ):
                 if self._serbusdev.serialBus.spiBitOrder == "MSB":
                     self._reverseBitOrder( wbuf )
                 ret = self._serbusdev.writeBuffer( wbuf )
+                #logger.debug("b=0x%02X, wbuf=%s, ret=%s", b, wbuf, ret)
                 if not ret.isOk():
                     break
         elif self._serbusdev.serialBus.type == SerialBusType.I2C:
             # D/C#=1, Co=0
             ret = self._serbusdev.writeBufferRegister( 0x40, data )
         else:
-            logging.error("SSD1803A._writeRAM> Bus type %s unsupported.",
+            logger.error("Bus type %s unsupported.",
                           self._serbusdev.serialBus.type)
             ret = ErrorCode.errNotImplemented
+        logger.debug("data=%s, return: %s", data, ret)
         return ret
 
     def _readRAM(self, num):
@@ -212,16 +217,25 @@ class SSD1803A( TextDisplay ):
             # D/C#=1, Co
             data, ret = self._serbusdev.readBufferRegister( 0x40, num )
         else:
-            logging.error("SSD1803A._readRAM> Bus type %s unsupported.",
+            logger.error("Bus type %s unsupported.",
                           self._serbusdev.serialBus.type)
             ret = ErrorCode.errNotImplemented
+        logger.debug("num=%s, data=%s, return: %s", num, data, ret)
         return data, ret
 
 
     #
     # Higher level internal helpers
-    #    
+    #
+    
     def _instrFunctionSet(self, RE=0, IS=0, BE=0, REV=0):
+        """Instruction: Function Set
+
+        Set DL, N, RE and (DH,IS) or (BE,REV).
+        DL=1 is always set, fixed.
+        N and DH are derived from internal attributes, like _heightChar or _font.charHeight
+        All other bits can be defined by corresponding function parameters.
+        """
         cmd = 0x30      # DL = 1
         if (self._heightChar==2) or (self._heightChar==4):
             cmd |= 0x08     # N=1 for 2 and 4 rows, 0 otherwise 
@@ -239,10 +253,14 @@ class SSD1803A( TextDisplay ):
             if REV:
                 cmd |= 0x01 # Set REV, possibly.
         ret = self._writeCmd( cmd )
+        logger.debug("cmd=0x%02X, return: %s", cmd, ret)
         return ret
             
     def _instrExtendedFunctionSet(self):
-        """ Set FW, B/W and NW.
+        """Instruction: Extended Function Set
+        
+        Set FW, B/W and NW.
+        All values are derived from internal attributes, like _font.charWidth etc.
         """
         cmd = 0x08
         if self._font and (self._font.charWidth==6):
@@ -252,6 +270,7 @@ class SSD1803A( TextDisplay ):
         if self._heightChar > 2:
             cmd |= 0x01     # NW=1 for 3 and 4 rows, 0 otherwise 
         ret = self._writeCmd( cmd )
+        logger.debug("cmd=0x%02X, return: %s", cmd, ret)
         return ret
     
     #
@@ -305,29 +324,32 @@ class SSD1803A( TextDisplay ):
         if self._serbusdev:
             ret = ErrorCode.errResourceConflict
         if ret.isOk():
+            ret = super()._drvOpen( paramDict )
+        if ret.isOk():
             prefixMod = self.MODULE_PARAM_PREFIX + "."
             # Extract serial bus parameters
             sparams = self._extractParams( paramDict, prefixMod )
             self._serbusdev = SerialBusDevice()
             ret = self._serbusdev.open(sparams)
             if ret.isOk():
-                # Fundamental settings
-                self._instrFunctionSet(RE=1)    # DL, RE
-                self._instrExtendedFunctionSet()    # FW, B/W, NW
-                self._drvSetOrientation( Display.ORIENTATION_NATURAL )
                 # Recommended ramp-up procedure
-                ret = self._drvClearScreen()
-                self._instrFunctionSet(RE=1, IS=1)
-                self._writeCmd( 0x13 ) # Reset Bias / OSC Frequency
-                self._writeCmd( 0x7F ) # Maximum contrast
-                self._writeCmd( 0x5C ) # ICON on, Booster reg. on
+                # Fundamental settings
+                self._instrFunctionSet(RE=1)		# RE (0x3A)
+                # Make sure, it's not powered down!
+                #self._writeCmd( 0x02 ) # Power down mode PD=0
+                self._instrExtendedFunctionSet()    # FW, B/W, NW (0x09)
+                value = paramDict[prefixMod + "orientation"]
+                self.setOrientation( value )		# (0x3A-06)
+                self._writeCmd( 0x1E )		# Dbl-Height/Bias/shift
+                self._instrFunctionSet(RE=0, IS=1)	# (0x39)
+                self._writeCmd( 0x1B ) # Reset Bias / OSC Frequency
                 self._writeCmd( 0x6E ) # Follower control
-                self._instrFunctionSet(RE=0)
+                self._instrFunctionSet(RE=0)	# IS=0 (0x38)
                 self._writeCmd( 0x0F ) # Display on, Cursor on, Blink on
             else:
-                logging.error("SSD1803A._drvOpen> Couldn't open serial bus device, error: %s.", ret)
+                logger.error("Couldn't open serial bus device, error: %s.", ret)
                 self._serbusdev = None
-        logging.debug("SSD1803A._drvOpen> Return: %s.", ret)
+        logger.debug("Return: %s.", ret)
         return ret
     
     def _drvClose(self):
@@ -337,15 +359,13 @@ class SSD1803A( TextDisplay ):
         :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
-        err = self._drvClearScreen()
-        ret =  err if ret.isOk() else ret
-        err = self._drvSetRunLevel( RunLevel.shutdown )
-        ret =  err if ret.isOk() else ret
         if self._serbusdev:
             err = self._serbusdev.close()
             self._serbusdev = None
         ret =  err if ret.isOk() else ret
-        logging.debug("SSD1803A._drvClose> Return: %s.", ret)
+        err = super()._drvClose()
+        ret =  err if ret.isOk() else ret
+        logger.debug("Return: %s.", ret)
         return ret
     
     def _drvSetRunLevel(self, level):
@@ -356,21 +376,25 @@ class SSD1803A( TextDisplay ):
         :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
-        if level in [RunLevel.active, RunLevel.idle]:
-            ret = self._instrFunctionSet(RE=1)
-            self._writeCmd( 0x02 ) # Power down PD=0
+        if not self._serbusdev:
+            ret = ErrorCode.errNotInited
+        elif level in [RunLevel.active, RunLevel.idle]:
+#             ret = self._instrFunctionSet(RE=1)
+#             self._writeCmd( 0x02 ) # Power down mode PD=0
             ret = self._instrFunctionSet(RE=0)
             self._writeCmd( 0x0F ) # Display on, Cursor on, Blink on
         elif level in [RunLevel.relax, RunLevel.snooze, RunLevel.nap]:
-            ret = self._instrFunctionSet(RE=1)
-            self._writeCmd( 0x02 ) # Power down PD=0
+#             ret = self._instrFunctionSet(RE=1)
+#             self._writeCmd( 0x02 ) # Power down PD=0
             ret = self._instrFunctionSet(RE=0)
             self._writeCmd( 0x08 ) # Display off, Cursor off, Blink off
+            pass
         else:
             ret = self._instrFunctionSet(RE=0)
             self._writeCmd( 0x08 ) # Display off, Cursor off, Blink off
-            ret = self._instrFunctionSet(RE=1)
-            self._writeCmd( 0x03 ) # Power down PD=1
+#             ret = self._instrFunctionSet(RE=1)
+#             self._writeCmd( 0x03 ) # Power down PD=1
+        logger.debug("level=%s, return: %s", level, ret)
         return ret
 
 
@@ -386,32 +410,22 @@ class SSD1803A( TextDisplay ):
         :rtype: ErrorCode
         """
         ret = ErrorCode.errOk
-        if orientation == Display.ORIENTATION_NATURAL:
+        if not self._serbusdev:
+            ret = ErrorCode.errNotInited
+        elif orientation == Display.ORIENTATION_NATURAL:
             ret = self._instrFunctionSet(RE=1)
             ret = self._writeCmd( 0x06 ) # Bottom view
         elif orientation == Display.ORIENTATION_ROTATE_180:
             ret = self._instrFunctionSet(RE=1)
             ret = self._writeCmd( 0x05 ) # Top view
         else:
-            logging.debug("SSD1803A._drvSetOrientation> Invalid orientation: %s.",
+            logger.debug("Invalid orientation: %s.",
                           orientation)
             ret = ErrorCode.errNotSupported
+        logger.debug("orientation=%s, return: %s", orientation, ret)
         return ret
     
-    def _drvSetBrightness(self, value):
-        """Configure the brightness intensity.
-        
-        Note that the LED backlight cannot be controlled by the display
-        driver chip. As this this external circuitry, the brightness must
-        be adjusted by either a potentiometer or PWM.
-        
-        :param int value: The new value to set the brightness to.
-        :return: An error code indicating either success or the reason of failure.
-        :rtype: ErrorCode
-        """
-        logging.debug("SSD1803A._drvSetBrightness> Not supported. value=%d",
-                      value)
-        return ErrorCode.errNotSupported
+    # _drvSetBrightness() is implemented by the Display super class.
 
     def _drvSetContrast(self, value):
         """ Adjusts the contrast intensity.
@@ -420,14 +434,17 @@ class SSD1803A( TextDisplay ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        # Scale percentage 0...100 -> 0...63 6 bit number C5...C0
-        contrast = int( value / 101 * 64 ) & 0x3F
-        # Upper C5 and C4 go to power control as DB1 and DB0
-        ret = self._instrFunctionSet(RE=0, IS=1)
-        self._writeCmd( 0x5C | (contrast >> 4)  ) # Ion=1, Bon=1, DB1=C5, DB0=C4
-        ret = self._writeCmd( 0x70 | (contrast & 0x0F)  ) # Contrast set, DB3...DB0=C3...C0
-        logging.debug("SSD1803A._drvSetContrast> value=%d, return: %s",
-                      value, ret)
+        if self._serbusdev:
+            # Scale percentage 0...100 -> 0...63 6 bit number C5...C0
+            contrast = int( value / 101 * 64 ) & 0x3F
+            # Upper C5 and C4 go to power control as DB1 and DB0
+            ret = self._instrFunctionSet(RE=0, IS=1)
+            self._writeCmd( 0x54 | (contrast >> 4)  ) # Ion=0, Bon=1, DB1=C5, DB0=C4
+            ret = self._writeCmd( 0x70 | (contrast & 0x0F)  ) # Contrast set, DB3...DB0=C3...C0
+            ret = ErrorCode.errOk
+        else:
+            ret = ErrorCode.errNotInited
+        logger.debug("value=%d, return: %s", value, ret)
         return ret
     
     def _drvSetInverse(self, inverseOn=True):
@@ -437,9 +454,11 @@ class SSD1803A( TextDisplay ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        ret = self._instrFunctionSet(RE=1, BE=1, REV=inverseOn)
-        logging.debug("SSD1803A._drvSetInverse> value=%d, return: %s",
-                      inverseOn, ret)
+        if self._serbusdev:
+            ret = self._instrFunctionSet(RE=1, BE=1, REV=inverseOn)
+        else:
+            ret = ErrorCode.errNotInited
+        logger.debug("inverseOn=%s, return: %s", inverseOn, ret)
         return ret
 
     #
@@ -493,19 +512,23 @@ class SSD1803A( TextDisplay ):
         #   3 lines: 0x00 - 0x13, 0x20 - 0x33, 0x40 - 0x53
         #   4 lines: 0x00 - 0x13, 0x20 - 0x33, 0x40 - 0x53, 0x60 - 0x73
         # Actual addressing also depends on the character width (5/6 dots).
-        if y==0:
-            ac = 0x00
-        elif y==1:
-            ac = 0x20
-        elif y==2:
-            ac = 0x40
+        if self._serbusdev:
+            if y==0:
+                ac = 0x00
+            elif y==1:
+                ac = 0x20
+            elif y==2:
+                ac = 0x40
+            else:
+                ac = 0x60
+            ac += x
+            cmd = 0x80 | ac
+            self._instrFunctionSet(RE=0)
+            ret = self._writeCmd( cmd )  # set AC
+            ret = ErrorCode.errOk
         else:
-            ac = 0x60
-        ac += x
-        cmd = 0x80 | ac
-        self._instrFunctionSet(RE=0)
-        ret = self._writeCmd( cmd )  # set AC
-        logging.debug("SSD1803A._drvGoTo> x=%d y=%d, new ac=0x%02x return: %s",
+            ret = ErrorCode.errNotInited
+        logger.debug("x=%d y=%d, new ac=0x%02x return: %s",
                       x, y, ac, ret)
         return ret
 
@@ -515,7 +538,11 @@ class SSD1803A( TextDisplay ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        ret = self._writeCmd( 0x01 ) # Clear Display
+        if self._serbusdev:
+            ret = self._writeCmd( 0x01 ) # Clear Display
+        else:
+            ret = ErrorCode.errNotInited
+        logger.debug("Return: %s", ret)
         return ret
         
     def _drvScrollV( self, numLines ):
@@ -583,10 +610,14 @@ class SSD1803A( TextDisplay ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        self._instrFunctionSet( RE=1 )
-        self._writeCmd( 0x72 ) # ROM selection
-        self._writeRAM( [font.idxAdr] )
-        ret = self._instrExtendedFunctionSet()
+        if self._serbusdev:
+#             self._instrFunctionSet( RE=1 )
+#             self._writeCmd( 0x72 ) # ROM selection
+#             self._writeRAM( [font.idxAdr] )
+#             ret = self._instrExtendedFunctionSet()
+            ret = ErrorCode.errNotImplemented
+        else:
+            ret = ErrorCode.errNotInited
         return ret
     
     def _drvPrintChar( self, code):
@@ -596,6 +627,10 @@ class SSD1803A( TextDisplay ):
         :return: An error code indicating either success or the reason of failure.
         :rtype: ErrorCode
         """
-        ret = self._writeRAM( code )
+        if self._serbusdev:
+            ret = self._writeRAM( [code] )
+        else:
+            ret = ErrorCode.errNotInited
+        logger.debug("code=0x%02x '%c', return: %s", code, code, ret)
         return ret
 
