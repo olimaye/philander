@@ -1,5 +1,6 @@
 """
 """
+import logging
 from time import sleep
 import unittest
 
@@ -57,7 +58,7 @@ class TestGPIO( unittest.TestCase ):
         err = pin.close()
         self.assertEqual( err, ErrorCode.errOk )
         
-    #@unittest.skip("Disabled for easier development.")
+    @unittest.skip("Disabled for easier development.")
     def test_input(self):
         pin = GPIO.getGPIO()
         self.assertIsNotNone( pin )
@@ -82,5 +83,11 @@ class TestGPIO( unittest.TestCase ):
         self.assertEqual( err, ErrorCode.errOk )
         
 if __name__ == '__main__':
-    unittest.main()
+    logger = logging.getLogger("philander.gpio_periphery")
+    logger.setLevel( logging.DEBUG )
+    hdlr = logging.StreamHandler()
+    formatter = logging.Formatter("%(asctime)s %(name)s.%(funcName)s %(levelname)s> %(message)s")
+    hdlr.setFormatter(formatter)
+    logger.addHandler( hdlr )
 
+    unittest.main()
