@@ -16,6 +16,7 @@ from philander.module import Module
 from philander.sysfactory import SysProvider, SysFactory
 from philander.systypes import ErrorCode
 
+logger = logging.getLogger(__name__)
 
 class GPIO( Module, Interruptable ):
     """General-purpose I/O abstraction class.
@@ -222,7 +223,7 @@ class GPIO( Module, Interruptable ):
                 self.trigger = paramDict.get("gpio.trigger", defaults["gpio.trigger"])
                 self.bounce = paramDict.get("gpio.bounce", defaults["gpio.bounce"])
             self.isOpen = True
-        logging.debug("GPIO.open() #%s returns %s.", self.designator, ret)
+        logger.debug("GPIO.open() #%s returns %s.", self.designator, ret)
         return ret
 
     def close(self):
@@ -243,7 +244,7 @@ class GPIO( Module, Interruptable ):
             self.isOpen = False
         else:
             ret = ErrorCode.errResourceConflict
-        logging.debug("GPIO.close() #%s returns %s.", self.designator, ret)
+        logger.debug("GPIO.close() #%s returns %s.", self.designator, ret)
         return ret
 
     def setRunLevel(self, level):
@@ -278,7 +279,7 @@ class GPIO( Module, Interruptable ):
             ret = ErrorCode.errOk
         else:
             ret = ErrorCode.errNotImplemented
-        logging.debug("GPIO.enableInterrupt() #%s returns %s.", self.designator, ret)
+        logger.debug("GPIO.enableInterrupt() #%s returns %s.", self.designator, ret)
         return ret
 
     def disableInterrupt(self):
@@ -298,7 +299,7 @@ class GPIO( Module, Interruptable ):
             ret = ErrorCode.errOk
         else:
             ret = ErrorCode.errNotImplemented
-        logging.debug("GPIO.disableInterrupt() #%s returns %s.", self.designator, ret)
+        logger.debug("GPIO.disableInterrupt() #%s returns %s.", self.designator, ret)
         return ret
 
     def get(self):

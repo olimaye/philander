@@ -12,6 +12,7 @@ from philander.gpio import GPIO
 from philander.sysfactory import SysProvider
 from philander.systypes import ErrorCode
 
+logger = logging.getLogger(__name__)
 
 class _GPIO_Periphery( GPIO ):
     """Implementation of the GPIO abstract interface for the periphery lib.
@@ -62,14 +63,14 @@ class _GPIO_Periphery( GPIO ):
     # supported by the underlying implementation, such as for the
     # periphery package.
     def _workerLoop(self):
-        logging.debug("_GPIO_Periphery #%d starts working loop.", self.designator)
+        logger.debug("_GPIO_Periphery #%d starts working loop.", self.designator)
         self._workerDone = False
         while not self._workerDone:
             value = self.pin.poll(GPIO._POLL_TIMEOUT)
             if value:
-                logging.debug("_GPIO_Periphery #%d invokes callback.", self.designator)
+                logger.debug("_GPIO_Periphery #%d invokes callback.", self.designator)
                 self._callback(self.pin)
-        logging.debug("_GPIO_Periphery #%d terminates working loop.", self.designator)
+        logger.debug("_GPIO_Periphery #%d terminates working loop.", self.designator)
 
     # Stop the worker thread, if appropriate.
     def _stopWorker(self):
@@ -138,7 +139,7 @@ class _GPIO_Periphery( GPIO ):
                         self.pin = PerGPIO( self.chippath, self.designator,
                                             self._dictLevel2Dir[level] )
                     except PerGPIOError as e:
-                        logging.debug("_GPIO_Periphery.open() failed. chip: %s, designator: %s, error: %s.",
+                        logger.debug("_GPIO_Periphery.open() failed. chip: %s, designator: %s, error: %s.",
                                       self.chippath, self.designator, e)
                         ret = ErrorCode.errInitFailed
                 else:
