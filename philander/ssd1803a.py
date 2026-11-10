@@ -611,11 +611,11 @@ class SSD1803A( TextDisplay ):
         :rtype: ErrorCode
         """
         if self._serbusdev:
-#             self._instrFunctionSet( RE=1 )
-#             self._writeCmd( 0x72 ) # ROM selection
-#             self._writeRAM( [font.idxAdr] )
-#             ret = self._instrExtendedFunctionSet()
-            ret = ErrorCode.errNotImplemented
+            self._instrFunctionSet( RE=1 )
+            self._writeCmd( 0x72 ) # ROM selection
+            logger.debug("Font address=0x%02x.", font.idxAdr)
+            ret = self._writeRAM( [font.idxAdr] )
+            #self._instrFunctionSet( RE=0 )
         else:
             ret = ErrorCode.errNotInited
         return ret

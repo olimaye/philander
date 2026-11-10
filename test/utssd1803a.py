@@ -27,7 +27,7 @@ delay_s = 1
 
 class TestSSD1803A( unittest.TestCase ):
     
-    @unittest.skip("Disabled for easier diagnostics.")
+    #@unittest.skip("Disabled for easier diagnostics.")
     def test_invBuffer(self):
         validSet = [0x00, 0x81, 0x42, 0xC3, 0x24, 0xA5, 0x66, 0xE7,
                     0x18, 0x99, 0x5A, 0xDB, 0x3C, 0xBD, 0x7E, 0xFF]
@@ -41,7 +41,7 @@ class TestSSD1803A( unittest.TestCase ):
             self.assertEqual( buffer[0], buffer[2], f"[0]={buffer[0]}  [1]={buffer[2]}" )
             self.assertEqual( buffer[1], buffer[2], f"[0]={buffer[1]}  [1]={buffer[2]}" )
 
-    @unittest.skip("Disabled for easier diagnostics.")
+    #@unittest.skip("Disabled for easier diagnostics.")
     def test_params(self):
         dev = SSD1803A()
         self.assertIsNotNone( dev )
@@ -57,7 +57,7 @@ class TestSSD1803A( unittest.TestCase ):
             self.assertEqual( cfg["display.SerialBus.SPI.bpw"], SerialBus.DEFAULT_SPI_BITS_PER_WORD )
         
         
-    @unittest.skip("Disabled for easier diagnostics.")
+    #@unittest.skip("Disabled for easier diagnostics.")
     def test_commHelper(self):
         dev = SSD1803A()
         self.assertIsNotNone( dev )
@@ -97,10 +97,32 @@ class TestSSD1803A( unittest.TestCase ):
         self.assertEqual( val, 20 )
         val = dev.heightChar
         self.assertEqual( val, 4 )
-        err = dev.printString("Hello World!\nEi der Daus!")
-        #err = dev.printString("Ei der Daus!")
+        err = dev.printString("Hello World!")
         self.assertEqual( err, ErrorCode.errOk )
-        sleep(10)
+        sleep(5)
+        err = dev.close()
+        self.assertEqual( err, ErrorCode.errOk )
+
+    #@unittest.skip("Disabled for easier diagnostics.")
+    def test_fonts(self):
+        dev = SSD1803A()
+        self.assertIsNotNone( dev )
+        cfg = params.copy()
+        err = dev.open(cfg)
+        self.assertEqual( err, ErrorCode.errOk )
+        fl, err = dev.getFontNames()
+        self.assertEqual( err, ErrorCode.errOk )
+        self.assertTrue( fl )
+        for fn in fl:
+            err = dev.clearScreen()
+            self.assertEqual( err, ErrorCode.errOk )
+            font, err = dev.getFont(fn)
+            self.assertEqual( err, ErrorCode.errOk )
+            err = dev.setFont(font)
+            self.assertEqual( err, ErrorCode.errOk )
+            err = dev.printString(fn+"\nBackslash=\\\nAt=@  AE=\x5B")
+            self.assertEqual( err, ErrorCode.errOk )
+            sleep(5)
         err = dev.close()
         self.assertEqual( err, ErrorCode.errOk )
 

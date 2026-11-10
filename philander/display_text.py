@@ -589,6 +589,21 @@ class TextDisplay(Display):
             ret = self._drvClearScreen()
         return ret
     
+    def getFontNames(self):
+        """Retrieve the names of the fonts available.
+
+        The names of all fonts are returned as a list. That includes those fonts that
+        possibly come as built-in's with the underlying display hardware.
+        If there is no font available, an empty list is returned.
+        If there is a default font, its name is assumed to be the first
+        in the list - at index zero.
+        
+        :return: The list of font names and an error code indicating either success or the reason of failure.
+        :rtype: Tuple( list(str), ErrorCode)
+        """
+        names, ret = self._drvGetBuiltinFontNames()
+        return names, ret
+
     def getFont(self, name=""):
         """Retrieve a font, given its name.
 
@@ -619,6 +634,8 @@ class TextDisplay(Display):
             ret = self._drvSetFont(font)
         if ret.isLight():
             self._font = font
+            ret = self.goToChar( 0, 0 )
+        if ret.isLight():
             ret = ErrorCode.errOk
         return ret
     
