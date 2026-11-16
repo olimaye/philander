@@ -27,7 +27,7 @@ class Watchdog:
         =============================    ==========================================================================================================
         Key name                         Value type, meaning and default
         =============================    ==========================================================================================================
-        Watchdog.Interval                ``int`` Watch dog interval in milliseconds; default is :attr:`INTERVAL_MS_DEFAULT`.
+        watchdog.interval                ``int`` Watch dog interval in milliseconds; default is :attr:`INTERVAL_MS_DEFAULT`.
         =============================    ==========================================================================================================
         
         Also see: :meth:`.Module.Params_init`. 
@@ -38,8 +38,8 @@ class Watchdog:
         :rtype: None
         """
         
-        if not ("Watchdog.Interval" in paramDict):
-            paramDict["Watchdog.Interval"] = Watchdog.INTERVAL_MS_DEFAULT
+        if not ("watchdog.interval" in paramDict):
+            paramDict["watchdog.interval"] = Watchdog.INTERVAL_MS_DEFAULT
         return None
                                 
 
