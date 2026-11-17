@@ -90,9 +90,10 @@ class M41T82( RTC, Watchdog ):
         Supported key names and their meanings are:
 
         ===========================    ===============================================================================================
-        Key                            Meaning, Range, Default
+        Key                            Range(Default), Meaning 
         ===========================    ===============================================================================================
-        rtc.alarm2.enable              Either use Alarm2 or increase user data space. True or False, default is True.
+        rtc.alarm2.enable              {True|False} (True) Either use Alarm2 or increase user data space.
+        rtc.ft.enable                  {True|False} (False) If True, set the FT bit and enable frequency output on FT/RST pin.
         rtc.SerialBusDevice.*          Serial bus device config; See :meth:`.SerialBusDevice.Params_init`.
         rtc.SerialBus.*                Serial bus configuration; See :meth:`.SerialBus.Params_init`.
         watchdog.*                     Any watchdog-related settings.
@@ -114,7 +115,8 @@ class M41T82( RTC, Watchdog ):
         cls._aggregateParams( paramDict, serDict, prefix )
         #Add this module's defaults
         defaults = {
-            "alarm2.enable":  True,
+            "alarm2.enable":    True,
+            "ft.enable":        False,
             }
         cls._aggregateParams( paramDict, defaults, prefix )
         RTC.Params_init(paramDict)
@@ -136,18 +138,17 @@ class M41T82( RTC, Watchdog ):
         :rtype: ErrorCode
         """
         ret = super().open( paramDict )
+        if ret.isOk() and self._serbusdev:
+            self.isOpen = True
+            ret = ErrorCode.errResourceConflict
         if ret.isOk():
-            if self._serbusdev:
-                self.isOpen = True
-                ret = ErrorCode.errResourceConflict
-            else:
-                prefixMod = self.MODULE_PARAM_PREFIX + "."
-                # Extract serial bus parameters
-                sparams = self._extractParams( paramDict, prefixMod )
-                self._serbusdev = SerialBusDevice()
-                if not self._serbusdev:
-                    self.isOpen = False
-                    ret = ErrorCode.errInitFailed
+            prefixMod = self.MODULE_PARAM_PREFIX + "."
+            # Extract serial bus parameters
+            sparams = self._extractParams( paramDict, prefixMod )
+            self._serbusdev = SerialBusDevice()
+            if not self._serbusdev:
+                self.isOpen = False
+                ret = ErrorCode.errInitFailed
         if ret.isOk():
             ret = self._serbusdev.open(sparams)
         if ret.isOk():
@@ -158,6 +159,7 @@ class M41T82( RTC, Watchdog ):
             val, ret = self._serbusdev.readByteRegister( 0x0C )
             val &= ~0x40    # clear HT
             ret = self._serbusdev.writeByteRegister(0x0C, val)
+        if ret.isOk():
             # Kick-start oscillator by cycling ST
             # But first avoid a roll-over in the milliseconds
             val = 0xFF
@@ -166,21 +168,21 @@ class M41T82( RTC, Watchdog ):
             val = val >> 8
             ret = self._serbusdev.writeByteRegister(0x01, val | 0x80 )
             ret = self._serbusdev.writeByteRegister(0x01, val & 0x7F )
-            enAlarm2 = paramDict.get(self.MODULE_PREFIX+".alarm2.enable", True)
-            if enAlarm2:
-                self.numAlarms = 2
-                self.supportedStatus |= RTC.STATUS_ALARM_1
-                self.lenUserData = 7
-                ret = self._serbusdev.writeByteRegister(0x13, 0x02)
-            else:
-                self.numAlarms = 1
-                self.supportedStatus &= ~RTC.STATUS_ALARM_1
-                self.lenUserData = 12
-                ret = self._serbusdev.writeByteRegister(0x13, 0x00)
-            # Maybe, it's not a good idea to alwayscancel all alarms upon power-up
-            # for alarmID in range(self.numAlarms):
-            #     ret = self.cancelAlarm(alarmID)
-            # ret = self.cancelTimer(0)
+        if ret.isOk():
+            # Set or clear FT
+            flag = sparams.get("ft.enable", False)
+            val, ret = self._serbusdev.readByteRegister( 0x08 )
+            val = (val | 0x40) if flag else (val & ~0x40)
+            ret = self._serbusdev.writeByteRegister( 0x08, val )
+        if ret.isOk():
+            # Set or clear AL2E
+            flag = sparams.get("alarm2.enable", True)
+            self.numAlarms = 2 if flag else 1
+            self.supportedStatus = (self.supportedStatus | RTC.STATUS_ALARM_1) if flag else \
+                                    (self.supportedStatus & ~RTC.STATUS_ALARM_1)
+            self.lenUserData = 7 if flag else 12
+            ret = self._serbusdev.writeByteRegister(0x13, 2 if flag else 0)
+        if ret.isOk():
             # Set watchdog data
             self._wdData, ret = self._getWatchdogData( paramDict )
         logger.debug("ret=%s.", ret)
