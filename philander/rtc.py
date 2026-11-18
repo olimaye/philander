@@ -113,6 +113,29 @@ class RTC( Module ):
     # Module API
     #
 
+    @classmethod
+    def Params_init( cls, paramDict ):
+        """Initialize parameters with default values.
+        
+        Supported key names and their meanings are:
+
+        ===========================    ===============================================================================================
+        Key                            Range(Default), Meaning 
+        ===========================    ===============================================================================================
+        rtc.calibration                int (0) RTC calibration value in +/- ppm, meant as a total value.
+        ===========================    ===============================================================================================
+        
+        :param dict(str, object) paramDict: Dictionary of configuration settings.
+        :return: none
+        :rtype: None
+        """
+        #Add this module's defaults
+        defaults = {
+            "rtc.calibration":    0,
+            }
+        cls._aggregateParams( paramDict, defaults )
+        
+
     def open(self, paramDict):
         """Opens the instance and sets it in a usable state.
 
@@ -432,3 +455,46 @@ class RTC( Module ):
         logger.debug("buffer=%s, ret=%s.", buffer, ret)
         return ret
 
+    def getCalibration(self):
+        """Retrieve the current calibration value in ppm.
+        
+        :return: The signed total calibration value in ppm and\
+        An error code indicating success or the reason of failure.
+        :rtype: int, ErrorCode
+        """
+        ret = ErrorCode.errOk
+        val = 0
+        if not self.isOpen:
+            ret = ErrorCode.errResourceConflict
+        else:
+            ret = ErrorCode.errNotImplemented
+        logger.debug("val=%s, ret=%s.", val, ret)
+        return val, ret
+    
+    def setCalibration(self, ppmValue):
+        """Set and apply a calibration to the RTC.
+        
+        The calibration value is a corrective factor applied to the clock
+        frequency. This value is signed, so it can also be a  negative
+        number. It is expressed as ppm, which is parts-per-million or
+        1:1'000'000.
+
+        The given value is an absolute bias to the RTC. So, calling this
+        function sequentially will not accumulated the given values.
+        Instead, a call of this function replaces the RTC calibration
+        value of the previous call. So the corrective :attr:```ppmValue```
+        is meant relative to the device default clock rate.
+        
+        :param int ppmValue: The calibration value to apply.
+        :return: An error code indicating success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        ret = ErrorCode.errOk
+        if not self.isOpen:
+            ret = ErrorCode.errResourceConflict
+        else:
+            ret = ErrorCode.errNotImplemented
+        logger.debug("ppmValue=%s, ret=%s.", ppmValue, ret)
+        return ret
+    
+    

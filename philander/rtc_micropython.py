@@ -262,4 +262,42 @@ class _RTC_Micropython( RTC ):
         logger.debug("buffer=%s, ret=%s.", buffer, ret)
         return ret
 
+    def getCalibration(self):
+        """Retrieve the current calibration value in ppm.
+        
+        :return: The signed total calibration value in ppm and\
+        An error code indicating success or the reason of failure.
+        :rtype: int, ErrorCode
+        """
+        # Check parameter
+        val, ret = super().getCalibration()
+        if ret == ErrorCode.errNotImplemented:
+            ret = ErrorCode.errNotSupported
+        logger.debug("val=%s, ret=%s.", val, ret)
+        return val, ret
+    
+    def setCalibration(self, ppmValue):
+        """Set and apply a calibration to the RTC.
+        
+        The calibration value is a corrective factor applied to the clock
+        frequency. This value is signed, so it can also be a  negative
+        number. It is expressed as ppm, which is parts-per-million or
+        1:1'000'000.
+
+        The given value is an absolute bias to the RTC. So, calling this
+        function sequentially will not accumulated the given values.
+        Instead, a call of this function replaces the RTC calibration
+        value of the previous call. So the corrective :attr:```ppmValue```
+        is meant relative to the device default clock rate.
+        
+        :param int ppmValue: The calibration value to apply.
+        :return: An error code indicating success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        # Check parameter
+        ret = super().setCalibration( ppmValue )
+        if ret == ErrorCode.errNotImplemented:
+            ret = ErrorCode.errNotSupported
+        logger.debug("ppmValue=%s, ret=%s.", ppmValue, ret)
+        return ret
     

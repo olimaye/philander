@@ -29,10 +29,23 @@ class M41T82( RTC, Watchdog ):
     
     ADDRESSES_ALLOWED = [0x68,]
 
+    # Calibration techniques
+    CALIB_TECH_ANALOGUE   = 1
+    CALIB_TECH_DIGITAL    = 2
+    CALIB_TECH_BOTH       = 3
+    
+    # Calibration limits, given in ppm
+    CALIB_ANALOGUE_LIMIT_LOWER  = -15
+    CALIB_ANALOGUE_LIMIT_UPPER  = 95
+    CALIB_DIGITAL_LIMIT_LOWER  = -63
+    CALIB_DIGITAL_LIMIT_UPPER  = 126
+    
+    
     def __init__(self):
         """Initialize the instance with defaults.
         """
         super().__init__()
+        # Attributes of the super class
         self.numAlarms      = 2     # Number of alarms (ids) provided
         self.numTimers      = 1     # Number of timers (ids) provided
         self.lenUserData    = 7     # Number of bytes than can be stored as user data
@@ -40,11 +53,13 @@ class M41T82( RTC, Watchdog ):
                                RTC.STATUS_TIMER_0 | RTC.STATUS_OSC_FAIL | \
                                RTC.STATUS_BAT_LOW | RTC.STATUS_STOPPED
         self.provider = SysProvider.COMPOSITE
-        self._serbusdev = None
+        # Attributes of this class
         # Date and time tuple of last access before most-recent power-down
         self.lastKnownAlive = None 
-        self._wdData = 0    # Watchdog register data
-
+        self._serbusdev = None  # SerialBusDevice instance
+        self._wdData = 0        # Watchdog register data
+        self._bitFT = False     # FT shadow
+        
     @classmethod
     def _getWatchdogData(cls, paramDict):
         ret = ErrorCode.errOk
@@ -78,6 +93,134 @@ class M41T82( RTC, Watchdog ):
             wdData = (tval << 2) | tcfg
         logger.debug("interval=%s, wdData=0x%02x, ret=%s", interval, wdData, err)
         return wdData, ret
+
+    #
+    # For mapping the capacitive load correction x[pF] to the resulting
+    # calibration value in analogue calibration, the corresponding
+    # mapping function is roughly: y[ppm] = a*x / (b+x) + c*x
+    # with a=-127, b=38, c=1.06, when x in pF.
+    # For the register content analog = 4*x: a->a, b->4*b, c->c/4
+    # So: a=-127, b=152, c=0.265=53/200
+    #
+    # ppm = -127*analog / (152+analog) + 53*analog/200
+    #     = (-127*analog*200 + 53*analog*(152+analog)) / ((152+analog)*200)
+    #     = analog*(-127*200 + 53*(152+analog)) / ((152+analog)*200)
+    #     = analog*(-127*200 + 53*152 + 53*analog) / ((152+analog)*200)
+    #     = analog*(53*analog-17344) / ((152+analog)*200)
+    #     = _aNumerator(analog) / _aDenominator(analog)
+    #
+
+    @classmethod
+    def _aNumerator(cls, k):
+        return k * (53 * k - 17344)
+
+    @classmethod
+    def _aDenominator(cls, k):
+        return 200 * (152 + k)
+
+
+    @classmethod
+    def _calibAnalogReg2ppm(cls, analog):
+        """Calculate effective calibration in ppm from a given analogue register content.
+        
+        :param int analog: Unsigned content of the analogue calibration register ACS:AC6-0
+        :return: The total calibration expresed in ppm and\
+        An error code indicating either success or the reason of failure.
+        :rtype: int, ErrorCode
+        """
+        ppm=0
+        ret = ErrorCode.errOk
+        if (analog > 0xFF):
+            ret = ErrorCode.errSpecRange
+        else:
+            if analog & 0x80:   # ACS=1 -> Positive calibration, but negative capacitive offset
+                analog = -(analog & 0x7F)
+            # Now we have the capacitive offset in 1/4 pF
+            # Apply range limits -18 ... +9.75 pF
+            analog = -72 if (analog < -72) else 39 if (analog > 39) else analog
+            divisor = cls._aDenominator(analog)
+            ppm = (cls._aNumerator(analog) + divisor//2) // divisor
+        return ppm, ret
+
+    @classmethod
+    def _calibDigitalReg2ppm(cls, digital):
+        """Calculate effective calibration in ppm from a given digital register content.
+        
+        :param int digital: Unsigned content of the digital calibration register DCS:DC4-0
+        :return: The total calibration expresed in ppm and\
+        An error code indicating either success or the reason of failure.
+        :rtype: int, ErrorCode
+        """
+        ppm=0
+        ret = ErrorCode.errOk
+        if (digital > 0x3F):
+            ret = ErrorCode.errSpecRange
+        else:
+            if digital & 0x20:  # DCS=1 -> Positive calibration!
+                # Factor: 1'000'000 / (8*60 * 512) = 3125 / 768 ~ 4.069
+                ppm = ((digital & 0x1F) * 3125 + 384) // 768
+            else:   # DCS=0 -> Negative calibration!
+                # Factor: 1'000'000 / (16*60 * 512) = 3125 / 1536 ~ 2.0345
+                ppm = -((digital * 3125 + 768) // 1536)
+        return  ppm, ret
+
+    @classmethod
+    def _calibPPM2AnalogReg(cls, ppm):
+        """Calculate analog calibration register content from a ppm value.        
+        
+        :param int ppm: The calibration expressed in ppm.
+        :return: The analog unsigned content of the calibration register ACS:AC6-0 and\
+        An error code indicating either success or the reason of failure.
+        :rtype: int, ErrorCode
+        """
+        analog = 0
+        ret = ErrorCode.errOk
+        if (ppm < M41T82.CALIB_ANALOGUE_LIMIT_LOWER) or (ppm > M41T82.CALIB_ANALOGUE_LIMIT_UPPER):
+            ret = ErrorCode.errSpecRange
+        else:
+            # Binary search (Bisection)
+            lowerBound = -72
+            upperBound = 39
+            
+            # ppm(reg) falls steadily
+            while lowerBound < upperBound:
+                mid = (lowerBound + upperBound) // 2
+                if ppm * cls._aDenominator(mid) < cls._aNumerator(mid):
+                    lowerBound = mid + 1
+                else:
+                    upperBound = mid
+            # True value is in [lowerBound-1, lowerBound]
+            # Pick the better one.
+            analog = lowerBound
+            if lowerBound > -72:
+                err_left  = abs(ppm * cls._aDenominator(lowerBound-1) - cls._aNumerator(lowerBound-1))
+                err_right = abs(ppm * cls._aDenominator(lowerBound) - cls._aNumerator(lowerBound))
+                if err_left * cls._aDenominator(lowerBound) <= err_right * cls._aDenominator(lowerBound-1):
+                    analog -= 1
+            # Encode according to register spec
+            analog = (-analog | 0x80) if analog < 0 else analog
+        return analog, ret
+
+    @classmethod
+    def _calibPPM2DigitalReg(cls, ppm):
+        """Calculate digital calibration register content from a ppm value.        
+        
+        :param int ppm: The calibration expressed in ppm.
+        :return: The digital unsigned content of the calibration register DCS:DC4-0 and\
+        An error code indicating either success or the reason of failure.
+        :rtype: int, ErrorCode
+        """
+        digital = 0
+        ret = ErrorCode.errOk
+        if (ppm < M41T82.CALIB_DIGITAL_LIMIT_LOWER) or (ppm > M41T82.CALIB_DIGITAL_LIMIT_UPPER):
+            ret = ErrorCode.errSpecRange
+        else:
+            if ppm > 0:
+                digital = (ppm * 768 + 1562) // 3125
+                digital |= 0x20
+            else:
+                digital = ((-ppm) * 1536 + 1562) // 3125
+        return digital, ret
 
     #
     # Module API
@@ -170,9 +313,9 @@ class M41T82( RTC, Watchdog ):
             ret = self._serbusdev.writeByteRegister(0x01, val & 0x7F )
         if ret.isOk():
             # Set or clear FT
-            flag = sparams.get("ft.enable", False)
+            self._bitFT = sparams.get("ft.enable", False)
             val, ret = self._serbusdev.readByteRegister( 0x08 )
-            val = (val | 0x40) if flag else (val & ~0x40)
+            val = (val | 0x40) if self._bitFT else (val & ~0x40)
             ret = self._serbusdev.writeByteRegister( 0x08, val )
         if ret.isOk():
             # Set or clear AL2E
@@ -274,7 +417,7 @@ class M41T82( RTC, Watchdog ):
             second = ((dateTime[5] // 10) << 4) | (dateTime[5] % 10)
             minute = ((dateTime[4] // 10) << 4) | (dateTime[4] % 10)
             hour = ((dateTime[3] // 10) << 4) | (dateTime[3] % 10)
-            # Also set century bits CB1:0
+            # Also set century bits CB1-0
             hour |= (((dateTime[0]-2000) // 100) & 0x03) << 6 
             weekday = 0 # Just insert dummy as we don't know day of week
             day = ((dateTime[2] // 10) << 4) | (dateTime[2] % 10)
@@ -450,7 +593,7 @@ class M41T82( RTC, Watchdog ):
                 period *= 60000
             elif unit == RTC.REPT_HOUR:
                 period *=3600000
-            # (upper limit[ms], f.numerator[Hz], f.denominator, TD1:0)
+            # (upper limit[ms], f.numerator[Hz], f.denominator, TD1-0)
             settings = ( (62, 4096, 1000, 0), (3992, 64, 1000, 1),
                          (277500, 1, 1000, 2), (15330000, 1, 60000, 3) )
             if period > settings[-1][0]:
@@ -461,7 +604,7 @@ class M41T82( RTC, Watchdog ):
                         tval = (period * data[1] + data[2]//2) // data[2] 
                         if tval > 0xFF:
                             tval = 0xFF
-                        tcfg = data[3]    # TD1:0
+                        tcfg = data[3]    # TD1-0
                         break
                 tcfg |= 0x80    # Enable timer: TE=1
                 ret = self._serbusdev.writeWordRegister( 0x10, ((tcfg<<8) | tval))
@@ -525,6 +668,86 @@ class M41T82( RTC, Watchdog ):
         logger.debug("buffer=%s, ret=%s.", buffer, ret)
         return ret
 
+    def getCalibration(self, tech=CALIB_TECH_BOTH):
+        """Retrieve the current calibration value in ppm.
+        
+        :param int tech: Optional selector for analogue or digital calibration value.
+        :return: The signed total calibration value in ppm and\
+        An error code indicating success or the reason of failure.
+        :rtype: int, ErrorCode
+        """
+        ret = ErrorCode.errOk
+        val = 0
+        if not self.isOpen:
+            ret = ErrorCode.errResourceConflict
+        elif not tech in (M41T82.CALIB_TECH_ANALOGUE, M41T82.CALIB_TECH_DIGITAL, M41T82.CALIB_TECH_BOTH):
+            ret = ErrorCode.errInvalidParameter
+        else:
+            if tech in (M41T82.CALIB_TECH_ANALOGUE, M41T82.CALIB_TECH_BOTH):
+                analog, ret = self._serbusdev.readByteRegister( 0x12 )
+                ppm, ret = self._calibAnalogReg2ppm(analog)
+                logger.debug("analog=0x%02x, ppm=%s, ret=%s.", analog, ppm, ret)
+                val = ppm
+            if tech in (M41T82.CALIB_TECH_DIGITAL, M41T82.CALIB_TECH_BOTH):
+                digital, ret = self._serbusdev.readByteRegister( 0x08 )
+                digital &= 0x3F
+                ppm, ret = self._calibDigitalReg2ppm(digital)
+                logger.debug("digital=0x%02x, ppm=%s, ret=%s.", digital, ppm, ret)
+                if ret.isOk():
+                    val += ppm
+        logger.debug("val=%s, ret=%s.", val, ret)
+        return val, ret
+    
+    def setCalibration(self, ppmValue, tech=CALIB_TECH_BOTH):
+        """Set and apply a calibration to the RTC.
+        
+        The calibration value is a corrective factor applied to the clock
+        frequency. This value is signed, so it can also be a  negative
+        number. It is expressed as ppm, which is parts-per-million or
+        1:1'000'000.
+
+        The given value is an absolute bias to the RTC. So, calling this
+        function sequentially will not accumulated the given values.
+        Instead, a call of this function replaces the RTC calibration
+        value of the previous call. So the corrective :attr:```ppmValue```
+        is meant relative to the device default clock rate.
+        
+        If both, analogue and digital calibration techniques are selected,
+        analogue calibration is used to its full extend before digital
+        calibration gets involved.
+         
+        :param int tech: Optional selector for analogue or digital calibration technique.
+        :param int ppmValue: The calibration value to apply.
+        :return: An error code indicating success or the reason of failure.
+        :rtype: ErrorCode
+        """
+        ret = ErrorCode.errOk
+        if not self.isOpen:
+            ret = ErrorCode.errResourceConflict
+        elif not tech in (M41T82.CALIB_TECH_ANALOGUE, M41T82.CALIB_TECH_DIGITAL, M41T82.CALIB_TECH_BOTH):
+            ret = ErrorCode.errInvalidParameter
+        else:
+            if tech in (M41T82.CALIB_TECH_ANALOGUE, M41T82.CALIB_TECH_BOTH):
+                ppm = ppmValue
+                if tech == M41T82.CALIB_TECH_BOTH:
+                    if ppm < M41T82.CALIB_ANALOGUE_LIMIT_LOWER:
+                        ppm = M41T82.CALIB_ANALOGUE_LIMIT_LOWER 
+                    elif ppm > M41T82.CALIB_ANALOGUE_LIMIT_UPPER:
+                        ppm = M41T82.CALIB_ANALOGUE_LIMIT_UPPER
+                analog, ret = self._calibPPM2AnalogReg(ppm)
+                ret = self._serbusdev.writeByteRegister( 0x12, analog )
+                ppmValue -= ppm
+                logger.debug("ppm=%s, analog=0x%02x, ret=%s.", ppm, analog, ret)
+            if tech in (M41T82.CALIB_TECH_DIGITAL, M41T82.CALIB_TECH_BOTH):
+                ppm = ppmValue
+                digital, ret = self._calibPPM2DigitalReg(ppm)
+                digital |= 0x40 if self._bitFT else 0
+                ret = self._serbusdev.writeByteRegister( 0x08, digital )
+                logger.debug("ppm=%s, digital=0x%02x, ret=%s.", ppm, digital, ret)
+        logger.debug("ppmValue=%s, ret=%s.", ppmValue, ret)
+        return ret
+    
+    
     #
     # Watchdog API
     #
