@@ -107,7 +107,8 @@ class RTC( Module ):
         self.supportedStatus =0     # Mask of STAUS_ bits supported
         self.isOpen = False
         self.provider = SysProvider.NONE
-
+        if type(self) == RTC:
+            raise TypeError("Do not instantiate me directly!")
 
     #
     # Module API

@@ -10,6 +10,13 @@ This is the summary of relevant changes throughout different releases.
 <!---### Fixed--->
 <!---### Security--->
 
+## [0.5.3] - tbd
+
+### Added
+- module `rtc` as a common base class for realt-time clocks
+- modules `rtc_micropython` and `m41t82` as RTC implementations
+- module `ssd1803a` to implement `TextDisplay`
+
 ## [0.5.2] - 2026-07-08
 
 ### Added
